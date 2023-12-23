@@ -1,0 +1,21 @@
+# pyvmte
+
+- Identification and Estimation: Separate the two parts?
+  - Advantages
+    - Clear separation in terms of code and usage
+  - Disadvantages
+    - Might have duplicate code since structure is in principle similar
+- What are allowed use cases?
+  - Which estimands are supported?
+  - Dimensions of problems? Ideally, all code should natively support
+    - Avoid writing special cases for 1dimensional problems
+  - Which constraints are supported?
+- Purely functional or object-oriented code?
+- Which linear solver/python package to use?
+  - `scipy` has a linear solver: Can write python code instead of trying to understand AMPL
+  - Supports `HiGHS` simplex and interior-point solvers
+  - [Documentation](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.linprog.html) mentions these are particularly good for "sparse" problems; guess this is not the case for us but at the same time our problems do not seems that complex?
+  - Alternative could be `PuLP` which can call "call GLPK, COIN-OR CLP/CBC, CPLEX, GUROBI, MOSEK, XPRESS, CHOCO, MIPCL, SCIP" (some of which might be open source? E.g. CPLEX for up to 1000 variables and constraints).
+- Many of the estimators we implement are standard and have working (fast) implementations
+  - e.g. OLS or 2SLS slope coefficients; we cannot use these estimates from standard packages diretctly I think because we require evaluations of the `s(d,x)` functions directly
+  - When we implement these should make sure that these are efficient implementations (e.g. don't naively invert large matrices)
