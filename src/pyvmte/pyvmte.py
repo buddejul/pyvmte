@@ -1,8 +1,8 @@
 """The main interface of the pyvmte package."""
 
 from pyvmte.processing import process_pyvmte_inputs
-from pyvmte.pyvmte_estimation import pyvmte_estimation
-from pyvmte.pyvmte_identification import pyvmte_identification
+from estimation import estimation
+from identification import identification
 
 
 def pyvmte(mode):
@@ -22,8 +22,8 @@ def pyvmte(mode):
             argname = processed_arguments[argname]
 
     if mode == "identification":
-        results = pyvmte_identification()
+        results = identification()
     elif mode == "estimation":
-        results = pyvmte_estimation()
+        results = estimation()
 
     return results

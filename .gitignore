@@ -24,3 +24,5 @@ bld/
 *.pdf
 *.run.xml
 *.synctex.gz
+
+src/compute_estimands.ipynb

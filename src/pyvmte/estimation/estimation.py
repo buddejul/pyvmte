@@ -1,5 +1,5 @@
 """Function for estimation."""
 
 
-def pyvmte_estimation():
+def estimation():
     pass

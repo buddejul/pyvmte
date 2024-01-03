@@ -3,7 +3,7 @@
 from pyvmte.utilities import gamma_star
 
 
-def pyvmte_identification(
+def identification(
     target_estimands,
     identified_estimands,
     basis_funcs,
@@ -63,22 +63,34 @@ def _compute_identified_estimands(
     """Wrapper for computing identified estimands based on provided dgp."""
     out = []
     for estimand in identified_estimands:
-        result = _compute_estimand(estimand, m0_dgp, m1_dgp, u_lo, u_hi)
+        result = _compute_estimand(
+            estimand, m0_dgp, m1_dgp, u_lo, u_hi, u_part, support_z, pscore_z, pdf_z
+        )
         out.append(result)
 
     return out
 
 
-def _compute_estimand(estimand, m0_dgp, m1_dgp, u_lo, u_hi, u_part):
+def _compute_estimand(
+    estimand,
+    m0,
+    m1,
+    u_lo=None,
+    u_hi=None,
+    u_part=None,
+    support_z=None,
+    pscore_z=None,
+    pdf_z=None,
+):
     """Compute single identified estimand."""
     if estimand == "late":
-        out = _compute_estimand_late(m0_dgp, m1_dgp, u_lo, u_hi, u_part)
+        out = _compute_estimand_late(m0, m1, u_lo, u_hi, u_part)
     elif estimand == "iv_slope":
-        out = _compute_estimand_iv_slope(m0_dgp, m1_dgp)
+        out = _compute_estimand_iv_slope(m0, m1, u_part, support_z, pscore_z, pdf_z)
     elif estimand == "ols_slope":
-        out = _compute_estimand_ols_slope(m0_dgp, m1_dgp)
+        out = _compute_estimand_ols_slope(m0, m1, u_part, support_z, pscore_z, pdf_z)
     elif estimand == "cross":
-        out = _compute_estimand_crossmoment(m0_dgp, m1_dgp)
+        out = _compute_estimand_crossmoment(m0, m1)
 
     return out
 
@@ -91,7 +103,7 @@ def _compute_estimand_late(m0, m1, u_lo, u_hi, u_part):
     return a + b
 
 
-def _compute_estimand_iv_slope(m0, m1, support_z, pscore_z, pdf_z, u_part):
+def _compute_estimand_iv_slope(m0, m1, u_part, support_z, pscore_z, pdf_z):
     """Compute identified estimand for iv slope."""
     a = gamma_star(
         m0,
@@ -116,7 +128,7 @@ def _compute_estimand_iv_slope(m0, m1, support_z, pscore_z, pdf_z, u_part):
     return a + b
 
 
-def _compute_estimand_ols_slope(m0, m1, support_z, pscore_z, pdf_z, u_part):
+def _compute_estimand_ols_slope(m0, m1, u_part, support_z, pscore_z, pdf_z):
     """Compute identified estimand for ols slope."""
     a = gamma_star(
         m0,
