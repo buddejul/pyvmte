@@ -8,9 +8,7 @@ from scipy import integrate
 def gamma_star(
     md,
     d,
-    estimand,
-    u_lo=0,
-    u_hi=1,
+    estimand_dict,
     support_z=None,
     pscore_z=None,
     pdf_z=None,
@@ -33,6 +31,10 @@ def gamma_star(
         dz_cross (list): list of tuples of the form (d_spec, z_spec) for cross-moment
         analyt_int (Boolean): Whether to integrate manually or use analytic results
     """
+
+    estimand = estimand_dict["type"]
+    u_lo = estimand_dict.get("u_lo")
+    u_hi = estimand_dict.get("u_hi")
 
     if estimand == "late":
         return integrate.quad(lambda u: md(u) * s_late(d, u, u_lo, u_hi), u_lo, u_hi)[0]

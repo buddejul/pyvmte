@@ -13,12 +13,16 @@ DGP = load_paper_dgp()
 def test_paper_late():
     expected = DGP["late_35_90"]
 
+    target_estimand = {
+        "type": "late",
+        "u_lo": 0.35,
+        "u_hi": 0.9,
+    }
+
     actual = _compute_estimand(
-        estimand="late",
+        estimand=target_estimand,
         m0=DGP["m0"],
         m1=DGP["m1"],
-        u_lo=0.35,
-        u_hi=0.9,
         u_part=[0.35, 0.9],
         support_z=DGP["support_z"],
         pscore_z=DGP["pscore_z"],
@@ -31,8 +35,12 @@ def test_paper_late():
 def test_paper_ols_slope():
     expected = DGP["ols_slope"]
 
+    target_estimand = {
+        "type": "ols_slope",
+    }
+
     actual = _compute_estimand(
-        estimand="ols_slope",
+        estimand=target_estimand,
         m0=DGP["m0"],
         m1=DGP["m1"],
         support_z=DGP["support_z"],
@@ -46,8 +54,10 @@ def test_paper_ols_slope():
 def test_paper_iv_slope():
     expected = DGP["iv_slope"]
 
+    target_estimand = {"type": "iv_slope"}
+
     actual = _compute_estimand(
-        estimand="iv_slope",
+        estimand=target_estimand,
         m0=DGP["m0"],
         m1=DGP["m1"],
         support_z=DGP["support_z"],
@@ -66,15 +76,29 @@ def test_paper_late_ols_iv():
             estimand=estimand,
             m0=DGP["m0"],
             m1=DGP["m1"],
-            u_lo=0.35,
-            u_hi=0.9,
             u_part=[0.35, 0.9],
             support_z=DGP["support_z"],
             pscore_z=DGP["pscore_z"],
             pdf_z=DGP["pdf_z"],
         )
 
-    actual = [_compute(estimand) for estimand in ["late", "ols_slope", "iv_slope"]]
+    estimand_late = {
+        "type": "late",
+        "u_lo": 0.35,
+        "u_hi": 0.9,
+    }
+
+    estimand_ols = {
+        "type": "ols_slope",
+    }
+
+    estimand_iv = {
+        "type": "iv_slope",
+    }
+
+    actual = [
+        _compute(estimand) for estimand in [estimand_late, estimand_ols, estimand_iv]
+    ]
 
     # Check that all values are close to expected in one statement
     np.allclose(actual, expected, atol=1e-4)
@@ -96,58 +120,26 @@ def test_paper_figure1_upper_bound():
 
     basis_funcs = [bern_bas_1, bern_bas_2, bern_bas_3, bern_bas_4, bern_bas_5]
 
+    target_estimand = {
+        "type": "late",
+        "u_lo": 0.35,
+        "u_hi": 0.9,
+    }
+
+    iv_estimand = {
+        "type": "iv_slope",
+    }
+
     actual = identification(
-        target="late",
-        identified_estimands=["iv_slope"],
+        target=target_estimand,
+        identified_estimands=[iv_estimand],
         basis_funcs=basis_funcs,
         m0_dgp=DGP["m0"],
         m1_dgp=DGP["m1"],
         u_partition=u_part,
-        u_lo_late_target=0.35,
-        u_hi_late_target=0.9,
-        u_lo_late_identified=None,
-        u_hi_late_identified=None,
         support_z=DGP["support_z"],
         pscore_z=DGP["pscore_z"],
         pdf_z=DGP["pdf_z"],
-        dz_cross=None,
-        analytical_integration=False,
-    )
-
-    np.isclose(list(actual.values()), expected, atol=1e-4)
-
-
-def test_paper_figure1_upper_bound():
-    expected = [-0.411, 0.500]
-
-    u_part = [0, 0.35, 0.6, 0.7, 0.9, 1]
-
-    for i, (low, high) in enumerate(zip(u_part[:-1], u_part[1:]), start=1):
-        globals()[f"bern_bas_{i}"] = (
-            lambda x, low=low, high=high: bern_bas(2, 0, x)
-            + bern_bas(2, 1, x)
-            + bern_bas(2, 2, x)
-            if low <= x < high
-            else 0
-        )
-
-    basis_funcs = [bern_bas_1, bern_bas_2, bern_bas_3, bern_bas_4, bern_bas_5]
-
-    actual = identification(
-        target="late",
-        identified_estimands=["iv_slope", "ols_slope"],
-        basis_funcs=basis_funcs,
-        m0_dgp=DGP["m0"],
-        m1_dgp=DGP["m1"],
-        u_partition=u_part,
-        u_lo_late_target=0.35,
-        u_hi_late_target=0.9,
-        u_lo_late_identified=None,
-        u_hi_late_identified=None,
-        support_z=DGP["support_z"],
-        pscore_z=DGP["pscore_z"],
-        pdf_z=DGP["pdf_z"],
-        dz_cross=None,
         analytical_integration=False,
     )
 

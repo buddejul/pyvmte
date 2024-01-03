@@ -13,22 +13,15 @@ def identification(
     m0_dgp,
     m1_dgp,
     u_partition=None,
-    u_lo_late_target=None,
-    u_hi_late_target=None,
-    u_lo_late_identified=None,
-    u_hi_late_identified=None,
     support_z=None,
     pscore_z=None,
     pdf_z=None,
-    dz_cross=None,
     analytical_integration=False,
 ):
     values_identified = _compute_identified_estimands(
         identified_estimands,
         m0_dgp,
         m1_dgp,
-        u_lo_late_identified,
-        u_hi_late_identified,
         u_partition,
         support_z,
         pscore_z,
@@ -40,8 +33,6 @@ def identification(
     lp_inputs["c"] = _compute_choice_weights(
         target,
         basis_funcs,
-        u_lo_late_target,
-        u_hi_late_target,
         support_z,
         pscore_z,
         pdf_z,
@@ -50,8 +41,6 @@ def identification(
     lp_inputs["A_eq"] = _compute_equality_constraint_matrix(
         identified_estimands,
         basis_funcs,
-        u_lo_late_identified,
-        u_hi_late_identified,
         support_z,
         pscore_z,
         pdf_z,
@@ -71,8 +60,6 @@ def _compute_identified_estimands(
     identified_estimands,
     m0_dgp,
     m1_dgp,
-    u_lo,
-    u_hi,
     u_part,
     support_z,
     pscore_z,
@@ -82,7 +69,7 @@ def _compute_identified_estimands(
     out = []
     for estimand in identified_estimands:
         result = _compute_estimand(
-            estimand, m0_dgp, m1_dgp, u_lo, u_hi, u_part, support_z, pscore_z, pdf_z
+            estimand, m0_dgp, m1_dgp, u_part, support_z, pscore_z, pdf_z
         )
         out.append(result)
 
@@ -93,21 +80,19 @@ def _compute_estimand(
     estimand,
     m0,
     m1,
-    u_lo=None,
-    u_hi=None,
     u_part=None,
     support_z=None,
     pscore_z=None,
     pdf_z=None,
 ):
     """Compute single identified estimand."""
-    if estimand == "late":
-        out = _compute_estimand_late(m0, m1, u_lo, u_hi, u_part)
-    elif estimand == "iv_slope":
+    if estimand["type"] == "late":
+        out = _compute_estimand_late(m0, m1, estimand["u_lo"], estimand["u_hi"], u_part)
+    elif estimand["type"] == "iv_slope":
         out = _compute_estimand_iv_slope(m0, m1, u_part, support_z, pscore_z, pdf_z)
-    elif estimand == "ols_slope":
+    elif estimand["type"] == "ols_slope":
         out = _compute_estimand_ols_slope(m0, m1, u_part, support_z, pscore_z, pdf_z)
-    elif estimand == "cross":
+    elif estimand["type"] == "cross":
         out = _compute_estimand_crossmoment(m0, m1)
 
     return out
@@ -176,9 +161,7 @@ def _compute_estimand_crossmoment():
     pass
 
 
-def _compute_choice_weights(
-    target, basis_funcs, u_lo, u_hi, support_z, pscore_z, pdf_z
-):
+def _compute_choice_weights(target, basis_funcs, support_z, pscore_z, pdf_z):
     """Compute weights on the choice variables."""
     c = []
 
@@ -186,10 +169,10 @@ def _compute_choice_weights(
         for basis_func in basis_funcs:
             weight = gamma_star(
                 md=basis_func,
-                estimand=target,
+                estimand=target["type"],
                 d=d,
-                u_lo=u_lo,
-                u_hi=u_hi,
+                u_lo=target["u_lo"],
+                u_hi=target["u_hi"],
                 support_z=support_z,
                 pscore_z=pscore_z,
                 pdf_z=pdf_z,
@@ -200,7 +183,7 @@ def _compute_choice_weights(
 
 
 def _compute_equality_constraint_matrix(
-    identified_estimands, basis_funcs, u_lo, u_hi, support_z, pscore_z, pdf_z
+    identified_estimands, basis_funcs, support_z, pscore_z, pdf_z
 ):
     """Compute weight matrix for equality constraints."""
 
@@ -213,10 +196,10 @@ def _compute_equality_constraint_matrix(
             for basis_func in basis_funcs:
                 weight = gamma_star(
                     md=basis_func,
-                    estimand=target,
+                    estimand=target["type"],
                     d=d,
-                    u_lo=u_lo,
-                    u_hi=u_hi,
+                    u_lo=target["u_lo"],
+                    u_hi=target["u_hi"],
                     support_z=support_z,
                     pscore_z=pscore_z,
                     pdf_z=pdf_z,
@@ -232,7 +215,7 @@ def _compute_equality_constraint_matrix(
 def _solve_lp(lp_inputs, max_or_min):
     """Solve the linear program."""
 
-    if max_or_min is "min":
+    if max_or_min == "min":
         c = np.array(lp_inputs["c"])
     else:
         c = -np.array(lp_inputs["c"])
