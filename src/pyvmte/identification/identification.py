@@ -86,32 +86,10 @@ def _compute_estimand(
     pdf_z=None,
 ):
     """Compute single identified estimand."""
-    if estimand["type"] == "late":
-        out = _compute_estimand_late(m0, m1, estimand["u_lo"], estimand["u_hi"], u_part)
-    elif estimand["type"] == "iv_slope":
-        out = _compute_estimand_iv_slope(m0, m1, u_part, support_z, pscore_z, pdf_z)
-    elif estimand["type"] == "ols_slope":
-        out = _compute_estimand_ols_slope(m0, m1, u_part, support_z, pscore_z, pdf_z)
-    elif estimand["type"] == "cross":
-        out = _compute_estimand_crossmoment(m0, m1)
-
-    return out
-
-
-def _compute_estimand_late(m0, m1, u_lo, u_hi, u_part):
-    """Compute identified estimand for late."""
-    a = gamma_star(m0, 0, estimand="late", u_lo=u_lo, u_hi=u_hi, u_part=u_part)
-    b = gamma_star(m1, 1, estimand="late", u_lo=u_lo, u_hi=u_hi, u_part=u_part)
-
-    return a + b
-
-
-def _compute_estimand_iv_slope(m0, m1, u_part, support_z, pscore_z, pdf_z):
-    """Compute identified estimand for iv slope."""
     a = gamma_star(
-        m0,
-        0,
-        "iv_slope",
+        md=m0,
+        d=0,
+        estimand_dict=estimand,
         support_z=support_z,
         pscore_z=pscore_z,
         pdf_z=pdf_z,
@@ -119,9 +97,9 @@ def _compute_estimand_iv_slope(m0, m1, u_part, support_z, pscore_z, pdf_z):
     )
 
     b = gamma_star(
-        m1,
-        1,
-        "iv_slope",
+        md=m1,
+        d=1,
+        estimand_dict=estimand,
         support_z=support_z,
         pscore_z=pscore_z,
         pdf_z=pdf_z,
@@ -129,36 +107,6 @@ def _compute_estimand_iv_slope(m0, m1, u_part, support_z, pscore_z, pdf_z):
     )
 
     return a + b
-
-
-def _compute_estimand_ols_slope(m0, m1, u_part, support_z, pscore_z, pdf_z):
-    """Compute identified estimand for ols slope."""
-    a = gamma_star(
-        m0,
-        0,
-        "ols_slope",
-        support_z=support_z,
-        pscore_z=pscore_z,
-        pdf_z=pdf_z,
-        u_part=u_part,
-    )
-
-    b = gamma_star(
-        m1,
-        1,
-        "ols_slope",
-        support_z=support_z,
-        pscore_z=pscore_z,
-        pdf_z=pdf_z,
-        u_part=u_part,
-    )
-
-    return a + b
-
-
-def _compute_estimand_crossmoment():
-    """Compute identified estimand for crossmoment."""
-    pass
 
 
 def _compute_choice_weights(target, basis_funcs, support_z, pscore_z, pdf_z):
@@ -169,10 +117,8 @@ def _compute_choice_weights(target, basis_funcs, support_z, pscore_z, pdf_z):
         for basis_func in basis_funcs:
             weight = gamma_star(
                 md=basis_func,
-                estimand=target["type"],
+                estimand_dict=target,
                 d=d,
-                u_lo=target["u_lo"],
-                u_hi=target["u_hi"],
                 support_z=support_z,
                 pscore_z=pscore_z,
                 pdf_z=pdf_z,
@@ -196,10 +142,8 @@ def _compute_equality_constraint_matrix(
             for basis_func in basis_funcs:
                 weight = gamma_star(
                     md=basis_func,
-                    estimand=target["type"],
+                    estimand_dict=target,
                     d=d,
-                    u_lo=target["u_lo"],
-                    u_hi=target["u_hi"],
                     support_z=support_z,
                     pscore_z=pscore_z,
                     pdf_z=pdf_z,
