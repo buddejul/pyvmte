@@ -115,3 +115,40 @@ def test_paper_figure1_upper_bound():
     )
 
     np.isclose(list(actual.values()), expected, atol=1e-4)
+
+
+def test_paper_figure1_upper_bound():
+    expected = [-0.411, 0.500]
+
+    u_part = [0, 0.35, 0.6, 0.7, 0.9, 1]
+
+    for i, (low, high) in enumerate(zip(u_part[:-1], u_part[1:]), start=1):
+        globals()[f"bern_bas_{i}"] = (
+            lambda x, low=low, high=high: bern_bas(2, 0, x)
+            + bern_bas(2, 1, x)
+            + bern_bas(2, 2, x)
+            if low <= x < high
+            else 0
+        )
+
+    basis_funcs = [bern_bas_1, bern_bas_2, bern_bas_3, bern_bas_4, bern_bas_5]
+
+    actual = identification(
+        target="late",
+        identified_estimands=["iv_slope", "ols_slope"],
+        basis_funcs=basis_funcs,
+        m0_dgp=DGP["m0"],
+        m1_dgp=DGP["m1"],
+        u_partition=u_part,
+        u_lo_late_target=0.35,
+        u_hi_late_target=0.9,
+        u_lo_late_identified=None,
+        u_hi_late_identified=None,
+        support_z=DGP["support_z"],
+        pscore_z=DGP["pscore_z"],
+        pdf_z=DGP["pdf_z"],
+        dz_cross=None,
+        analytical_integration=False,
+    )
+
+    np.isclose(list(actual.values()), expected, atol=1e-4)
