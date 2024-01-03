@@ -15,6 +15,19 @@ INSTRUMENT = {
     "pdf_z": DGP["pdf_z"],
 }
 
+U_PART = [0, 0.35, 0.6, 0.7, 0.9, 1]
+
+for i, (low, high) in enumerate(zip(U_PART[:-1], U_PART[1:]), start=1):
+    globals()[f"bern_bas_{i}"] = (
+        lambda x, low=low, high=high: bern_bas(2, 0, x)
+        + bern_bas(2, 1, x)
+        + bern_bas(2, 2, x)
+        if low <= x < high
+        else 0
+    )
+
+BASIS_FUNCS = [bern_bas_1, bern_bas_2, bern_bas_3, bern_bas_4, bern_bas_5]
+
 
 def test_paper_late():
     expected = DGP["late_35_90"]
@@ -96,21 +109,8 @@ def test_paper_late_ols_iv():
     np.allclose(actual, expected, atol=1e-4)
 
 
-def test_paper_figure1_upper_bound():
+def test_paper_figure1_bounds():
     expected = [-0.421, 0.500]
-
-    u_part = [0, 0.35, 0.6, 0.7, 0.9, 1]
-
-    for i, (low, high) in enumerate(zip(u_part[:-1], u_part[1:]), start=1):
-        globals()[f"bern_bas_{i}"] = (
-            lambda x, low=low, high=high: bern_bas(2, 0, x)
-            + bern_bas(2, 1, x)
-            + bern_bas(2, 2, x)
-            if low <= x < high
-            else 0
-        )
-
-    basis_funcs = [bern_bas_1, bern_bas_2, bern_bas_3, bern_bas_4, bern_bas_5]
 
     target_estimand = {
         "type": "late",
@@ -125,10 +125,41 @@ def test_paper_figure1_upper_bound():
     actual = identification(
         target=target_estimand,
         identified_estimands=iv_estimand,
-        basis_funcs=basis_funcs,
+        basis_funcs=BASIS_FUNCS,
         m0_dgp=DGP["m0"],
         m1_dgp=DGP["m1"],
-        u_partition=u_part,
+        u_partition=U_PART,
+        instrument=INSTRUMENT,
+        analytical_integration=False,
+    )
+
+    np.isclose(list(actual.values()), expected, atol=1e-4)
+
+
+def test_paper_figure2_bounds():
+    expected = [-0.411, 0.500]
+
+    target_estimand = {
+        "type": "late",
+        "u_lo": 0.35,
+        "u_hi": 0.9,
+    }
+
+    iv_estimand = {
+        "type": "iv_slope",
+    }
+
+    ols_estimand = {
+        "type": "ols_slope",
+    }
+
+    actual = identification(
+        target=target_estimand,
+        identified_estimands=[iv_estimand, ols_estimand],
+        basis_funcs=BASIS_FUNCS,
+        m0_dgp=DGP["m0"],
+        m1_dgp=DGP["m1"],
+        u_partition=U_PART,
         instrument=INSTRUMENT,
         analytical_integration=False,
     )
