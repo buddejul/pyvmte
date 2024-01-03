@@ -36,14 +36,12 @@ def identification(
     if isinstance(identified_estimands, dict):
         identified_estimands = [identified_estimands]
 
-    values_identified = _compute_identified_estimands(
-        identified_estimands, m0_dgp, m1_dgp, u_partition, instrument
-    )
-
     lp_inputs = {}
 
     lp_inputs["c"] = _compute_choice_weights(target, basis_funcs, instrument=instrument)
-    lp_inputs["b_eq"] = values_identified
+    lp_inputs["b_eq"] = _compute_identified_estimands(
+        identified_estimands, m0_dgp, m1_dgp, u_partition, instrument
+    )
     lp_inputs["A_eq"] = _compute_equality_constraint_matrix(
         identified_estimands, basis_funcs, instrument=instrument
     )
@@ -79,7 +77,6 @@ def _compute_estimand(estimand, m0, m1, u_part=None, instrument=None):
         instrument=instrument,
         u_part=u_part,
     )
-
     b = gamma_star(
         md=m1,
         d=1,
