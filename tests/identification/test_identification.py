@@ -132,7 +132,7 @@ def test_paper_figure1_upper_bound():
 
     actual = identification(
         target=target_estimand,
-        identified_estimands=[iv_estimand],
+        identified_estimands=iv_estimand,
         basis_funcs=basis_funcs,
         m0_dgp=DGP["m0"],
         m1_dgp=DGP["m1"],

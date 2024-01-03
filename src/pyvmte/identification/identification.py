@@ -18,6 +18,9 @@ def identification(
     pdf_z=None,
     analytical_integration=False,
 ):
+    if isinstance(identified_estimands, dict):
+        identified_estimands = [identified_estimands]
+
     values_identified = _compute_identified_estimands(
         identified_estimands,
         m0_dgp,
