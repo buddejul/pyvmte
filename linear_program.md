@@ -60,10 +60,10 @@ The RHS values of the equality constraint are the identified estimands, i.e.
 $$ b_{eq} = (\beta_1, \ldots, \beta_{|S|}).$$
 
 Lastly, the weight matrix in the inequality constraint collects all weights $\Gamma_s(b_{dk})$ similar to the $c$ vector for the target estimand, only that every row reflects a different identified estimand $s\in S$. Thus, we have
-$$X = \begin{bmatrix}
+$$A_{eq} = \begin{bmatrix}
 
-a & \ldots & b & c & \ldots & d\\
+\Gamma_1(b_{01}) & \ldots & \Gamma_1(b_{0K_0}) & \Gamma_1(b_{11}) & \ldots & \Gamma_1(b_{1K_1})\\
 \ldots & \ldots & \ldots & \ldots & \ldots & \ldots\\
-a & \ldots & b & c & \ldots & d
+\Gamma_{|S|}(b_{01}) & \ldots & \Gamma_{|S|}(b_{0K_0}) & \Gamma_{|S|}(b_{11}) & \ldots & \Gamma_{|S|}(b_{1K_1})\\
 
 \end{bmatrix}.$$

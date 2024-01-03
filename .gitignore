@@ -25,4 +25,4 @@ bld/
 *.run.xml
 *.synctex.gz
 
-src/compute_estimands.ipynb
+src/*.ipynb

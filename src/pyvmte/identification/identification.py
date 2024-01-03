@@ -1,18 +1,17 @@
 """Function for identification."""
 
+import numpy as np
 from pyvmte.utilities import gamma_star
+
+from scipy.optimize import linprog
 
 
 def identification(
-    target_estimands,
+    target,
     identified_estimands,
     basis_funcs,
-    basis,
     m0_dgp,
     m1_dgp,
-    shape_constraint=None,
-    k0_size=None,
-    k1_size=None,
     u_partition=None,
     u_lo_late_target=None,
     u_hi_late_target=None,
@@ -24,8 +23,6 @@ def identification(
     dz_cross=None,
     analytical_integration=False,
 ):
-    help_vars = _get_helper_variables()
-
     values_identified = _compute_identified_estimands(
         identified_estimands,
         m0_dgp,
@@ -38,11 +35,29 @@ def identification(
         pdf_z,
     )
 
-    lp_inputs = _compute_lp_inputs()
+    lp_inputs = {}
 
-    lp_results = _solve_lp()
+    lp_inputs["c"] = _compute_choice_weights(
+        target,
+        basis_funcs,
+        u_lo_late_target,
+        u_hi_late_target,
+        support_z,
+        pscore_z,
+        pdf_z,
+    )
+    lp_inputs["b_eq"] = values_identified
+    lp_inputs["A_eq"] = _compute_equality_constraint_matrix(
+        identified_estimands,
+        basis_funcs,
+        u_lo_late_identified,
+        u_hi_late_identified,
+        support_z,
+        pscore_z,
+        pdf_z,
+    )
 
-    pass
+    return _solve_lp(lp_inputs)
 
 
 def _get_helper_variables():
@@ -158,11 +173,66 @@ def _compute_estimand_crossmoment():
     pass
 
 
-def _compute_lp_inputs():
-    """Compute inputs for the linear program."""
-    pass
+def _compute_choice_weights(
+    target, basis_funcs, u_lo, u_hi, support_z, pscore_z, pdf_z
+):
+    """Compute weights on the choice variables."""
+    c = []
+
+    for d in [0, 1]:
+        for basis_func in basis_funcs:
+            weight = gamma_star(
+                md=basis_func,
+                estimand=target,
+                d=d,
+                u_lo=u_lo,
+                u_hi=u_hi,
+                support_z=support_z,
+                pscore_z=pscore_z,
+                pdf_z=pdf_z,
+            )
+            c.append(weight)
+
+    return c
 
 
-def _solve_lp():
+def _compute_equality_constraint_matrix(
+    identified_estimands, basis_funcs, u_lo, u_hi, support_z, pscore_z, pdf_z
+):
+    """Compute weight matrix for equality constraints."""
+
+    c_matrix = []
+
+    for target in identified_estimands:
+        c_row = []
+
+        for d in [0, 1]:
+            for basis_func in basis_funcs:
+                weight = gamma_star(
+                    md=basis_func,
+                    estimand=target,
+                    d=d,
+                    u_lo=u_lo,
+                    u_hi=u_hi,
+                    support_z=support_z,
+                    pscore_z=pscore_z,
+                    pdf_z=pdf_z,
+                )
+
+                c_row.append(weight)
+
+        c_matrix.append(c_row)
+
+    return np.array(c_matrix)
+
+
+def _solve_lp(lp_inputs):
     """Solve the linear program."""
-    pass
+
+    c = lp_inputs["c"]
+    b_eq = lp_inputs["b_eq"]
+    A_eq = lp_inputs["A_eq"]
+
+    result = linprog(c, A_eq=A_eq, b_eq=b_eq, bounds=(0, 1))
+
+    return result
