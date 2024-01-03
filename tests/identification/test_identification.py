@@ -81,7 +81,7 @@ def test_paper_late_ols_iv():
 
 
 def test_paper_figure1_upper_bound():
-    expected = -0.421
+    expected = [-0.421, 0.500]
 
     u_part = [0, 0.35, 0.6, 0.7, 0.9, 1]
 
@@ -114,4 +114,4 @@ def test_paper_figure1_upper_bound():
         analytical_integration=False,
     )
 
-    np.isclose(actual.fun, expected, atol=1e-4)
+    np.isclose(list(actual.values()), expected, atol=1e-4)

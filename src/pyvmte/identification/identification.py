@@ -57,7 +57,10 @@ def identification(
         pdf_z,
     )
 
-    return _solve_lp(lp_inputs)
+    upper_bound = (-1) * _solve_lp(lp_inputs, "max").fun
+    lower_bound = _solve_lp(lp_inputs, "min").fun
+
+    return {"upper_bound": upper_bound, "lower_bound": lower_bound}
 
 
 def _get_helper_variables():
@@ -226,10 +229,14 @@ def _compute_equality_constraint_matrix(
     return np.array(c_matrix)
 
 
-def _solve_lp(lp_inputs):
+def _solve_lp(lp_inputs, max_or_min):
     """Solve the linear program."""
 
-    c = lp_inputs["c"]
+    if max_or_min is "min":
+        c = np.array(lp_inputs["c"])
+    else:
+        c = -np.array(lp_inputs["c"])
+
     b_eq = lp_inputs["b_eq"]
     A_eq = lp_inputs["A_eq"]
 
