@@ -12,41 +12,23 @@ def identification(
     basis_funcs,
     m0_dgp,
     m1_dgp,
+    instrument,
     u_partition=None,
-    support_z=None,
-    pscore_z=None,
-    pdf_z=None,
     analytical_integration=False,
 ):
     if isinstance(identified_estimands, dict):
         identified_estimands = [identified_estimands]
 
     values_identified = _compute_identified_estimands(
-        identified_estimands,
-        m0_dgp,
-        m1_dgp,
-        u_partition,
-        support_z,
-        pscore_z,
-        pdf_z,
+        identified_estimands, m0_dgp, m1_dgp, u_partition, instrument
     )
 
     lp_inputs = {}
 
-    lp_inputs["c"] = _compute_choice_weights(
-        target,
-        basis_funcs,
-        support_z,
-        pscore_z,
-        pdf_z,
-    )
+    lp_inputs["c"] = _compute_choice_weights(target, basis_funcs, instrument=instrument)
     lp_inputs["b_eq"] = values_identified
     lp_inputs["A_eq"] = _compute_equality_constraint_matrix(
-        identified_estimands,
-        basis_funcs,
-        support_z,
-        pscore_z,
-        pdf_z,
+        identified_estimands, basis_funcs, instrument=instrument
     )
 
     upper_bound = (-1) * _solve_lp(lp_inputs, "max").fun
@@ -60,42 +42,24 @@ def _get_helper_variables():
 
 
 def _compute_identified_estimands(
-    identified_estimands,
-    m0_dgp,
-    m1_dgp,
-    u_part,
-    support_z,
-    pscore_z,
-    pdf_z,
+    identified_estimands, m0_dgp, m1_dgp, u_part, instrument
 ):
     """Wrapper for computing identified estimands based on provided dgp."""
     out = []
     for estimand in identified_estimands:
-        result = _compute_estimand(
-            estimand, m0_dgp, m1_dgp, u_part, support_z, pscore_z, pdf_z
-        )
+        result = _compute_estimand(estimand, m0_dgp, m1_dgp, u_part, instrument)
         out.append(result)
 
     return out
 
 
-def _compute_estimand(
-    estimand,
-    m0,
-    m1,
-    u_part=None,
-    support_z=None,
-    pscore_z=None,
-    pdf_z=None,
-):
+def _compute_estimand(estimand, m0, m1, u_part=None, instrument=None):
     """Compute single identified estimand."""
     a = gamma_star(
         md=m0,
         d=0,
         estimand_dict=estimand,
-        support_z=support_z,
-        pscore_z=pscore_z,
-        pdf_z=pdf_z,
+        instrument=instrument,
         u_part=u_part,
     )
 
@@ -103,16 +67,14 @@ def _compute_estimand(
         md=m1,
         d=1,
         estimand_dict=estimand,
-        support_z=support_z,
-        pscore_z=pscore_z,
-        pdf_z=pdf_z,
+        instrument=instrument,
         u_part=u_part,
     )
 
     return a + b
 
 
-def _compute_choice_weights(target, basis_funcs, support_z, pscore_z, pdf_z):
+def _compute_choice_weights(target, basis_funcs, instrument):
     """Compute weights on the choice variables."""
     c = []
 
@@ -122,18 +84,14 @@ def _compute_choice_weights(target, basis_funcs, support_z, pscore_z, pdf_z):
                 md=basis_func,
                 estimand_dict=target,
                 d=d,
-                support_z=support_z,
-                pscore_z=pscore_z,
-                pdf_z=pdf_z,
+                instrument=instrument,
             )
             c.append(weight)
 
     return c
 
 
-def _compute_equality_constraint_matrix(
-    identified_estimands, basis_funcs, support_z, pscore_z, pdf_z
-):
+def _compute_equality_constraint_matrix(identified_estimands, basis_funcs, instrument):
     """Compute weight matrix for equality constraints."""
 
     c_matrix = []
@@ -144,12 +102,7 @@ def _compute_equality_constraint_matrix(
         for d in [0, 1]:
             for basis_func in basis_funcs:
                 weight = gamma_star(
-                    md=basis_func,
-                    estimand_dict=target,
-                    d=d,
-                    support_z=support_z,
-                    pscore_z=pscore_z,
-                    pdf_z=pdf_z,
+                    md=basis_func, estimand_dict=target, d=d, instrument=instrument
                 )
 
                 c_row.append(weight)
