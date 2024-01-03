@@ -33,6 +33,7 @@ def gamma_star(
     estimand = estimand_dict["type"]
     u_lo = estimand_dict.get("u_lo")
     u_hi = estimand_dict.get("u_hi")
+    dz_cross = estimand_dict.get("dz_cross")
 
     pdf_z = instrument.get("pdf_z")
     pscore_z = instrument.get("pscore_z")
