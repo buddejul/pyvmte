@@ -16,6 +16,23 @@ def identification(
     u_partition=None,
     analytical_integration=False,
 ):
+    """Compute bounds on target estimand given identified estimands based on known DGP
+    (identification).
+
+    Args:
+        target (dict): Dictionary containing all information about the target estimand.
+        identified_estimands (dict or list of dicts): Dictionary containing all information about the identified estimand(s). List of dicts if multiple identified estimands.
+        basis_funcs (list of functions): A list of basis functions.
+        m0_dgp (function): The MTR function for d=0 of the DGP.
+        m1_dgp (function): The MTR function for d=1 of the DGP.
+        instrument (dict): Dictionary containing all information about the instrument.
+        u_partition (list or np.array, optional): Partition of u for basis_funcs. Defaults to None.
+        analytical_integration (bool, optional): Whether to use analytical integration. Defaults to False.
+
+    Returns:
+        dict: A dictionary containing the upper and lower bound of the target estimand.
+
+    """
     if isinstance(identified_estimands, dict):
         identified_estimands = [identified_estimands]
 
