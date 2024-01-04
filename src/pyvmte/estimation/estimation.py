@@ -132,7 +132,7 @@ def _estimate_estimand(estimand, y_data, z_data, d_data):
     elif estimand["type"] == "ols_slope":
         ed = np.mean(d_data)
         var_d = np.var(d_data)
-        ind_elements = s_ols_slope(d, ed=ed, var_d=var_d) * y_data
+        ind_elements = s_ols_slope(d_data, ed=ed, var_d=var_d) * y_data
 
     return np.mean(ind_elements)
 
