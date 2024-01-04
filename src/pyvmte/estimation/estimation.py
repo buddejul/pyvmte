@@ -1,6 +1,7 @@
 """Function for estimation."""
 import numpy as np
 from pyvmte.identification.identification import _compute_choice_weights
+from pyvmte.utilities import s_cross, s_iv_slope, s_late, s_ols_slope
 
 
 def estimation(
@@ -41,22 +42,31 @@ def estimation(
 
     lp_inputs = {}
 
+    # First step linear program to find minimal deviations in constraint
+    minimal_deviations = _solve_first_step_lp_estimation()
+
+    # Second step linear program
     lp_inputs["c"] = _compute_choice_weights(target, basis_funcs)
     lp_inputs["b_eq"] = _estimate_identified_estimands(
-        identified_estimands, y_data, z_data, x_data
+        identified_estimands, y_data, z_data, d_data
     )
     lp_inputs["A_eq"] = _estimate_equality_constraint_matrix(
         identified_estimands, basis_funcs, instrument=instrument
     )
 
-    upper_bound = (-1) * _solve_lp_estimation(lp_inputs, "max").fun
-    lower_bound = _solve_lp_estimation(lp_inputs, "min").fun
+    upper_bound = (-1) * _solve_second_step_lp_estimation(lp_inputs, "max").fun
+    lower_bound = _solve_second_step_lp_estimation(lp_inputs, "min").fun
 
     return {"upper_bound": upper_bound, "lower_bound": lower_bound}
 
 
-def _solve_lp_estimation(lp_inputs, min_or_max):
-    """Solve linear program for estimation."""
+def _solve_first_step_lp_estimation(lp_first_inputs):
+    """Solve first step linear program to get minimal deviations in constraint."""
+    pass
+
+
+def _solve_second_step_lp_estimation(lp_second_inputs, min_or_max):
+    """Solve for upper/lower bound given minimal deviations from first step."""
     pass
 
 
@@ -94,9 +104,37 @@ def _generate_basis_funcs(basis_func_type, u_partition):
     return list_of_basis_funcs
 
 
-def _estimate_identified_estimands(identified_estimands, y_data, z_data, x_data):
+def _estimate_identified_estimands(identified_estimands, y_data, z_data, d_data):
     """Estimate the identified estimands."""
-    pass
+    list_of_estimands = []
+    for estimand in identified_estimands:
+        result = _estimate_estimand(estimand, y_data, z_data, d_data)
+        list_of_estimands.append(result)
+
+    return list_of_estimands
+
+
+def _estimate_estimand(estimand, y_data, z_data, d_data):
+    """Estimate single identified estimand based on data."""
+
+    if estimand["type"] == "late":
+        pass
+        # sfunc = lambda u: s_late(u, estimand["u_lo"], estimand["u_hi"])
+
+    elif estimand["type"] == "cross":
+        ind_elements = s_cross(d_data, z_data, estimand["dz_cross"]) * y_data
+
+    elif estimand["type"] == "iv_slope":
+        ez = np.mean(z_data)
+        cov_dz = np.cov(d_data, z_data)[0, 1]
+        ind_elements = s_iv_slope(z_data, ez=ez, cov_dz=cov_dz) * y_data
+
+    elif estimand["type"] == "ols_slope":
+        ed = np.mean(d_data)
+        var_d = np.var(d_data)
+        ind_elements = s_ols_slope(d, ed=ed, var_d=var_d) * y_data
+
+    return np.mean(ind_elements)
 
 
 def _estimate_equality_constraint_matrix():

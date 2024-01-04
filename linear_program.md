@@ -67,3 +67,15 @@ $$A_{eq} = \begin{bmatrix}
 \Gamma_{|S|}(b_{01}) & \ldots & \Gamma_{|S|}(b_{0K_0}) & \Gamma_{|S|}(b_{11}) & \ldots & \Gamma_{|S|}(b_{1K_1})\\
 
 \end{bmatrix}.$$
+
+
+## MST Problem for Estimation
+
+For the estimation case the linear program is slightly altered to take into account that we wouldn't expect equality constraints to hold in finite sample due to sampling error.
+
+The problem for the upper bound is restated as
+$$ \hat{\overline{\beta^*}} = \sup_{m\in M} \hat{\Gamma}^*(m) \\
+\text{ s.t.} \sum_{s\in S}|\hat{\Gamma}_s(m)-\hat{\beta_s}| \leq \inf_{m'\in M}\sum_{s\in S}|\hat{\Gamma}_s(m') - \hat{\beta_s}| + \kappa_n.$$
+This means that
+- $\hat{\overline{\beta^*}}$ is the maximizer of the (estimated) target estimand linear map $\hat{\Gamma}^*$
+- subject to the constraint that at the solution the deviations are minimal up to some tolerance $\kappa_n$.
