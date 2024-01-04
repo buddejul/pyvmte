@@ -47,11 +47,10 @@ def estimation(
     # min sum_s |tau_s(m) - beta_s|
     # subject to basis funcs in [0, 1]
     #
-    lp_first_inputs["c"] = _estimate_first_lp_weights(targets, basis_funcs)
-    lp_first_inputs["b_eq"] = _estimate_identified_estimands(
-        identified_estimands, y_data, z_data, d_data
-    )
-    lp_first_inputs["A_eq"] = []
+
+    lp_first_inputs["c"] = np.ones(len(identified_estimands))
+    lp_first_inputs["b_ub"] = np.zeros(len(identified_estimands) * 2)
+    lp_first_inputs["A_ub"] = _build_first_step_ub_matrix()
 
     # First step linear program to find minimal deviations in constraint
     minimal_deviations = _solve_first_step_lp_estimation()
@@ -72,6 +71,7 @@ def estimation(
 
 def _solve_first_step_lp_estimation(lp_first_inputs):
     """Solve first step linear program to get minimal deviations in constraint."""
+    # pay attention to [0, 1] constraint only on theta
     pass
 
 
@@ -157,18 +157,14 @@ def _estimate_equality_constraint_matrix():
     pass
 
 
-def _estimate_first_lp_weights(
-    identified_estimands, basis_funcs, y_data, z_data, d_data
-):
+def _estimate_first_lp_weights(identified_estimands, basis_funcs, z_data, d_data):
     """Estimate the choice weights for a set of identified estimands by computing the
     weight matrix associated with each estimand and using linearity."""
 
     weights = np.zeros(len(basis_funcs))
 
     for estimand in identified_estimands:
-        weight_matrix += _estimate_weights_estimand(
-            estimand, basis_funcs, z_data, d_data
-        )
+        weights += _estimate_weights_estimand(estimand, basis_funcs, z_data, d_data)
 
     return weights
 
@@ -178,7 +174,7 @@ def _estimate_weights_estimand(estimand, basis_funcs, z_data, d_data):
 
     estimand_type = estimand["type"]
 
-    z_p = _generate_array_of_p_scores(z_data, d_data)
+    z_p = _generate_array_of_pscores(z_data, d_data)
 
     if estimand_type == "ols_slope":
         var_d = np.var(d_data)
@@ -207,7 +203,6 @@ def _estimate_weights_estimand(estimand, basis_funcs, z_data, d_data):
         d_value = basis_func["d_value"]
         u_lo = basis_func["u_lo"]
         u_hi = basis_func["u_hi"]
-
         # TODO potential bug: u_hi - u_lo for both cases?
         if d_value == 0:
             val = np.mean(
@@ -230,7 +225,46 @@ def _estimate_weights_estimand(estimand, basis_funcs, z_data, d_data):
     return weights
 
 
-def _generate_array_of_p_scores(z_data, d_data):
+def _generate_array_of_pscores(z_data, d_data):
     """For input data on instrument and treatment generates array of same length with
     estimated propensity scores for each corresponding entry of z."""
-    pass
+
+    # Estimate propensity scores
+    p = _estimate_prop_z(z_data, d_data)
+
+    # Get vector of p corresponding to z
+    supp_z = np.unique(z_data)
+    return p[np.searchsorted(supp_z, z_data)]
+
+
+def _estimate_prop_z(z_data, d_data):
+    """Estimate propensity score of z given d."""
+
+    supp_z = np.unique(z_data)
+
+    pscore = []
+
+    for z_val in supp_z:
+        pscore.append(np.mean(d_data[z_data == z_val]))
+
+    return np.array(pscore)
+
+
+def _build_first_step_ub_matrix(basis_funcs, identified_estimands, d_data, z_data):
+    """Build matrix for first step lp involving dummy variables."""
+    num_bfuncs = len(basis_funcs)
+    num_idestimands = len(identified_estimands)
+
+    weight_matrix = np.empty(shape=(num_idestimands, num_bfuncs))
+
+    for i, estimand in enumerate(identified_estimands):
+        weights = _estimate_weights_estimand(estimand, basis_funcs, z_data, d_data)
+
+        weight_matrix[i, :] = weights
+
+    top = np.hstack((weight_matrix, -np.eye(num_idestimands)))
+    bottom = np.hstack((-weight_matrix, -np.eye(num_idestimands)))
+
+    out = np.vstack((top, bottom))
+
+    return out
