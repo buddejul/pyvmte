@@ -3,6 +3,8 @@ import numpy as np
 from pyvmte.identification.identification import _compute_choice_weights
 from pyvmte.utilities import s_cross, s_iv_slope, s_late, s_ols_slope
 
+from scipy.optimize import linprog
+
 
 def estimation(
     target,
@@ -42,24 +44,13 @@ def estimation(
     u_partition = _compute_u_partition(basis_func_type, instrument["pscore"])
     basis_funcs = _generate_basis_funcs(basis_func_type, u_partition)
 
-    lp_first_inputs = {}
-    # The program is of the form
-    # min sum_s |tau_s(m) - beta_s|
-    # subject to basis funcs in [0, 1]
-    #
-
-    lp_first_inputs["c"] = np.ones(len(identified_estimands))
-    lp_first_inputs["b_ub"] = np.zeros(len(identified_estimands) * 2)
-    lp_first_inputs["A_ub"] = _build_first_step_ub_matrix()
-
-    # First step linear program to find minimal deviations in constraint
-    minimal_deviations = _solve_first_step_lp_estimation()
+    minimal_deviations = _first_step_linear_program()
 
     # Second step linear program
     lp_second_inputs = {}
-    lp_second_inputs["b_eq"] = minimal_deviations + tolerance
+    lp_second_inputs["b_ub"] = np.ones() * (minimal_deviations + tolerance)
     lp_second_inputs["c"] = _compute_choice_weights(target, basis_funcs)
-    lp_second_inputs["A_eq"] = _estimate_equality_constraint_matrix(
+    lp_second_inputs["A_ub"] = _estimate_equality_constraint_matrix(
         identified_estimands, basis_funcs, instrument=instrument
     )
 
@@ -69,10 +60,34 @@ def estimation(
     return {"upper_bound": upper_bound, "lower_bound": lower_bound}
 
 
+def _first_step_linear_program(identified_estimands, basis_funcs, d_data, z_data):
+    """First step linear program to get minimal deviations in constraint."""
+    lp_first_inputs = {}
+    lp_first_inputs["c"] = np.hstack(
+        (np.zeros(len(basis_funcs)), np.ones(len(identified_estimands)))
+    )
+    lp_first_inputs["b_ub"] = np.zeros(len(identified_estimands) * 2)
+    lp_first_inputs["A_ub"] = _build_first_step_ub_matrix(
+        basis_funcs, identified_estimands, d_data, z_data
+    )
+    lp_first_inputs["bounds"] = _compute_first_step_bounds(
+        identified_estimands, basis_funcs
+    )
+
+    # First step linear program to find minimal deviations in constraint
+    return _solve_first_step_lp_estimation(lp_first_inputs)
+
+
 def _solve_first_step_lp_estimation(lp_first_inputs):
-    """Solve first step linear program to get minimal deviations in constraint."""
-    # pay attention to [0, 1] constraint only on theta
-    pass
+    """Solve first-step linear program."""
+    result = linprog(
+        c=lp_first_inputs["c"],
+        A_ub=lp_first_inputs["A_ub"],
+        b_ub=lp_first_inputs["b_ub"],
+        bounds=lp_first_inputs["bounds"],
+    )
+
+    return result.fun
 
 
 def _solve_second_step_lp_estimation(lp_second_inputs, min_or_max):
@@ -268,3 +283,13 @@ def _build_first_step_ub_matrix(basis_funcs, identified_estimands, d_data, z_dat
     out = np.vstack((top, bottom))
 
     return out
+
+
+def _compute_first_step_bounds(identified_estimands, basis_funcs):
+    """Generate list of tuples containing bounds for first step linear program."""
+    num_idestimands = len(identified_estimands)
+    num_bfuncs = len(basis_funcs)
+
+    return [(0, 1) for _ in range(num_bfuncs)] + [
+        (None, None) for _ in range(num_idestimands)
+    ]

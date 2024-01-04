@@ -7,8 +7,10 @@ from pyvmte.estimation.estimation import (
     _generate_basis_funcs,
     _estimate_prop_z,
     _generate_array_of_pscores,
+    _build_first_step_ub_matrix,
+    _compute_first_step_bounds,
+    _first_step_linear_program,
 )
-from pyvmte.estimation.estimation import _build_first_step_ub_matrix
 
 RNG = np.random.default_rng(9156781)
 
@@ -82,3 +84,57 @@ def test_build_first_step_ub_matrix():
     actual = A_ub.shape
 
     assert actual == expected
+
+
+def test_compute_first_step_bounds():
+    identified_estimands = [
+        {
+            "type": "iv_slope",
+        },
+        {
+            "type": "ols_slope",
+        },
+    ]
+
+    u_partition = [0, 0.35, 0.65, 0.7, 1]
+    basis_funcs = _generate_basis_funcs("constant", u_partition)
+
+    expected = [
+        (0, 1),
+        (0, 1),
+        (0, 1),
+        (0, 1),
+        (0, 1),
+        (0, 1),
+        (0, 1),
+        (0, 1),
+        (None, None),
+        (None, None),
+    ]
+
+    actual = _compute_first_step_bounds(identified_estimands, basis_funcs)
+
+    assert actual == expected
+
+
+def test_first_step_linear_program_runs():
+    identified_estimands = [
+        {
+            "type": "iv_slope",
+        },
+        {
+            "type": "ols_slope",
+        },
+    ]
+
+    u_partition = [0, 0.35, 0.65, 0.7, 1]
+    basis_funcs = _generate_basis_funcs("constant", u_partition)
+
+    d_data = RNG.choice([0, 1], size=100)
+    z_data = RNG.choice([1, 2, 3], size=100)
+
+    result = _first_step_linear_program(
+        identified_estimands, basis_funcs, d_data, z_data
+    )
+
+    assert type(result) == float
