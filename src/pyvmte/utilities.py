@@ -9,7 +9,7 @@ def gamma_star(
     md,
     d,
     estimand_dict,
-    instrument,
+    instrument=None,
     dz_cross=None,
     analyt_int=False,
     u_part=None,
@@ -35,9 +35,10 @@ def gamma_star(
     u_hi = estimand_dict.get("u_hi")
     dz_cross = estimand_dict.get("dz_cross")
 
-    pdf_z = instrument.get("pdf_z")
-    pscore_z = instrument.get("pscore_z")
-    support_z = instrument.get("support_z")
+    if instrument is not None:
+        pdf_z = instrument.get("pdf_z")
+        pscore_z = instrument.get("pscore_z")
+        support_z = instrument.get("support_z")
 
     if estimand == "late":
         return integrate.quad(lambda u: md(u) * s_late(d, u, u_lo, u_hi), u_lo, u_hi)[0]
