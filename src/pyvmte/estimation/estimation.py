@@ -109,9 +109,14 @@ def _compute_u_partition(basis_func_type, z_pscore):
 
 def _generate_basis_funcs(basis_func_type, u_partition):
     """Generate the basis functions."""
-    list_of_basis_funcs = []
+    bfuncs_list = []
 
-    return list_of_basis_funcs
+    if basis_func_type is "constant":
+        for d_val in [0, 1]:
+            for u_lo, u_hi in zip(u_partition[:-1], u_partition[1:]):
+                bfuncs_list.append({"d_value": d_val, "u_lo": u_lo, "u_hi": u_hi})
+
+    return bfuncs_list
 
 
 def _estimate_identified_estimands(identified_estimands, y_data, z_data, d_data):
@@ -226,6 +231,6 @@ def _estimate_weights_estimand(estimand, basis_funcs, z_data, d_data):
 
 
 def _generate_array_of_p_scores(z_data, d_data):
-    """For input data on instrment and treatment generates array of same length with
+    """For input data on instrument and treatment generates array of same length with
     estimated propensity scores for each corresponding entry of z."""
     pass
