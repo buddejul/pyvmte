@@ -13,6 +13,7 @@ from pyvmte.estimation.estimation import (
     _compute_choice_weights_second_step,
     _create_funcs_from_dicts,
     _build_second_step_ub_matrix,
+    _compute_second_step_bounds,
 )
 
 RNG = np.random.default_rng(9156781)
@@ -202,3 +203,25 @@ def test_build_second_step_ub_matrix():
         1 + 2 * len(identified_estimands),
         len(basis_funcs) + len(identified_estimands),
     )
+
+
+def test_compute_second_step_bounds():
+    u_partition = [0, 0.35, 0.65, 0.7, 1]
+    basis_funcs = _generate_basis_funcs("constant", u_partition)
+
+    actual = _compute_second_step_bounds(len(basis_funcs), 2)
+
+    expected = [
+        (0, 1),
+        (0, 1),
+        (0, 1),
+        (0, 1),
+        (0, 1),
+        (0, 1),
+        (0, 1),
+        (0, 1),
+        (None, None),
+        (None, None),
+    ]
+
+    assert actual == expected

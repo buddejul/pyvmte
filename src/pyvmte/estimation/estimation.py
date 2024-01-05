@@ -44,13 +44,24 @@ def estimation(
     u_partition = _compute_u_partition(basis_func_type, instrument["pscore"])
     basis_funcs = _generate_basis_funcs(basis_func_type, u_partition)
 
-    minimal_deviations = _first_step_linear_program()
+    minimal_deviations = _first_step_linear_program(
+        identified_estimands=identified_estimands,
+        basis_funcs=basis_funcs,
+        d_data=d_data,
+        z_data=z_data,
+    )
 
-    # Second step linear program
+    results = _second_step_linear_program(
+        target=target,
+        identified_estimands=identified_estimands,
+        basis_funcs=basis_funcs,
+        z_data=z_data,
+        d_data=d_data,
+        minimal_deviations=minimal_deviations,
+        tolerance=tolerance,
+    )
 
-    results = _second_step_linear_program()
-
-    return {"upper_bound": upper_bound, "lower_bound": lower_bound}
+    return {"bounds": results, "minimal_deviations": minimal_deviations}
 
 
 def _first_step_linear_program(identified_estimands, basis_funcs, d_data, z_data):
@@ -85,7 +96,14 @@ def _solve_first_step_lp_estimation(lp_first_inputs):
 
 def _solve_second_step_lp_estimation(lp_second_inputs, min_or_max):
     """Solve for upper/lower bound given minimal deviations from first step."""
-    pass
+    result = linprog(
+        c=lp_second_inputs["c"],
+        A_ub=lp_second_inputs["A_ub"],
+        b_ub=lp_second_inputs["b_ub"],
+        bounds=lp_second_inputs["bounds"],
+    )
+
+    return result
 
 
 def _get_instrument_supp_pdf_pscore(z_data, d_data):
@@ -289,7 +307,13 @@ def _compute_first_step_bounds(identified_estimands, basis_funcs):
 
 
 def _second_step_linear_program(
-    target, identified_estimands, basis_funcs, minimal_deviations, tolerance
+    target,
+    identified_estimands,
+    basis_funcs,
+    z_data,
+    d_data,
+    minimal_deviations,
+    tolerance,
 ):
     """Second step linear program to estimate upper and lower bounds."""
 
@@ -301,13 +325,19 @@ def _second_step_linear_program(
         minimal_deviations + tolerance, np.zeros(2 * len(identified_estimands))
     )
     lp_second_inputs["A_ub"] = _build_second_step_ub_matrix(
-        identified_estimands, basis_funcs, instrument=instrument
+        basis_funcs=basis_funcs,
+        identified_estimands=identified_estimands,
+        z_data=z_data,
+        d_data=d_data,
+    )
+    lp_second_inputs["bounds"] = _compute_second_step_bounds(
+        len(basis_funcs), len(identified_estimands)
     )
 
-    upper_bound = (-1) * _solve_second_step_lp_estimation(lp_second_inputs, "max").fun
-    lower_bound = _solve_second_step_lp_estimation(lp_second_inputs, "min").fun
+    result_upper = (-1) * _solve_second_step_lp_estimation(lp_second_inputs, "max")
+    result_lower = _solve_second_step_lp_estimation(lp_second_inputs, "min")
 
-    return {"upper_bound": upper_bound, "lower_bound": lower_bound}
+    return {"upper_bound": result_upper.fun, "lower_bound": result_lower.fun}
 
 
 def _compute_choice_weights_second_step(target, basis_funcs, identified_estimands):
@@ -362,3 +392,11 @@ def _build_second_step_ub_matrix(basis_funcs, identified_estimands, z_data, d_da
     out = np.vstack((first_row, out))
 
     return out
+
+
+def _compute_second_step_bounds(num_bfuncs, num_idestimands):
+    """Compute bounds for second step linear program."""
+
+    return [(0, 1) for _ in range(num_bfuncs)] + [
+        (None, None) for _ in range(num_idestimands)
+    ]
