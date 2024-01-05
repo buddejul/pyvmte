@@ -47,15 +47,8 @@ def estimation(
     minimal_deviations = _first_step_linear_program()
 
     # Second step linear program
-    lp_second_inputs = {}
-    lp_second_inputs["b_ub"] = np.ones() * (minimal_deviations + tolerance)
-    lp_second_inputs["c"] = _compute_choice_weights(target, basis_funcs)
-    lp_second_inputs["A_ub"] = _estimate_equality_constraint_matrix(
-        identified_estimands, basis_funcs, instrument=instrument
-    )
 
-    upper_bound = (-1) * _solve_second_step_lp_estimation(lp_second_inputs, "max").fun
-    lower_bound = _solve_second_step_lp_estimation(lp_second_inputs, "min").fun
+    results = _second_step_linear_program()
 
     return {"upper_bound": upper_bound, "lower_bound": lower_bound}
 
@@ -123,7 +116,7 @@ def _compute_u_partition(basis_func_type, z_pscore):
 
 
 def _generate_basis_funcs(basis_func_type, u_partition):
-    """Generate the basis functions."""
+    """Generate list of dictionaries describing basis functions."""
     bfuncs_list = []
 
     if basis_func_type is "constant":
@@ -293,3 +286,79 @@ def _compute_first_step_bounds(identified_estimands, basis_funcs):
     return [(0, 1) for _ in range(num_bfuncs)] + [
         (None, None) for _ in range(num_idestimands)
     ]
+
+
+def _second_step_linear_program(
+    target, identified_estimands, basis_funcs, minimal_deviations, tolerance
+):
+    """Second step linear program to estimate upper and lower bounds."""
+
+    lp_second_inputs = {}
+    lp_second_inputs["c"] = _compute_choice_weights_second_step(
+        target, basis_funcs, identified_estimands
+    )
+    lp_second_inputs["b_ub"] = np.append(
+        minimal_deviations + tolerance, np.zeros(2 * len(identified_estimands))
+    )
+    lp_second_inputs["A_ub"] = _build_second_step_ub_matrix(
+        identified_estimands, basis_funcs, instrument=instrument
+    )
+
+    upper_bound = (-1) * _solve_second_step_lp_estimation(lp_second_inputs, "max").fun
+    lower_bound = _solve_second_step_lp_estimation(lp_second_inputs, "min").fun
+
+    return {"upper_bound": upper_bound, "lower_bound": lower_bound}
+
+
+def _compute_choice_weights_second_step(target, basis_funcs, identified_estimands):
+    """Compute choice weight vector c for second step linear program."""
+
+    list_of_funcs = _create_funcs_from_dicts(basis_funcs)
+    upper_part = _compute_choice_weights(target, basis_funcs=list_of_funcs)
+    upper_part = np.array(upper_part)
+
+    lower_part = np.zeros(len(identified_estimands))
+    return np.append(upper_part, lower_part)
+
+
+def _create_funcs_from_dicts(basis_funcs):
+    """Create list of functions from list of dictionaries for constant splines."""
+
+    def create_function(u_lo, u_hi):
+        def f(x):
+            return 1 if u_lo <= x < u_hi else 0
+
+        return f
+
+    relevant_bfuncs = basis_funcs[: int(len(basis_funcs) / 2)]
+
+    list_of_funcs = []
+    for bfunc in relevant_bfuncs:
+        func = create_function(bfunc["u_lo"], bfunc["u_hi"])
+        list_of_funcs.append(func)
+
+    return list_of_funcs
+
+
+def _build_second_step_ub_matrix(basis_funcs, identified_estimands, z_data, d_data):
+    """Build A_ub matrix for second step linear program."""
+
+    num_idestimands = len(identified_estimands)
+    num_bfuncs = len(basis_funcs)
+
+    first_row = np.append(np.zeros(num_bfuncs), np.ones(num_idestimands))
+
+    weight_matrix = np.empty(shape=(num_idestimands, num_bfuncs))
+
+    for i, estimand in enumerate(identified_estimands):
+        weights = _estimate_weights_estimand(estimand, basis_funcs, z_data, d_data)
+
+        weight_matrix[i, :] = weights
+
+    top = np.hstack((weight_matrix, -np.eye(num_idestimands)))
+    bottom = np.hstack((-weight_matrix, -np.eye(num_idestimands)))
+
+    out = np.vstack((top, bottom))
+    out = np.vstack((first_row, out))
+
+    return out

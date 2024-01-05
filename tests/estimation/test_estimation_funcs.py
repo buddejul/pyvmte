@@ -10,6 +10,9 @@ from pyvmte.estimation.estimation import (
     _build_first_step_ub_matrix,
     _compute_first_step_bounds,
     _first_step_linear_program,
+    _compute_choice_weights_second_step,
+    _create_funcs_from_dicts,
+    _build_second_step_ub_matrix,
 )
 
 RNG = np.random.default_rng(9156781)
@@ -138,3 +141,64 @@ def test_first_step_linear_program_runs():
     )
 
     assert type(result) == float
+
+
+def test_compute_choice_weights_second_step():
+    late_estimand = {
+        "type": "late",
+        "u_lo": 0.5,
+        "u_hi": 0.75,
+    }
+
+    iv_estimand = {"type": "iv_slope"}
+    ols_estimand = {"type": "ols_slope"}
+
+    u_partition = [0, 0.35, 0.65, 0.7, 1]
+
+    basis_funcs = _generate_basis_funcs("constant", u_partition)
+
+    identified_estimands = [iv_estimand, ols_estimand]
+
+    result = _compute_choice_weights_second_step(
+        target=late_estimand,
+        basis_funcs=basis_funcs,
+        identified_estimands=identified_estimands,
+    )
+
+    assert result.shape == (len(basis_funcs) + len(identified_estimands),)
+
+
+def test_create_funcs_from_dicts():
+    u_partition = [0, 0.35, 0.65, 0.7, 1]
+    basis_funcs = _generate_basis_funcs("constant", u_partition)
+
+    out = _create_funcs_from_dicts(basis_funcs)
+
+    assert all([callable(func) for func in out]) and len(out) == len(u_partition) - 1
+
+
+def test_build_second_step_ub_matrix():
+    u_partition = [0, 0.35, 0.65, 0.7, 1]
+    basis_funcs = _generate_basis_funcs("constant", u_partition)
+
+    iv_estimand = {
+        "type": "iv_slope",
+    }
+
+    ols_estimand = {
+        "type": "ols_slope",
+    }
+
+    identified_estimands = [iv_estimand, ols_estimand]
+
+    d_data = RNG.choice([0, 1], size=100)
+    z_data = RNG.choice([1, 2, 3], size=100)
+
+    result = _build_second_step_ub_matrix(
+        basis_funcs, identified_estimands, z_data, d_data
+    )
+
+    assert result.shape == (
+        1 + 2 * len(identified_estimands),
+        len(basis_funcs) + len(identified_estimands),
+    )
