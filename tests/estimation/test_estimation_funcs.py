@@ -136,9 +136,14 @@ def test_first_step_linear_program_runs():
 
     d_data = RNG.choice([0, 1], size=100)
     z_data = RNG.choice([1, 2, 3], size=100)
+    y_data = RNG.normal(size=100)
 
     result = _first_step_linear_program(
-        identified_estimands, basis_funcs, d_data, z_data
+        identified_estimands=identified_estimands,
+        basis_funcs=basis_funcs,
+        y_data=y_data,
+        d_data=d_data,
+        z_data=z_data,
     )
 
     assert type(result) == float

@@ -16,7 +16,6 @@ def estimation(
     tolerance,
     x_data=None,
     u_partition=None,
-    analytical_integration=False,
 ):
     """Estimate bounds on target estimand given identified estimands estimated using
     data (estimation).
@@ -47,6 +46,7 @@ def estimation(
     minimal_deviations = _first_step_linear_program(
         identified_estimands=identified_estimands,
         basis_funcs=basis_funcs,
+        y_data=y_data,
         d_data=d_data,
         z_data=z_data,
     )
@@ -64,13 +64,20 @@ def estimation(
     return {"bounds": bounds, "minimal_deviations": minimal_deviations}
 
 
-def _first_step_linear_program(identified_estimands, basis_funcs, d_data, z_data):
+def _first_step_linear_program(
+    identified_estimands, basis_funcs, y_data, d_data, z_data
+):
     """First step linear program to get minimal deviations in constraint."""
     lp_first_inputs = {}
     lp_first_inputs["c"] = np.hstack(
         (np.zeros(len(basis_funcs)), np.ones(len(identified_estimands)))
     )
-    lp_first_inputs["b_ub"] = np.zeros(len(identified_estimands) * 2)
+    lp_first_inputs["b_ub"] = _compute_first_step_upper_bounds(
+        identified_estimands=identified_estimands,
+        y_data=y_data,
+        z_data=z_data,
+        d_data=d_data,
+    )
     lp_first_inputs["A_ub"] = _build_first_step_ub_matrix(
         basis_funcs, identified_estimands, d_data, z_data
     )
@@ -400,3 +407,20 @@ def _compute_second_step_bounds(num_bfuncs, num_idestimands):
     return [(0, 1) for _ in range(num_bfuncs)] + [
         (None, None) for _ in range(num_idestimands)
     ]
+
+
+def _compute_first_step_upper_bounds(identified_estimands, y_data, z_data, d_data):
+    """Compute b_ub vector with upper bounds of ineq constraint in first step LP."""
+
+    beta_hat = _estimate_identified_estimands(
+        identified_estimands=identified_estimands,
+        y_data=y_data,
+        z_data=z_data,
+        d_data=d_data,
+    )
+
+    beta_hat = np.array(beta_hat)
+
+    b_ub = np.append(beta_hat, -beta_hat)
+
+    return b_ub
