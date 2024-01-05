@@ -14,7 +14,13 @@ from pyvmte.estimation.estimation import (
     _create_funcs_from_dicts,
     _build_second_step_ub_matrix,
     _compute_second_step_bounds,
+    _compute_first_step_upper_bounds,
+    _second_step_linear_program,
+    _compute_second_step_upper_bounds,
+    _estimate_identified_estimands,
 )
+
+from pyvmte.utilities import simulate_data_from_paper_dgp
 
 RNG = np.random.default_rng(9156781)
 
@@ -138,12 +144,14 @@ def test_first_step_linear_program_runs():
     z_data = RNG.choice([1, 2, 3], size=100)
     y_data = RNG.normal(size=100)
 
+    beta_hat = RNG.normal(size=len(identified_estimands))
     result = _first_step_linear_program(
         identified_estimands=identified_estimands,
         basis_funcs=basis_funcs,
         y_data=y_data,
         d_data=d_data,
         z_data=z_data,
+        beta_hat=beta_hat,
     )
 
     assert type(result) == float
@@ -230,3 +238,79 @@ def test_compute_second_step_bounds():
     ]
 
     assert actual == expected
+
+
+def test_compute_first_step_upper_bounds():
+    beta_hat = np.array([1, 2, 3])
+    expected = np.array([1, 2, 3, -1, -2, -3])
+
+    actual = _compute_first_step_upper_bounds(beta_hat)
+
+    assert actual == pytest.approx(expected)
+
+
+def test_estimate_identified_estimands():
+    pass
+
+
+def test_second_step_linear_program_runs():
+    target = {"type": "late", "u_lo": 0.35, "u_hi": 0.9}
+    identified_estimands = [
+        {
+            "type": "iv_slope",
+        },
+        {
+            "type": "ols_slope",
+        },
+    ]
+
+    u_partition = [0, 0.35, 0.65, 0.7, 0.9, 1]
+    basis_funcs = _generate_basis_funcs("constant", u_partition)
+
+    sample_size = 100_000
+
+    data = simulate_data_from_paper_dgp(sample_size=sample_size, rng=RNG)
+
+    y_data = np.array(data["y"].astype(float))
+    d_data = np.array(data["d"].astype(float))
+    z_data = np.array(data["z"].astype(float))
+
+    beta_hat = _estimate_identified_estimands(
+        identified_estimands=identified_estimands,
+        y_data=y_data,
+        d_data=d_data,
+        z_data=z_data,
+    )
+
+    beta_hat = np.array(beta_hat)
+
+    tolerance = 1 / sample_size
+
+    minimal_deviations = 10e-5
+
+    result = _second_step_linear_program(
+        target,
+        identified_estimands,
+        basis_funcs,
+        z_data,
+        d_data,
+        minimal_deviations,
+        tolerance,
+        beta_hat,
+    )
+
+    assert result is not None
+
+
+def test_compute_second_step_upper_bounds():
+    beta_hat = np.array([1, 2, 3])
+    tolerance = 1 / 100
+    minimal_deviations = 10e-5
+
+    expected = np.array([tolerance + minimal_deviations, 1, 2, 3, -1, -2, -3])
+
+    actual = _compute_second_step_upper_bounds(
+        minimal_deviations=minimal_deviations, tolerance=tolerance, beta_hat=beta_hat
+    )
+
+    assert actual == pytest.approx(expected)

@@ -43,12 +43,22 @@ def estimation(
     u_partition = _compute_u_partition(basis_func_type, instrument["pscore"])
     basis_funcs = _generate_basis_funcs(basis_func_type, u_partition)
 
+    beta_hat = _estimate_identified_estimands(
+        identified_estimands=identified_estimands,
+        y_data=y_data,
+        z_data=z_data,
+        d_data=d_data,
+    )
+
+    beta_hat = np.array(beta_hat)
+
     minimal_deviations = _first_step_linear_program(
         identified_estimands=identified_estimands,
         basis_funcs=basis_funcs,
         y_data=y_data,
         d_data=d_data,
         z_data=z_data,
+        beta_hat=beta_hat,
     )
 
     bounds = _second_step_linear_program(
@@ -59,25 +69,21 @@ def estimation(
         d_data=d_data,
         minimal_deviations=minimal_deviations,
         tolerance=tolerance,
+        beta_hat=beta_hat,
     )
 
     return {"bounds": bounds, "minimal_deviations": minimal_deviations}
 
 
 def _first_step_linear_program(
-    identified_estimands, basis_funcs, y_data, d_data, z_data
+    identified_estimands, basis_funcs, y_data, d_data, z_data, beta_hat
 ):
     """First step linear program to get minimal deviations in constraint."""
     lp_first_inputs = {}
     lp_first_inputs["c"] = np.hstack(
         (np.zeros(len(basis_funcs)), np.ones(len(identified_estimands)))
     )
-    lp_first_inputs["b_ub"] = _compute_first_step_upper_bounds(
-        identified_estimands=identified_estimands,
-        y_data=y_data,
-        z_data=z_data,
-        d_data=d_data,
-    )
+    lp_first_inputs["b_ub"] = _compute_first_step_upper_bounds(beta_hat)
     lp_first_inputs["A_ub"] = _build_first_step_ub_matrix(
         basis_funcs, identified_estimands, d_data, z_data
     )
@@ -103,8 +109,13 @@ def _solve_first_step_lp_estimation(lp_first_inputs):
 
 def _solve_second_step_lp_estimation(lp_second_inputs, min_or_max):
     """Solve for upper/lower bound given minimal deviations from first step."""
+    if min_or_max == "min":
+        c = lp_second_inputs["c"]
+    else:
+        c = -lp_second_inputs["c"]
+
     result = linprog(
-        c=lp_second_inputs["c"],
+        c=c,
         A_ub=lp_second_inputs["A_ub"],
         b_ub=lp_second_inputs["b_ub"],
         bounds=lp_second_inputs["bounds"],
@@ -158,7 +169,6 @@ def _estimate_identified_estimands(identified_estimands, y_data, z_data, d_data)
     for estimand in identified_estimands:
         result = _estimate_estimand(estimand, y_data, z_data, d_data)
         list_of_estimands.append(result)
-
     return list_of_estimands
 
 
@@ -321,6 +331,7 @@ def _second_step_linear_program(
     d_data,
     minimal_deviations,
     tolerance,
+    beta_hat,
 ):
     """Second step linear program to estimate upper and lower bounds."""
 
@@ -328,8 +339,8 @@ def _second_step_linear_program(
     lp_second_inputs["c"] = _compute_choice_weights_second_step(
         target, basis_funcs, identified_estimands
     )
-    lp_second_inputs["b_ub"] = np.append(
-        minimal_deviations + tolerance, np.zeros(2 * len(identified_estimands))
+    lp_second_inputs["b_ub"] = _compute_second_step_upper_bounds(
+        minimal_deviations=minimal_deviations, tolerance=tolerance, beta_hat=beta_hat
     )
     lp_second_inputs["A_ub"] = _build_second_step_ub_matrix(
         basis_funcs=basis_funcs,
@@ -341,10 +352,15 @@ def _second_step_linear_program(
         len(basis_funcs), len(identified_estimands)
     )
 
-    result_upper = (-1) * _solve_second_step_lp_estimation(lp_second_inputs, "max")
+    result_upper = _solve_second_step_lp_estimation(lp_second_inputs, "max")
     result_lower = _solve_second_step_lp_estimation(lp_second_inputs, "min")
 
-    return {"upper_bound": result_upper.fun, "lower_bound": result_lower.fun}
+    if result_upper.success == False or result_lower.success == False:
+        raise ValueError(
+            f"Failed to solve linear program: upper {result_upper.success}, lower {result_lower.success}."
+        )
+
+    return {"upper_bound": -1 * result_upper.fun, "lower_bound": result_lower.fun}
 
 
 def _compute_choice_weights_second_step(target, basis_funcs, identified_estimands):
@@ -409,18 +425,15 @@ def _compute_second_step_bounds(num_bfuncs, num_idestimands):
     ]
 
 
-def _compute_first_step_upper_bounds(identified_estimands, y_data, z_data, d_data):
+def _compute_first_step_upper_bounds(beta_hat):
     """Compute b_ub vector with upper bounds of ineq constraint in first step LP."""
 
-    beta_hat = _estimate_identified_estimands(
-        identified_estimands=identified_estimands,
-        y_data=y_data,
-        z_data=z_data,
-        d_data=d_data,
-    )
-
-    beta_hat = np.array(beta_hat)
-
     b_ub = np.append(beta_hat, -beta_hat)
-
     return b_ub
+
+
+def _compute_second_step_upper_bounds(minimal_deviations, tolerance, beta_hat):
+    """Compute b_ub vector with upper bounds of ineq constraint in second step LP."""
+    return np.append(
+        np.array(minimal_deviations + tolerance), np.append(beta_hat, -beta_hat)
+    )
