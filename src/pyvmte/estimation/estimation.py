@@ -51,7 +51,7 @@ def estimation(
         z_data=z_data,
     )
 
-    results = _second_step_linear_program(
+    bounds = _second_step_linear_program(
         target=target,
         identified_estimands=identified_estimands,
         basis_funcs=basis_funcs,
@@ -61,7 +61,7 @@ def estimation(
         tolerance=tolerance,
     )
 
-    return {"bounds": results, "minimal_deviations": minimal_deviations}
+    return {"bounds": bounds, "minimal_deviations": minimal_deviations}
 
 
 def _first_step_linear_program(identified_estimands, basis_funcs, d_data, z_data):

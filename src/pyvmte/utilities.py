@@ -2,6 +2,7 @@
 
 import math
 import numpy as np
+import pandas as pd
 from scipy import integrate
 
 
@@ -280,3 +281,36 @@ def load_paper_dgp():
     out["iv_slope"] = 0.074
 
     return out
+
+
+def simulate_data_from_paper_dgp(sample_size, rng):
+    """Simulate data using the dgp from MST 2018 ECMA."""
+    data = pd.DataFrame()
+
+    dgp = load_paper_dgp()
+
+    z_dict = dict(zip(dgp["support_z"], dgp["pscore_z"]))
+
+    sampled = np.random.choice(dgp["support_z"], size=sample_size, p=dgp["pdf_z"])
+
+    pscores_corresponding = np.array([z_dict[i] for i in sampled])
+
+    data["z"] = sampled
+    data["pscore_z"] = pscores_corresponding
+
+    data["u"] = rng.uniform(size=sample_size)
+
+    data["d"] = data["u"] < data["pscore_z"]
+
+    m0 = dgp["m0"]
+    m1 = dgp["m1"]
+
+    data["y"] = np.where(data["d"] == 0, m0(data["u"]), m1(data["u"]))
+
+    data["pscore_z"] = data["pscore_z"].astype(pd.Float64Dtype())
+    data["z"] = data["z"].astype(pd.Int64Dtype())
+    data["u"] = data["u"].astype(pd.Float64Dtype())
+    data["d"] = data["d"].astype(pd.BooleanDtype())
+    data["y"] = data["y"].astype(pd.Float64Dtype())
+
+    return data
