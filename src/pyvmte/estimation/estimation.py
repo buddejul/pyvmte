@@ -39,8 +39,12 @@ def estimation(
     if isinstance(identified_estimands, dict):
         identified_estimands = [identified_estimands]
 
-    instrument = _get_instrument_supp_pdf_pscore(z_data, d_data)
-    u_partition = _compute_u_partition(basis_func_type, instrument["pscore"])
+    instrument = _estimate_instrument_characteristics(z_data, d_data)
+    u_partition = _compute_u_partition(
+        target=target,
+        identified_estimands=identified_estimands,
+        pscore_z=instrument["pscore_z"],
+    )
     basis_funcs = _generate_basis_funcs(basis_func_type, u_partition)
 
     beta_hat = _estimate_identified_estimands(
@@ -52,7 +56,7 @@ def estimation(
 
     beta_hat = np.array(beta_hat)
 
-    minimal_deviations = _first_step_linear_program(
+    results_first_step = _first_step_linear_program(
         identified_estimands=identified_estimands,
         basis_funcs=basis_funcs,
         y_data=y_data,
@@ -61,7 +65,9 @@ def estimation(
         beta_hat=beta_hat,
     )
 
-    bounds = _second_step_linear_program(
+    minimal_deviations = results_first_step["minimal_deviations"]
+
+    results_second_step = _second_step_linear_program(
         target=target,
         identified_estimands=identified_estimands,
         basis_funcs=basis_funcs,
@@ -72,7 +78,17 @@ def estimation(
         beta_hat=beta_hat,
     )
 
-    return {"bounds": bounds, "minimal_deviations": minimal_deviations}
+    out = {
+        "upper_bound": results_second_step["upper_bound"],
+        "lower_bound": results_second_step["lower_bound"],
+        "minimal_deviations": minimal_deviations,
+        "u_partition": u_partition,
+        "beta_hat": beta_hat,
+        "inputs_first_step": results_first_step["inputs"],
+        "inputs_second_step": results_second_step["inputs"],
+    }
+
+    return out
 
 
 def _first_step_linear_program(
@@ -92,7 +108,14 @@ def _first_step_linear_program(
         identified_estimands, basis_funcs
     )
 
-    return _solve_first_step_lp_estimation(lp_first_inputs)
+    first_step_solution = (_solve_first_step_lp_estimation(lp_first_inputs),)
+
+    out = {
+        "minimal_deviations": first_step_solution,
+        "inputs": lp_first_inputs,
+    }
+
+    return out
 
 
 def _solve_first_step_lp_estimation(lp_first_inputs):
@@ -124,17 +147,6 @@ def _solve_second_step_lp_estimation(lp_second_inputs, min_or_max):
     return result
 
 
-def _get_instrument_supp_pdf_pscore(z_data, d_data):
-    """Estimate the support, marginal density and propensity score of instrument z and
-    treatment d."""
-    out = {}
-    out["pdf"] = _estimate_instrument_pdf(z_data)
-    out["pscore"] = _estimate_instrument_pscore(z_data, d_data)
-    out["support"] = np.unique(z_data)
-
-    return out
-
-
 def _estimate_instrument_pdf(z_data):
     """Estimate the marginal density of instrument z."""
 
@@ -153,10 +165,19 @@ def _estimate_instrument_pscore(z_data, d_data):
     pass
 
 
-def _compute_u_partition(basis_func_type, z_pscore):
-    """Compute the partition of u based on type of basis function and pscore of z."""
-    u_partition = np.array([0, 1])
-    return u_partition
+def _compute_u_partition(target, pscore_z, identified_estimands=None):
+    """Compute the partition of u based on identified, target estimands, and pscore of
+    z."""
+    knots = [0, 1]
+
+    if target["type"] == "late":
+        knots.append(target["u_lo"])
+        knots.append(target["u_hi"])
+
+    # Add p_score to list
+    knots.extend(pscore_z)
+
+    return np.unique(knots)
 
 
 def _generate_basis_funcs(basis_func_type, u_partition):
@@ -310,7 +331,13 @@ def _second_step_linear_program(
             f"Failed to solve linear program: upper {result_upper.success}, lower {result_lower.success}."
         )
 
-    return {"upper_bound": -1 * result_upper.fun, "lower_bound": result_lower.fun}
+    out = {
+        "upper_bound": -1 * result_upper.fun,
+        "lower_bound": result_lower.fun,
+        "inputs": lp_second_inputs,
+    }
+
+    return out
 
 
 def _compute_choice_weights_second_step(target, basis_funcs, identified_estimands):

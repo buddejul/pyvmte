@@ -18,6 +18,7 @@ from pyvmte.estimation.estimation import (
     _second_step_linear_program,
     _compute_second_step_upper_bounds,
     _estimate_identified_estimands,
+    _compute_u_partition,
 )
 
 from pyvmte.utilities import simulate_data_from_paper_dgp
@@ -309,5 +310,16 @@ def test_compute_second_step_upper_bounds():
     actual = _compute_second_step_upper_bounds(
         minimal_deviations=minimal_deviations, tolerance=tolerance, beta_hat=beta_hat
     )
+
+    assert actual == pytest.approx(expected)
+
+
+def test_compute_u_partition():
+    target = {"type": "late", "u_lo": 0.35, "u_hi": 0.9}
+    pscore_z = [0.1, 0.2, 0.64, 0.83]
+
+    expected = [0, 0.1, 0.2, 0.35, 0.64, 0.83, 0.9, 1]
+
+    actual = _compute_u_partition(target=target, pscore_z=pscore_z)
 
     assert actual == pytest.approx(expected)
