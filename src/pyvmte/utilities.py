@@ -328,11 +328,11 @@ def simulate_data_from_paper_dgp(sample_size, rng):
 
     data["y"] = np.where(data["d"] == 0, m0(data["u"]), m1(data["u"]))
 
-    data["pscore_z"] = data["pscore_z"].astype(pd.Float64Dtype())
-    data["z"] = data["z"].astype(pd.Int64Dtype())
-    data["u"] = data["u"].astype(pd.Float64Dtype())
-    data["d"] = data["d"].astype(pd.BooleanDtype())
-    data["y"] = data["y"].astype(pd.Float64Dtype())
+    data["pscore_z"] = data["pscore_z"].astype(float)
+    data["z"] = data["z"].astype(int)
+    data["u"] = data["u"].astype(float)
+    data["d"] = data["d"].astype(int)
+    data["y"] = data["y"].astype(float)
 
     return data
 
