@@ -421,4 +421,12 @@ def _compute_constant_spline_weights(
             for i, (z, pz) in enumerate(zip(support_z, pscore_z))
         ]
 
+    if estimand["type"] == "late":
+        if d == 1:
+            weights_by_z = _weight_late(u, u_lo=estimand["u_lo"], u_hi=estimand["u_hi"])
+        else:
+            weights_by_z = -_weight_late(
+                u, u_lo=estimand["u_lo"], u_hi=estimand["u_hi"]
+            )
+
     return np.sum(weights_by_z)

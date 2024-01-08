@@ -126,3 +126,49 @@ def test_compute_constant_spline_weights_iv_slope_d1():
         actual.append(result)
 
     assert actual == pytest.approx(expected)
+
+
+def test_compute_constant_spline_weights_late_d0():
+    u_lo = 0.35
+    u_hi = 0.9
+
+    points_to_evaluate = [0.1, 0.36, 0.62, 0.72, 0.95]
+
+    weight = 1 / (u_hi - u_lo)
+
+    expected = [0, -weight, -weight, -weight, 0]
+
+    actual = []
+
+    for u in points_to_evaluate:
+        result = _compute_constant_spline_weights(
+            estimand={"type": "late", "u_lo": u_lo, "u_hi": u_hi},
+            u=u,
+            d=0,
+        )
+        actual.append(result)
+
+    assert actual == pytest.approx(expected)
+
+
+def test_compute_constant_spline_weights_late_d1():
+    u_lo = 0.35
+    u_hi = 0.9
+
+    points_to_evaluate = [0.1, 0.36, 0.62, 0.72, 0.95]
+
+    weight = 1 / (u_hi - u_lo)
+
+    expected = [0, weight, weight, weight, 0]
+
+    actual = []
+
+    for u in points_to_evaluate:
+        result = _compute_constant_spline_weights(
+            estimand={"type": "late", "u_lo": u_lo, "u_hi": u_hi},
+            u=u,
+            d=1,
+        )
+        actual.append(result)
+
+    assert actual == pytest.approx(expected)
