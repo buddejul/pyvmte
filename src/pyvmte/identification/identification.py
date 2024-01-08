@@ -93,7 +93,9 @@ def _compute_estimand(estimand, m0, m1, u_part=None, instrument=None):
     return a + b
 
 
-def _compute_choice_weights(target, basis_funcs, instrument=None, moments=None):
+def _compute_choice_weights(
+    target, basis_funcs, instrument=None, moments=None, data=None
+):
     """Compute weights on the choice variables."""
 
     bfunc_type = basis_funcs[0]["type"]
@@ -113,6 +115,7 @@ def _compute_choice_weights(target, basis_funcs, instrument=None, moments=None):
                     d=d,
                     instrument=instrument,
                     moments=moments,
+                    data=data,
                 )
                 c.append(weight)
 

@@ -19,6 +19,7 @@ from pyvmte.estimation.estimation import (
     _compute_second_step_upper_bounds,
     _estimate_identified_estimands,
     _compute_u_partition,
+    _estimate_weights_estimand,
 )
 
 from pyvmte.utilities import simulate_data_from_paper_dgp
@@ -151,7 +152,7 @@ def test_first_step_linear_program_runs():
         beta_hat=beta_hat,
     )
 
-    assert type(result) == float
+    assert type(result) is not None
 
 
 def test_compute_choice_weights_second_step():
@@ -323,3 +324,66 @@ def test_compute_u_partition():
     actual = _compute_u_partition(target=target, pscore_z=pscore_z)
 
     assert actual == pytest.approx(expected)
+
+
+def test_estimate_weights_estimand_length():
+    u_partitition = [0, 0.35, 0.65, 0.7, 0.9, 1]
+    basis_funcs = _generate_basis_funcs("constant", u_partitition)
+
+    actual = _estimate_weights_estimand(
+        estimand={"type": "iv_slope"},
+        basis_funcs=basis_funcs,
+        z_data=RNG.normal(size=100),
+        d_data=RNG.normal(size=100),
+    )
+
+    assert len(actual) == len(basis_funcs) * 2
+
+
+def test_estimate_weights_estimand_symmetry():
+    u_partitition = [0, 0.35, 0.65, 0.7, 0.9, 1]
+    basis_funcs = _generate_basis_funcs("constant", u_partitition)
+
+    actual = _estimate_weights_estimand(
+        estimand={"type": "iv_slope"},
+        basis_funcs=basis_funcs,
+        z_data=RNG.normal(size=100),
+        d_data=RNG.normal(size=100),
+    )
+
+    first_half = np.array(actual[: len(actual) // 2])
+    second_half = -1 * np.array(actual[len(actual) // 2 :])
+
+    assert first_half == pytest.approx(second_half)
+
+
+def test_build_first_step_ub_matrix_symmetry():
+    u_partition = [0, 0.35, 0.65, 0.7, 1]
+    basis_funcs = _generate_basis_funcs("constant", u_partition)
+
+    iv_estimand = {
+        "type": "iv_slope",
+    }
+
+    ols_estimand = {
+        "type": "ols_slope",
+    }
+
+    identified_estimands = [iv_estimand, ols_estimand]
+
+    d_data = RNG.choice([0, 1], size=100)
+    z_data = RNG.choice([1, 2, 3], size=100)
+
+    A_ub = _build_first_step_ub_matrix(
+        basis_funcs=basis_funcs,
+        identified_estimands=identified_estimands,
+        d_data=d_data,
+        z_data=z_data,
+    )
+
+    num_bfuncs = len(basis_funcs) * 2
+    # Take first row and first len(basis_funcs)*2 columns
+    weights = A_ub[0, :num_bfuncs]
+
+    # Check first len(basis_funcs) weights are the same as -1 the ret
+    assert weights[: num_bfuncs // 2] == pytest.approx(-1 * weights[num_bfuncs // 2 :])

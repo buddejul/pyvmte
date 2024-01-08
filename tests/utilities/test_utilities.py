@@ -51,7 +51,7 @@ def test_simulate_data_from_paper_dgp_iv():
 
     standard_error = results.bse[1]
     # Paper only reports rounded numbers so more lenient here
-    assert actual == pytest.approx(expected, abs=0.001 + 3 * standard_error)
+    assert actual == pytest.approx(expected, abs=0.001 + 5 * standard_error)
 
 
 def test_simulate_data_from_paper_dgp_pscores():

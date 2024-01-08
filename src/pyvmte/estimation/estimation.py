@@ -166,11 +166,6 @@ def _estimate_instrument_pdf(z_data):
     return np.array(pdf_z)
 
 
-def _estimate_instrument_pscore(z_data, d_data):
-    """Estimate the propensity score of instrument z and treatment d."""
-    pass
-
-
 def _compute_u_partition(target, pscore_z, identified_estimands=None):
     """Compute the partition of u based on identified, target estimands, and pscore of
     z."""
@@ -235,11 +230,15 @@ def _estimate_weights_estimand(estimand, basis_funcs, z_data, d_data):
     moments = _estimate_moments_for_weights(estimand, z_data, d_data)
     instrument = _estimate_instrument_characteristics(z_data, d_data)
 
+    data = {"z": z_data, "d": d_data}
+    data["pscores"] = _generate_array_of_pscores(z_data, d_data)
+
     weights = _compute_choice_weights(
         target=estimand,
         basis_funcs=basis_funcs,
         instrument=instrument,
         moments=moments,
+        data=data,
     )
 
     # Get length of basis_funcs intervals using u_lo and u_hi key
