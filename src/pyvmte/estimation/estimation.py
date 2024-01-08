@@ -86,6 +86,9 @@ def estimation(
         "beta_hat": beta_hat,
         "inputs_first_step": results_first_step["inputs"],
         "inputs_second_step": results_second_step["inputs"],
+        "scipy_return_first_step": results_first_step["scipy_return"],
+        "scipy_return_second_step_upper": results_second_step["scipy_return_upper"],
+        "scipy_return_second_step_lower": results_second_step["scipy_return_lower"],
     }
 
     return out
@@ -108,10 +111,13 @@ def _first_step_linear_program(
         identified_estimands, basis_funcs
     )
 
-    first_step_solution = (_solve_first_step_lp_estimation(lp_first_inputs),)
+    first_step_solution = _solve_first_step_lp_estimation(lp_first_inputs)
+
+    minimal_deviations = first_step_solution.fun
 
     out = {
-        "minimal_deviations": first_step_solution,
+        "minimal_deviations": minimal_deviations,
+        "scipy_return": first_step_solution,
         "inputs": lp_first_inputs,
     }
 
@@ -127,7 +133,7 @@ def _solve_first_step_lp_estimation(lp_first_inputs):
         bounds=lp_first_inputs["bounds"],
     )
 
-    return result.fun
+    return result
 
 
 def _solve_second_step_lp_estimation(lp_second_inputs, min_or_max):
@@ -236,6 +242,13 @@ def _estimate_weights_estimand(estimand, basis_funcs, z_data, d_data):
         moments=moments,
     )
 
+    # Get length of basis_funcs intervals using u_lo and u_hi key
+    lengths = np.array([bfunc["u_hi"] - bfunc["u_lo"] for bfunc in basis_funcs])
+
+    # Multiply weights by lengths to get weights on choice variables
+    # repeating lengths 2x
+    weights = weights * np.tile(lengths, 2)
+
     return weights
 
 
@@ -335,6 +348,8 @@ def _second_step_linear_program(
         "upper_bound": -1 * result_upper.fun,
         "lower_bound": result_lower.fun,
         "inputs": lp_second_inputs,
+        "scipy_return_upper": result_upper,
+        "scipy_return_lower": result_lower,
     }
 
     return out
