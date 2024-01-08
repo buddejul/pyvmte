@@ -93,14 +93,15 @@ def _compute_estimand(estimand, m0, m1, u_part=None, instrument=None):
     return a + b
 
 
-def _compute_choice_weights(target, basis_funcs, instrument=None):
+def _compute_choice_weights(target, basis_funcs, instrument=None, moments=None):
     """Compute weights on the choice variables."""
 
     bfunc_type = basis_funcs[0]["type"]
 
     if bfunc_type == "constant":
         u_partition = _generate_u_partition_from_basis_funcs(basis_funcs)
-        moments = _compute_moments_for_weights(target, instrument)
+        if moments is None:
+            moments = _compute_moments_for_weights(target, instrument)
         u_evaluation_points = _generate_partition_midpoints(u_partition)
 
         c = []

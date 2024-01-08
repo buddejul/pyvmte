@@ -29,14 +29,10 @@ def test_generate_basis_funcs():
     u_partition = [0, 0.35, 0.65, 0.7, 1]
 
     expected = [
-        {"d_value": 0, "u_lo": 0, "u_hi": 0.35},
-        {"d_value": 0, "u_lo": 0.35, "u_hi": 0.65},
-        {"d_value": 0, "u_lo": 0.65, "u_hi": 0.7},
-        {"d_value": 0, "u_lo": 0.7, "u_hi": 1},
-        {"d_value": 1, "u_lo": 0, "u_hi": 0.35},
-        {"d_value": 1, "u_lo": 0.35, "u_hi": 0.65},
-        {"d_value": 1, "u_lo": 0.65, "u_hi": 0.7},
-        {"d_value": 1, "u_lo": 0.7, "u_hi": 1},
+        {"type": "constant", "u_lo": 0, "u_hi": 0.35},
+        {"type": "constant", "u_lo": 0.35, "u_hi": 0.65},
+        {"type": "constant", "u_lo": 0.65, "u_hi": 0.7},
+        {"type": "constant", "u_lo": 0.7, "u_hi": 1},
     ]
 
     actual = _generate_basis_funcs(basis_func_type="constant", u_partition=u_partition)
@@ -172,14 +168,13 @@ def test_compute_choice_weights_second_step():
     basis_funcs = _generate_basis_funcs("constant", u_partition)
 
     identified_estimands = [iv_estimand, ols_estimand]
-
     result = _compute_choice_weights_second_step(
         target=late_estimand,
         basis_funcs=basis_funcs,
         identified_estimands=identified_estimands,
     )
 
-    assert result.shape == (len(basis_funcs) + len(identified_estimands),)
+    assert result.shape == (len(basis_funcs) * 2 + len(identified_estimands),)
 
 
 def test_create_funcs_from_dicts():
@@ -214,15 +209,16 @@ def test_build_second_step_ub_matrix():
 
     assert result.shape == (
         1 + 2 * len(identified_estimands),
-        len(basis_funcs) + len(identified_estimands),
+        len(basis_funcs) * 2 + len(identified_estimands),
     )
 
 
 def test_compute_second_step_bounds():
     u_partition = [0, 0.35, 0.65, 0.7, 1]
     basis_funcs = _generate_basis_funcs("constant", u_partition)
+    identified_estimands = [{"type": "iv_slope"}, {"type": "ols_slope"}]
 
-    actual = _compute_second_step_bounds(len(basis_funcs), 2)
+    actual = _compute_second_step_bounds(basis_funcs, identified_estimands)
 
     expected = [
         (0, 1),
@@ -249,6 +245,7 @@ def test_compute_first_step_upper_bounds():
     assert actual == pytest.approx(expected)
 
 
+@pytest.mark.skip(reason="Not implemented yet")
 def test_estimate_identified_estimands():
     pass
 

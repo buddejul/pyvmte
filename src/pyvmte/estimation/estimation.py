@@ -79,9 +79,10 @@ def _first_step_linear_program(
     identified_estimands, basis_funcs, y_data, d_data, z_data, beta_hat
 ):
     """First step linear program to get minimal deviations in constraint."""
+    num_bfuncs = len(basis_funcs) * 2
     lp_first_inputs = {}
     lp_first_inputs["c"] = np.hstack(
-        (np.zeros(len(basis_funcs)), np.ones(len(identified_estimands)))
+        (np.zeros(num_bfuncs), np.ones(len(identified_estimands)))
     )
     lp_first_inputs["b_ub"] = _compute_first_step_upper_bounds(beta_hat)
     lp_first_inputs["A_ub"] = _build_first_step_ub_matrix(
@@ -91,7 +92,6 @@ def _first_step_linear_program(
         identified_estimands, basis_funcs
     )
 
-    # First step linear program to find minimal deviations in constraint
     return _solve_first_step_lp_estimation(lp_first_inputs)
 
 
@@ -137,7 +137,15 @@ def _get_instrument_supp_pdf_pscore(z_data, d_data):
 
 def _estimate_instrument_pdf(z_data):
     """Estimate the marginal density of instrument z."""
-    pass
+
+    supp_z = np.unique(z_data)
+
+    pdf_z = []
+
+    for z_val in supp_z:
+        pdf_z.append(np.mean(z_data == z_val))
+
+    return np.array(pdf_z)
 
 
 def _estimate_instrument_pscore(z_data, d_data):
@@ -155,10 +163,9 @@ def _generate_basis_funcs(basis_func_type, u_partition):
     """Generate list of dictionaries describing basis functions."""
     bfuncs_list = []
 
-    if basis_func_type is "constant":
-        for d_val in [0, 1]:
-            for u_lo, u_hi in zip(u_partition[:-1], u_partition[1:]):
-                bfuncs_list.append({"d_value": d_val, "u_lo": u_lo, "u_hi": u_hi})
+    if basis_func_type == "constant":
+        for u_lo, u_hi in zip(u_partition[:-1], u_partition[1:]):
+            bfuncs_list.append({"type": "constant", "u_lo": u_lo, "u_hi": u_hi})
 
     return bfuncs_list
 
@@ -195,75 +202,18 @@ def _estimate_estimand(estimand, y_data, z_data, d_data):
     return np.mean(ind_elements)
 
 
-def _estimate_equality_constraint_matrix():
-    """Estimate the equality constraint matrix."""
-    pass
-
-
-def _estimate_first_lp_weights(identified_estimands, basis_funcs, z_data, d_data):
-    """Estimate the choice weights for a set of identified estimands by computing the
-    weight matrix associated with each estimand and using linearity."""
-
-    weights = np.zeros(len(basis_funcs))
-
-    for estimand in identified_estimands:
-        weights += _estimate_weights_estimand(estimand, basis_funcs, z_data, d_data)
-
-    return weights
-
-
 def _estimate_weights_estimand(estimand, basis_funcs, z_data, d_data):
     """Estimate the weights on each basis function for a single estimand."""
 
-    estimand_type = estimand["type"]
+    moments = _estimate_moments_for_weights(estimand, z_data, d_data)
+    instrument = _estimate_instrument_characteristics(z_data, d_data)
 
-    z_p = _generate_array_of_pscores(z_data, d_data)
-
-    if estimand_type == "ols_slope":
-        var_d = np.var(d_data)
-        ed = np.mean(d_data)
-
-        def s(d, z):
-            return s_ols_slope(d, ed=ed, var_d=var_d)
-
-    if estimand_type == "iv_slope":
-        ez = np.mean(z_data)
-        ed = np.mean(d_data)
-        edz = np.mean(d_data * z_data)
-        cov_dz = edz - ed * ez
-
-        def s(d, z):
-            return s_iv_slope(z, ez=ez, cov_dz=cov_dz)
-
-    if estimand_type == "cross":
-
-        def s(d, z):
-            return s_cross(d, z, dz_cross=estimand["dz_cross"])
-
-    weights = []
-
-    for basis_func in basis_funcs:
-        d_value = basis_func["d_value"]
-        u_lo = basis_func["u_lo"]
-        u_hi = basis_func["u_hi"]
-        # TODO potential bug: u_hi - u_lo for both cases?
-        if d_value == 0:
-            val = np.mean(
-                # FIXME check whether d_val or d_data here
-                (u_lo > z_p)
-                * s(d_data, z_data)
-                * (u_hi - u_lo)
-            )
-
-        elif d_value == 1:
-            val = np.mean(
-                # FIXME check whether d_val or d_data here
-                (u_hi <= z_p)
-                * s(d_data, z_data)
-                * (u_hi - u_lo)
-            )
-
-        weights.append(val)
+    weights = _compute_choice_weights(
+        target=estimand,
+        basis_funcs=basis_funcs,
+        instrument=instrument,
+        moments=moments,
+    )
 
     return weights
 
@@ -295,7 +245,7 @@ def _estimate_prop_z(z_data, d_data):
 
 def _build_first_step_ub_matrix(basis_funcs, identified_estimands, d_data, z_data):
     """Build matrix for first step lp involving dummy variables."""
-    num_bfuncs = len(basis_funcs)
+    num_bfuncs = len(basis_funcs) * 2
     num_idestimands = len(identified_estimands)
 
     weight_matrix = np.empty(shape=(num_idestimands, num_bfuncs))
@@ -316,7 +266,7 @@ def _build_first_step_ub_matrix(basis_funcs, identified_estimands, d_data, z_dat
 def _compute_first_step_bounds(identified_estimands, basis_funcs):
     """Generate list of tuples containing bounds for first step linear program."""
     num_idestimands = len(identified_estimands)
-    num_bfuncs = len(basis_funcs)
+    num_bfuncs = len(basis_funcs) * 2
 
     return [(0, 1) for _ in range(num_bfuncs)] + [
         (None, None) for _ in range(num_idestimands)
@@ -349,7 +299,7 @@ def _second_step_linear_program(
         d_data=d_data,
     )
     lp_second_inputs["bounds"] = _compute_second_step_bounds(
-        len(basis_funcs), len(identified_estimands)
+        basis_funcs, identified_estimands
     )
 
     result_upper = _solve_second_step_lp_estimation(lp_second_inputs, "max")
@@ -366,8 +316,7 @@ def _second_step_linear_program(
 def _compute_choice_weights_second_step(target, basis_funcs, identified_estimands):
     """Compute choice weight vector c for second step linear program."""
 
-    list_of_funcs = _create_funcs_from_dicts(basis_funcs)
-    upper_part = _compute_choice_weights(target, basis_funcs=list_of_funcs)
+    upper_part = _compute_choice_weights(target, basis_funcs=basis_funcs)
     upper_part = np.array(upper_part)
 
     lower_part = np.zeros(len(identified_estimands))
@@ -383,10 +332,8 @@ def _create_funcs_from_dicts(basis_funcs):
 
         return f
 
-    relevant_bfuncs = basis_funcs[: int(len(basis_funcs) / 2)]
-
     list_of_funcs = []
-    for bfunc in relevant_bfuncs:
+    for bfunc in basis_funcs:
         func = create_function(bfunc["u_lo"], bfunc["u_hi"])
         list_of_funcs.append(func)
 
@@ -397,7 +344,7 @@ def _build_second_step_ub_matrix(basis_funcs, identified_estimands, z_data, d_da
     """Build A_ub matrix for second step linear program."""
 
     num_idestimands = len(identified_estimands)
-    num_bfuncs = len(basis_funcs)
+    num_bfuncs = len(basis_funcs) * 2
 
     first_row = np.append(np.zeros(num_bfuncs), np.ones(num_idestimands))
 
@@ -417,8 +364,11 @@ def _build_second_step_ub_matrix(basis_funcs, identified_estimands, z_data, d_da
     return out
 
 
-def _compute_second_step_bounds(num_bfuncs, num_idestimands):
+def _compute_second_step_bounds(basis_funcs, identified_estimands):
     """Compute bounds for second step linear program."""
+
+    num_bfuncs = len(basis_funcs) * 2
+    num_idestimands = len(identified_estimands)
 
     return [(0, 1) for _ in range(num_bfuncs)] + [
         (None, None) for _ in range(num_idestimands)
@@ -437,3 +387,31 @@ def _compute_second_step_upper_bounds(minimal_deviations, tolerance, beta_hat):
     return np.append(
         np.array(minimal_deviations + tolerance), np.append(beta_hat, -beta_hat)
     )
+
+
+def _estimate_moments_for_weights(estimand, z_data, d_data):
+    """Estimate relevant moments for computing weights on LP choice variables."""
+
+    moments = {}
+
+    if estimand["type"] == "ols_slope":
+        moments["expectation_d"] = np.mean(d_data)
+        moments["variance_d"] = np.var(d_data)
+
+    elif estimand["type"] == "iv_slope":
+        moments["expectation_z"] = np.mean(z_data)
+        moments["covariance_dz"] = np.cov(d_data, z_data)[0, 1]
+
+    return moments
+
+
+def _estimate_instrument_characteristics(z_data, d_data):
+    """Estimate relevant characteristics of instrument z."""
+
+    instrument = {}
+
+    instrument["pscore_z"] = _estimate_prop_z(z_data, d_data)
+    instrument["support_z"] = np.unique(z_data)
+    instrument["pdf_z"] = _estimate_instrument_pdf(z_data)
+
+    return instrument
