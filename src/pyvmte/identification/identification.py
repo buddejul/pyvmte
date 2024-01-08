@@ -133,21 +133,32 @@ def _compute_choice_weights(target, basis_funcs, instrument=None):
 
 def _compute_equality_constraint_matrix(identified_estimands, basis_funcs, instrument):
     """Compute weight matrix for equality constraints."""
+    bfunc_type = basis_funcs[0]["type"]
 
-    c_matrix = []
+    if bfunc_type == "constant":
+        c_matrix = []
+        for target in identified_estimands:
+            c_row = _compute_choice_weights(
+                target=target, basis_funcs=basis_funcs, instrument=instrument
+            )
 
-    for target in identified_estimands:
-        c_row = []
+            c_matrix.append(c_row)
 
-        for d in [0, 1]:
-            for basis_func in basis_funcs:
-                weight = gamma_star(
-                    md=basis_func, estimand_dict=target, d=d, instrument=instrument
-                )
+    else:
+        c_matrix = []
 
-                c_row.append(weight)
+        for target in identified_estimands:
+            c_row = []
 
-        c_matrix.append(c_row)
+            for d in [0, 1]:
+                for basis_func in basis_funcs:
+                    weight = gamma_star(
+                        md=basis_func, estimand_dict=target, d=d, instrument=instrument
+                    )
+
+                    c_row.append(weight)
+
+            c_matrix.append(c_row)
 
     return np.array(c_matrix)
 
@@ -186,12 +197,16 @@ def _compute_moments_for_weights(target, instrument):
         moments["expectation_z"] = _compute_expectation(
             support=instrument["support_z"], pdf=instrument["pdf_z"]
         )
-        moments["covariance_dz"]
+        moments["covariance_dz"] = _compute_covariance_dz(
+            support_z=instrument["support_z"],
+            pscore_z=instrument["pscore_z"],
+            pdf_z=instrument["pdf_z"],
+        )
 
     return moments
 
 
-def _compute_binary_expectation_using_lie(d_support, d_pdf_given_z, z_pdf):
+def _compute_binary_expectation_using_lie(d_pdf_given_z, z_pdf):
     """Compute expectation of d using the law of iterated expectations."""
 
     return d_pdf_given_z @ z_pdf
@@ -200,3 +215,11 @@ def _compute_binary_expectation_using_lie(d_support, d_pdf_given_z, z_pdf):
 def _compute_expectation(support, pdf):
     """Compute expectation of a discrete random variable."""
     return support @ pdf
+
+
+def _compute_covariance_dz(support_z, pscore_z, pdf_z):
+    """Compute covariance between binary treatment and discrete instrument."""
+    ez = support_z @ pdf_z
+    ed = pscore_z @ pdf_z
+    edz = np.sum(support_z * pscore_z * pdf_z)
+    return edz - ed * ez

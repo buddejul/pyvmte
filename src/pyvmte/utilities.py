@@ -385,6 +385,14 @@ def _weight_iv_slope(u, d, z, pz, ez, cov_dz):
         return s_iv_slope(z, ez, cov_dz) if u <= pz else 0
 
 
+def _weight_cross(u, d, z, pz, dz_cross):
+    """Weight function for unconditional cross-moments E[D=d, Z=z]."""
+    if d == 0:
+        return s_cross(d, z, dz_cross) if u > pz else 0
+    else:
+        return s_cross(d, z, dz_cross) if u <= pz else 0
+
+
 def _compute_constant_spline_weights(
     estimand,
     u,
@@ -431,6 +439,20 @@ def _compute_constant_spline_weights(
             weights_by_z = -_weight_late(
                 u, u_lo=estimand["u_lo"], u_hi=estimand["u_hi"]
             )
+
+    if estimand["type"] == "cross":
+        _weight = lambda u, d, z, pz: _weight_cross(
+            u, d, z, pz, dz_cross=estimand["dz_cross"]
+        )
+
+        pdf_z = instrument["pdf_z"]
+        pscore_z = instrument["pscore_z"]
+        support_z = instrument["support_z"]
+
+        weights_by_z = [
+            _weight(u, d, z, pz) * pdf_z[i]
+            for i, (z, pz) in enumerate(zip(support_z, pscore_z))
+        ]
 
     return np.sum(weights_by_z)
 

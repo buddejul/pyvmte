@@ -19,16 +19,13 @@ INSTRUMENT = {
 
 U_PART = [0, 0.35, 0.6, 0.7, 0.9, 1]
 
-for i, (low, high) in enumerate(zip(U_PART[:-1], U_PART[1:]), start=1):
-    globals()[f"bern_bas_{i}"] = (
-        lambda x, low=low, high=high: bern_bas(2, 0, x)
-        + bern_bas(2, 1, x)
-        + bern_bas(2, 2, x)
-        if low <= x < high
-        else 0
-    )
+BFUNC1 = {"type": "constant", "u_lo": 0.0, "u_hi": 0.35}
+BFUNC2 = {"type": "constant", "u_lo": 0.35, "u_hi": 0.6}
+BFUNC3 = {"type": "constant", "u_lo": 0.6, "u_hi": 0.7}
+BFUNC4 = {"type": "constant", "u_lo": 0.7, "u_hi": 0.9}
+BFUNC5 = {"type": "constant", "u_lo": 0.9, "u_hi": 1.0}
 
-BASIS_FUNCS = [bern_bas_1, bern_bas_2, bern_bas_3, bern_bas_4, bern_bas_5]
+BASIS_FUNCS = [BFUNC1, BFUNC2, BFUNC3, BFUNC4, BFUNC5]
 
 
 def test_paper_late():
