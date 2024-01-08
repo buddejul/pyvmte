@@ -38,7 +38,7 @@ def identification(
 
     lp_inputs = {}
 
-    lp_inputs["c"] = _compute_choice_weights(target, basis_funcs)
+    lp_inputs["c"] = _compute_choice_weights(target, basis_funcs, instrument=instrument)
     lp_inputs["b_eq"] = _compute_identified_estimands(
         identified_estimands, m0_dgp, m1_dgp, u_partition, instrument
     )
@@ -88,7 +88,7 @@ def _compute_estimand(estimand, m0, m1, u_part=None, instrument=None):
     return a + b
 
 
-def _compute_choice_weights(target, basis_funcs):
+def _compute_choice_weights(target, basis_funcs, instrument=None):
     """Compute weights on the choice variables."""
     c = []
 
@@ -98,6 +98,7 @@ def _compute_choice_weights(target, basis_funcs):
                 md=basis_func,
                 estimand_dict=target,
                 d=d,
+                instrument=instrument,
             )
             c.append(weight)
 

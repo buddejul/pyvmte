@@ -42,7 +42,8 @@ def gamma_star(
         support_z = instrument.get("support_z")
 
     if estimand == "late":
-        return integrate.quad(lambda u: md(u) * s_late(d, u, u_lo, u_hi), u_lo, u_hi)[0]
+        # breakpoint()
+        return integrate.quad(lambda u: md(u) * s_late(d, u, u_lo, u_hi), 0, 1)[0]
 
     # Do integration manually via scipy integrate
     if analyt_int == False:
@@ -279,6 +280,24 @@ def load_paper_dgp():
     out["ols_slope"] = 0.253
     out["late_35_90"] = 0.046
     out["iv_slope"] = 0.074
+    out["u_partition"] = [0, 0.35, 0.6, 0.7, 0.9, 1]
+
+    out["joint_pmf_dz"] = {
+        1: {0: 0.175, 1: 0.24, 2: 0.07},
+        0: {0: 0.325, 1: 0.16, 2: 0.03},
+    }
+
+    out["ed"] = np.sum(out["pscore_z"] * out["pdf_z"])
+    out["var_d"] = out["ed"] * (1 - out["ed"])
+    out["ez"] = np.sum(out["support_z"] * out["pdf_z"])
+
+    out["cov_dz"] = np.sum(
+        [
+            out["joint_pmf_dz"][d][z] * (d - out["ed"]) * (z - out["ez"])
+            for d in [0, 1]
+            for z in [0, 1, 2]
+        ]
+    )
 
     return out
 
@@ -314,3 +333,92 @@ def simulate_data_from_paper_dgp(sample_size, rng):
     data["y"] = data["y"].astype(pd.Float64Dtype())
 
     return data
+
+
+def _return_weight_function(
+    estimand, d, pz=None, ed=None, var_d=None, ez=None, cov_dz=None
+):
+    """Return weight function corresponding to equation (6) in the paper."""
+
+    if estimand["type"] == "late":
+        if d == 0:
+            return lambda u: -_weight_late(u, estimand["u_lo"], estimand["u_hi"])
+        else:
+            return lambda u: _weight_late(u, estimand["u_lo"], estimand["u_hi"])
+
+    if estimand["type"] == "ols_slope":
+        if d == 0:
+            return lambda u: -_weight_ols(u, d, pz, ed, var_d)
+        else:
+            return lambda u: _weight_ols(u, d, pz, ed, var_d)
+
+    if estimand["type"] == "iv_slope":
+        if d == 0:
+            return lambda u, z: -_weight_iv_slope(u, d, z, pz, ez, cov_dz)
+        else:
+            return lambda u, z: _weight_iv_slope(u, d, z, pz, ez, cov_dz)
+
+
+def _weight_late(u, u_lo, u_hi):
+    """Weight function for late target."""
+    if u_lo < u < u_hi:
+        return 1 / (u_hi - u_lo)
+    else:
+        return 0
+
+
+def _weight_ols(u, d, pz, ed, var_d):
+    """Weight function for OLS target."""
+    if d == 0:
+        return s_ols_slope(d, ed, var_d) if u > pz else 0
+    else:
+        return s_ols_slope(d, ed, var_d) if u <= pz else 0
+
+
+def _weight_iv_slope(u, d, z, pz, ez, cov_dz):
+    """Weight function for IV slope target."""
+    if d == 0:
+        return s_iv_slope(z, ez, cov_dz) if u > pz else 0
+    else:
+        return s_iv_slope(z, ez, cov_dz) if u <= pz else 0
+
+
+def _compute_constant_spline_weights(
+    estimand,
+    u,
+    d,
+    expectation_d=None,
+    variance_d=None,
+    instrument=None,
+    expectation_z=None,
+    covariance_dz=None,
+):
+    """Compute weights for constant spline basis. We use that for a constant spline
+    basis with the right partition the weights are constant on each interval of the
+    partition.
+
+    We condition on z and compute the weights for each interval of the partition using
+    the law of iterated expectations.
+
+    """
+    if estimand["type"] == "ols_slope":
+        _weight = lambda u, d, pz: _weight_ols(u, d, pz, expectation_d, variance_d)
+        pdf_z = instrument["pdf_z"]
+        pscore_z = instrument["pscore_z"]
+
+        weights_by_z = [_weight(u, d, pz) * pdf_z[i] for i, pz in enumerate(pscore_z)]
+
+    if estimand["type"] == "iv_slope":
+        _weight = lambda u, d, z, pz: _weight_iv_slope(
+            u, d, z, pz, ez=expectation_z, cov_dz=covariance_dz
+        )
+        pdf_z = instrument["pdf_z"]
+        pscore_z = instrument["pscore_z"]
+        support_z = instrument["support_z"]
+
+        weights_by_z = [
+            _weight(u, d, z, pz) * pdf_z[i]
+            for i, (z, pz) in enumerate(zip(support_z, pscore_z))
+        ]
+
+    return np.sum(weights_by_z)
