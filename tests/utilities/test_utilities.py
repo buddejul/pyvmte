@@ -2,7 +2,11 @@ import numpy as np
 import pandas as pd
 import pytest
 from pyvmte.config import TEST_DIR
-from pyvmte.utilities import load_paper_dgp, simulate_data_from_paper_dgp
+from pyvmte.utilities import (
+    load_paper_dgp,
+    simulate_data_from_paper_dgp,
+    _generate_u_partition_from_basis_funcs,
+)
 
 import statsmodels.api as sm
 from statsmodels.sandbox.regression.gmm import IV2SLS
@@ -59,3 +63,39 @@ def test_simulate_data_from_paper_dgp_pscores():
     actual = data.groupby("z")["d"].mean().values
 
     assert actual == pytest.approx(expected, abs=2 / np.sqrt(sample_size))
+
+
+def test_generate_u_partition_from_basis_funcs():
+    expected = [0, 0.35, 0.6, 0.7, 0.9, 1]
+
+    bfunc1 = {
+        "type": "constant",
+        "u_lo": 0,
+        "u_hi": 0.35,
+    }
+    bfunc2 = {
+        "type": "constant",
+        "u_lo": 0.35,
+        "u_hi": 0.6,
+    }
+    bfunc3 = {
+        "type": "constant",
+        "u_lo": 0.6,
+        "u_hi": 0.7,
+    }
+    bfunc4 = {
+        "type": "constant",
+        "u_lo": 0.7,
+        "u_hi": 0.9,
+    }
+    bfunc5 = {
+        "type": "constant",
+        "u_lo": 0.9,
+        "u_hi": 1,
+    }
+
+    basis_funcs = [bfunc1, bfunc2, bfunc3, bfunc4, bfunc5]
+
+    actual = _generate_u_partition_from_basis_funcs(basis_funcs)
+
+    assert actual == pytest.approx(expected)

@@ -430,3 +430,14 @@ def _compute_constant_spline_weights(
             )
 
     return np.sum(weights_by_z)
+
+
+def _generate_u_partition_from_basis_funcs(basis_funcs):
+    """Generate u_partition from basis_funcs dictionaries."""
+
+    u_partition = [0]
+
+    for basis_func in basis_funcs:
+        u_partition.append(basis_func["u_hi"])
+
+    return u_partition

@@ -1,7 +1,7 @@
 """Function for identification."""
 
 import numpy as np
-from pyvmte.utilities import gamma_star
+from pyvmte.utilities import gamma_star, _compute_constant_spline_weights
 
 from scipy.optimize import linprog
 
@@ -22,7 +22,7 @@ def identification(
     Args:
         target (dict): Dictionary containing all information about the target estimand.
         identified_estimands (dict or list of dicts): Dictionary containing all information about the identified estimand(s). List of dicts if multiple identified estimands.
-        basis_funcs (list of functions): A list of basis functions.
+        basis_funcs (dict or list of dicts): Dictionaries describing the basis functions.
         m0_dgp (function): The MTR function for d=0 of the DGP.
         m1_dgp (function): The MTR function for d=1 of the DGP.
         instrument (dict): Dictionary containing all information about the instrument.
@@ -90,6 +90,15 @@ def _compute_estimand(estimand, m0, m1, u_part=None, instrument=None):
 
 def _compute_choice_weights(target, basis_funcs, instrument=None):
     """Compute weights on the choice variables."""
+
+    bfunc_type = basis_funcs[0]["type"]
+
+    if bfunc_type == "constant":
+        u_partition = _generate_u_partition_from_basis_funcs(basis_funcs)
+        return _compute_constant_spline_weights(
+            target=target, basis_funcs=basis_funcs, instrument=instrument
+        )
+
     c = []
 
     for d in [0, 1]:
