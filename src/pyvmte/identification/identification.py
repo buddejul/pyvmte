@@ -1,7 +1,12 @@
 """Function for identification."""
 
 import numpy as np
-from pyvmte.utilities import gamma_star, _compute_constant_spline_weights
+from pyvmte.utilities import (
+    gamma_star,
+    _compute_constant_spline_weights,
+    _generate_u_partition_from_basis_funcs,
+    _generate_partition_midpoints,
+)
 
 from scipy.optimize import linprog
 
@@ -95,21 +100,33 @@ def _compute_choice_weights(target, basis_funcs, instrument=None):
 
     if bfunc_type == "constant":
         u_partition = _generate_u_partition_from_basis_funcs(basis_funcs)
-        return _compute_constant_spline_weights(
-            target=target, basis_funcs=basis_funcs, instrument=instrument
-        )
+        moments = _compute_moments_for_weights(target, instrument)
+        u_evaluation_points = _generate_partition_midpoints(u_partition)
 
-    c = []
+        c = []
+        for d in [0, 1]:
+            for u in u_evaluation_points:
+                weight = _compute_constant_spline_weights(
+                    estimand=target,
+                    u=u,
+                    d=d,
+                    instrument=instrument,
+                    moments=moments,
+                )
+                c.append(weight)
 
-    for d in [0, 1]:
-        for basis_func in basis_funcs:
-            weight = gamma_star(
-                md=basis_func,
-                estimand_dict=target,
-                d=d,
-                instrument=instrument,
-            )
-            c.append(weight)
+    else:
+        c = []
+
+        for d in [0, 1]:
+            for basis_func in basis_funcs:
+                weight = gamma_star(
+                    md=basis_func,
+                    estimand_dict=target,
+                    d=d,
+                    instrument=instrument,
+                )
+                c.append(weight)
 
     return c
 
@@ -149,3 +166,37 @@ def _solve_lp(lp_inputs, max_or_min):
     result = linprog(c, A_eq=A_eq, b_eq=b_eq, bounds=(0, 1))
 
     return result
+
+
+def _compute_moments_for_weights(target, instrument):
+    """Compute relevant moments for computing weights on choice variables given target
+    parameter and binary treatment."""
+    moments = {}
+
+    if target["type"] == "ols_slope":
+        moments["expectation_d"] = _compute_binary_expectation_using_lie(
+            d_pdf_given_z=instrument["pscore_z"],
+            z_pdf=instrument["pdf_z"],
+        )
+        moments["variance_d"] = moments["expectation_d"] * (
+            1 - moments["expectation_d"]
+        )
+
+    if target["type"] == "iv_slope":
+        moments["expectation_z"] = _compute_expectation(
+            support=instrument["support_z"], pdf=instrument["pdf_z"]
+        )
+        moments["covariance_dz"]
+
+    return moments
+
+
+def _compute_binary_expectation_using_lie(d_support, d_pdf_given_z, z_pdf):
+    """Compute expectation of d using the law of iterated expectations."""
+
+    return d_pdf_given_z @ z_pdf
+
+
+def _compute_expectation(support, pdf):
+    """Compute expectation of a discrete random variable."""
+    return support @ pdf

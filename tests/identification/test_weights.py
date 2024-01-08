@@ -14,18 +14,25 @@ INSTRUMENT = {
     "pscore_z": DGP["pscore_z"],
 }
 
+MOMENTS = {
+    "expectation_d": DGP["expectation_d"],
+    "variance_d": DGP["variance_d"],
+    "expectation_z": DGP["expectation_z"],
+    "covariance_dz": DGP["covariance_dz"],
+}
 
-@pytest.mark.xfail
+
 def test_compute_choice_weights_late():
-    expected = [0, -1.81, -1.81, -1.81, 0, 0, 1.81, 1.81, 1.81, 0]
-
     target = {"type": "late", "u_lo": 0.35, "u_hi": 0.9}
 
-    bfunc1 = lambda u: u if u < 0.35 else 0
-    bfunc2 = lambda u: u if 0.35 <= u < 0.6 else 0
-    bfunc3 = lambda u: u if 0.6 <= u < 0.7 else 0
-    bfunc4 = lambda u: u if 0.7 <= u < 0.9 else 0
-    bfunc5 = lambda u: u if u >= 0.9 else 0
+    weight = 1 / (target["u_hi"] - target["u_lo"])
+    expected = [0, -weight, -weight, -weight, 0, 0, weight, weight, weight, 0]
+
+    bfunc1 = {"type": "constant", "u_lo": 0.0, "u_hi": 0.35}
+    bfunc2 = {"type": "constant", "u_lo": 0.35, "u_hi": 0.6}
+    bfunc3 = {"type": "constant", "u_lo": 0.6, "u_hi": 0.7}
+    bfunc4 = {"type": "constant", "u_lo": 0.7, "u_hi": 0.9}
+    bfunc5 = {"type": "constant", "u_lo": 0.9, "u_hi": 1.0}
 
     basis_funcs = [bfunc1, bfunc2, bfunc3, bfunc4, bfunc5]
 
@@ -49,8 +56,7 @@ def test_compute_constant_spline_weights_ols_slope_d0():
             estimand={"type": "ols_slope"},
             u=u,
             d=0,
-            expectation_d=DGP["ed"],
-            variance_d=DGP["var_d"],
+            moments=MOMENTS,
             instrument=INSTRUMENT,
         )
         actual.append(result)
@@ -71,8 +77,7 @@ def test_compute_constant_spline_weights_ols_slope_d1():
             estimand={"type": "ols_slope"},
             u=u,
             d=1,
-            expectation_d=DGP["ed"],
-            variance_d=DGP["var_d"],
+            moments=MOMENTS,
             instrument=INSTRUMENT,
         )
         actual.append(result)
@@ -93,10 +98,7 @@ def test_compute_constant_spline_weights_iv_slope_d0():
             estimand={"type": "iv_slope"},
             u=u,
             d=0,
-            expectation_d=DGP["ed"],
-            variance_d=DGP["var_d"],
-            expectation_z=DGP["ez"],
-            covariance_dz=DGP["cov_dz"],
+            moments=MOMENTS,
             instrument=INSTRUMENT,
         )
         actual.append(result)
@@ -117,10 +119,7 @@ def test_compute_constant_spline_weights_iv_slope_d1():
             estimand={"type": "iv_slope"},
             u=u,
             d=1,
-            expectation_d=DGP["ed"],
-            variance_d=DGP["var_d"],
-            expectation_z=DGP["ez"],
-            covariance_dz=DGP["cov_dz"],
+            moments=MOMENTS,
             instrument=INSTRUMENT,
         )
         actual.append(result)

@@ -287,13 +287,15 @@ def load_paper_dgp():
         0: {0: 0.325, 1: 0.16, 2: 0.03},
     }
 
-    out["ed"] = np.sum(out["pscore_z"] * out["pdf_z"])
-    out["var_d"] = out["ed"] * (1 - out["ed"])
-    out["ez"] = np.sum(out["support_z"] * out["pdf_z"])
+    out["expectation_d"] = np.sum(out["pscore_z"] * out["pdf_z"])
+    out["variance_d"] = out["expectation_d"] * (1 - out["expectation_d"])
+    out["expectation_z"] = np.sum(out["support_z"] * out["pdf_z"])
 
-    out["cov_dz"] = np.sum(
+    out["covariance_dz"] = np.sum(
         [
-            out["joint_pmf_dz"][d][z] * (d - out["ed"]) * (z - out["ez"])
+            out["joint_pmf_dz"][d][z]
+            * (d - out["expectation_d"])
+            * (z - out["expectation_z"])
             for d in [0, 1]
             for z in [0, 1, 2]
         ]
@@ -387,11 +389,8 @@ def _compute_constant_spline_weights(
     estimand,
     u,
     d,
-    expectation_d=None,
-    variance_d=None,
     instrument=None,
-    expectation_z=None,
-    covariance_dz=None,
+    moments=None,
 ):
     """Compute weights for constant spline basis. We use that for a constant spline
     basis with the right partition the weights are constant on each interval of the
@@ -402,6 +401,8 @@ def _compute_constant_spline_weights(
 
     """
     if estimand["type"] == "ols_slope":
+        expectation_d = moments["expectation_d"]
+        variance_d = moments["variance_d"]
         _weight = lambda u, d, pz: _weight_ols(u, d, pz, expectation_d, variance_d)
         pdf_z = instrument["pdf_z"]
         pscore_z = instrument["pscore_z"]
@@ -409,6 +410,8 @@ def _compute_constant_spline_weights(
         weights_by_z = [_weight(u, d, pz) * pdf_z[i] for i, pz in enumerate(pscore_z)]
 
     if estimand["type"] == "iv_slope":
+        expectation_z = moments["expectation_z"]
+        covariance_dz = moments["covariance_dz"]
         _weight = lambda u, d, z, pz: _weight_iv_slope(
             u, d, z, pz, ez=expectation_z, cov_dz=covariance_dz
         )
@@ -441,3 +444,10 @@ def _generate_u_partition_from_basis_funcs(basis_funcs):
         u_partition.append(basis_func["u_hi"])
 
     return u_partition
+
+
+def _generate_partition_midpoints(partition):
+    """Generate midpoints of partition."""
+    return np.array(
+        [(partition[i] + partition[i + 1]) / 2 for i in range(len(partition) - 1)]
+    )

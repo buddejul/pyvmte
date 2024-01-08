@@ -6,6 +6,7 @@ from pyvmte.utilities import (
     load_paper_dgp,
     simulate_data_from_paper_dgp,
     _generate_u_partition_from_basis_funcs,
+    _generate_partition_midpoints,
 )
 
 import statsmodels.api as sm
@@ -97,5 +98,15 @@ def test_generate_u_partition_from_basis_funcs():
     basis_funcs = [bfunc1, bfunc2, bfunc3, bfunc4, bfunc5]
 
     actual = _generate_u_partition_from_basis_funcs(basis_funcs)
+
+    assert actual == pytest.approx(expected)
+
+
+def test_generate_partition_midpoints():
+    partition = [0, 0.2, 0.3, 0.5, 0.7, 1]
+
+    expected = [0.1, 0.25, 0.4, 0.6, 0.85]
+
+    actual = _generate_partition_midpoints(partition)
 
     assert actual == pytest.approx(expected)
