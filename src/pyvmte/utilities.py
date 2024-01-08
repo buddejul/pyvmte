@@ -391,22 +391,30 @@ def _compute_constant_spline_weights(
     the law of iterated expectations.
 
     """
+    # Put data into a dataframe if not already
     if data is not None:
-        data_pscore = data["pscores"]
-        data_d = data["d"]
-        data_z = data["z"]
+        if not isinstance(data, pd.DataFrame):
+            df = pd.DataFrame(data)
 
     if estimand["type"] == "ols_slope":
         if data is None:
-            out = _compute_ols_weight_for_identification()
+            out = _compute_ols_weight_for_identification(
+                u=u, d=d, instrument=instrument, moments=moments
+            )
         else:
-            out = _estimate_ols_weight_for_estimation()
+            out = _estimate_ols_weight_for_estimation(
+                u=u, d=d, data=df, instrument=instrument, moments=moments
+            )
 
     if estimand["type"] == "iv_slope":
         if data is None:
-            out = _compute_iv_slope_weight_for_identification()
+            out = _compute_iv_slope_weight_for_identification(
+                u=u, d=d, instrument=instrument, moments=moments
+            )
         else:
-            out = _estimate_iv_slope_weight_for_estimation()
+            out = _estimate_iv_slope_weight_for_estimation(
+                u=u, d=d, moments=moments, data=df
+            )
 
     if estimand["type"] == "late":
         if d == 1:
@@ -420,9 +428,13 @@ def _compute_constant_spline_weights(
 
     if estimand["type"] == "cross":
         if data is None:
-            out = _compute_cross_weight_for_identification()
+            out = _compute_cross_weight_for_identification(
+                u=u, d=d, instrument=instrument, dz_cross=estimand["dz_cross"]
+            )
         else:
-            out = _estimate_cross_weight_for_estimation()
+            out = _estimate_cross_weight_for_estimation(
+                u=u, d=d, data=df, dz_cross=estimand["dz_cross"]
+            )
 
     return out
 
@@ -519,10 +531,8 @@ def _estimate_iv_slope_weight_for_estimation(u, d, moments, data):
     return np.mean(individual_weights)
 
 
-def _compute_cross_weight_for_identification(u, d, instrument, estimand):
-    _weight = lambda u, d, z, pz: _weight_cross(
-        u, d, z, pz, dz_cross=estimand["dz_cross"]
-    )
+def _compute_cross_weight_for_identification(u, d, instrument, dz_cross):
+    _weight = lambda u, d, z, pz: _weight_cross(u, d, z, pz, dz_cross=dz_cross)
 
     pdf_z = instrument["pdf_z"]
     pscore_z = instrument["pscore_z"]
@@ -536,9 +546,9 @@ def _compute_cross_weight_for_identification(u, d, instrument, estimand):
     return np.sum(weights_by_z)
 
 
-def _estimate_cross_weight_for_estimation(u, d, data, instrument, estimand):
+def _estimate_cross_weight_for_estimation(u, d, data, dz_cross):
     _weight = lambda u, z_data, pz_data, d_data: _weight_cross(
-        u=u, pz=pz_data, z=z_data, d=d, dz_cross=estimand["dz_cross"], d_data=d_data
+        u=u, pz=pz_data, z=z_data, d=d, dz_cross=dz_cross, d_data=d_data
     )
 
     # Apply function _weight to each row of data
