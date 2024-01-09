@@ -228,25 +228,22 @@ def _estimate_weights_estimand(estimand, basis_funcs, z_data, d_data):
     """Estimate the weights on each basis function for a single estimand."""
 
     moments = _estimate_moments_for_weights(estimand, z_data, d_data)
-    instrument = _estimate_instrument_characteristics(z_data, d_data)
 
     data = {"z": z_data, "d": d_data}
     data["pscores"] = _generate_array_of_pscores(z_data, d_data)
 
-    weights = _compute_choice_weights(
-        target=estimand,
-        basis_funcs=basis_funcs,
-        instrument=instrument,
-        moments=moments,
-        data=data,
-    )
+    weights = np.zeros(len(basis_funcs) * 2)
 
-    # Get length of basis_funcs intervals using u_lo and u_hi key
-    lengths = np.array([bfunc["u_hi"] - bfunc["u_lo"] for bfunc in basis_funcs])
-
-    # Multiply weights by lengths to get weights on choice variables
-    # repeating lengths 2x
-    weights = weights * np.tile(lengths, 2)
+    for d_value in [0, 1]:
+        for i, basis_func in enumerate(basis_funcs):
+            idx = i + d_value * len(basis_funcs)
+            weights[idx] = _estimate_gamma_for_basis_funcs(
+                d_value=d_value,
+                estimand=estimand,
+                basis_func=basis_func,
+                data=data,
+                moments=moments,
+            )
 
     return weights
 
@@ -337,11 +334,6 @@ def _second_step_linear_program(
 
     result_upper = _solve_second_step_lp_estimation(lp_second_inputs, "max")
     result_lower = _solve_second_step_lp_estimation(lp_second_inputs, "min")
-
-    if result_upper.success == False or result_lower.success == False:
-        raise ValueError(
-            f"Failed to solve linear program: upper {result_upper.success}, lower {result_lower.success}."
-        )
 
     out = {
         "upper_bound": -1 * result_upper.fun,
@@ -456,3 +448,26 @@ def _estimate_instrument_characteristics(z_data, d_data):
     instrument["pdf_z"] = _estimate_instrument_pdf(z_data)
 
     return instrument
+
+
+def _estimate_gamma_for_basis_funcs(d_value, estimand, basis_func, data, moments):
+    """Estimate gamma linear map for basis function (cf.
+
+    S33 in Appendix).
+
+    """
+
+    length = basis_func["u_hi"] - basis_func["u_lo"]
+
+    if estimand["type"] == "ols_slope":
+        coef = (d_value - moments["expectation_d"]) / moments["variance_d"]
+    if estimand["type"] == "iv_slope":
+        coef = (data["z"] - moments["expectation_z"]) / moments["covariance_dz"]
+
+    if d_value == 0:
+        # Create array of 1 if basis_funcs["u_lo"] > data["pscores"] else 0
+        indicators = np.where(basis_func["u_lo"] >= data["pscores"], 1, 0)
+    else:
+        indicators = np.where(basis_func["u_hi"] <= data["pscores"], 1, 0)
+
+    return length * np.mean(coef * indicators)

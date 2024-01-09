@@ -479,21 +479,7 @@ def _estimate_ols_weight_for_estimation(u, d, data, instrument, moments):
     expectation_d = moments["expectation_d"]
     variance_d = moments["variance_d"]
 
-    _weight = lambda u, d_data, pz_data: _weight_ols(
-        u=u,
-        pz=pz_data,
-        d_data=d_data,
-        d=d,
-        ed=expectation_d,
-        var_d=variance_d,
-    )
-
-    # Apply function _weight to each row of data
-    individual_weights = data.apply(
-        lambda row: _weight(u, row["d"], row["pscores"]), axis=1
-    )
-
-    return np.mean(individual_weights)
+    coef = (d - expectation_d) / variance_d
 
 
 def _compute_iv_slope_weight_for_identification(u, d, instrument, moments):
@@ -523,6 +509,7 @@ def _estimate_iv_slope_weight_for_estimation(u, d, moments, data):
         cov_dz=moments["covariance_dz"],
     )
 
+    # TODO rewrite this as vectorized numpy statements
     # Apply function _weight to each row of data
     individual_weights = data.apply(
         lambda row: _weight(u, row["z"], row["pscores"]), axis=1
@@ -551,6 +538,7 @@ def _estimate_cross_weight_for_estimation(u, d, data, dz_cross):
         u=u, pz=pz_data, z=z_data, d=d, dz_cross=dz_cross, d_data=d_data
     )
 
+    # TODO rewrite this as vectorized numpy statements
     # Apply function _weight to each row of data
     individual_weights = data.apply(
         lambda row: _weight(
