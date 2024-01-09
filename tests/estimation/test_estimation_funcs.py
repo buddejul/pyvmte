@@ -125,7 +125,7 @@ def test_compute_first_step_bounds():
     assert actual == expected
 
 
-def test_first_step_linear_program_runs():
+def test_first_step_linear_program_runs_and_non_zero():
     identified_estimands = [
         {
             "type": "iv_slope",
@@ -152,7 +152,7 @@ def test_first_step_linear_program_runs():
         beta_hat=beta_hat,
     )
 
-    assert type(result) is not None
+    assert result["minimal_deviations"] != 0
 
 
 def test_compute_choice_weights_second_step():
@@ -252,7 +252,6 @@ def test_estimate_identified_estimands():
     pass
 
 
-@pytest.mark.xfail
 def test_second_step_linear_program_runs():
     target = {"type": "late", "u_lo": 0.35, "u_hi": 0.9}
     identified_estimands = [
