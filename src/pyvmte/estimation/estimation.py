@@ -463,6 +463,11 @@ def _estimate_gamma_for_basis_funcs(d_value, estimand, basis_func, data, moments
         coef = (d_value - moments["expectation_d"]) / moments["variance_d"]
     if estimand["type"] == "iv_slope":
         coef = (data["z"] - moments["expectation_z"]) / moments["covariance_dz"]
+    if estimand["type"] == "cross":
+        # TODO make specification of cross estimands safer
+        d_cross = estimand["dz_cross"][0]
+        z_cross = estimand["dz_cross"][1]
+        coef = np.where(d_value == d_cross, data["z"] == z_cross, 0)
 
     if d_value == 0:
         # Create array of 1 if basis_funcs["u_lo"] > data["pscores"] else 0

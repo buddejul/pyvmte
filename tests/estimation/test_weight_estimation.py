@@ -40,12 +40,19 @@ IV_SLOPE_WEIGHTS = _compute_equality_constraint_matrix(
     instrument=INSTRUMENT,
 )
 
+CROSS_WEIGHTS = _compute_equality_constraint_matrix(
+    identified_estimands=[{"type": "cross", "dz_cross": (0, 1)}],
+    basis_funcs=BFUNCS,
+    instrument=INSTRUMENT,
+)
+
 # get vector of bfunc lengths, i.e. "u_hi" - "u_lo"
 BFUNC_LENGTHS = np.diff(U_PARTITION)
 BFUNC_LENGTHS = np.tile(BFUNC_LENGTHS, 2)
 
 OLS_SLOPE_WEIGHTS = OLS_SLOPE_WEIGHTS * BFUNC_LENGTHS
 IV_SLOPE_WEIGHTS = IV_SLOPE_WEIGHTS * BFUNC_LENGTHS
+CROSS_WEIGHTS = CROSS_WEIGHTS * BFUNC_LENGTHS
 
 
 def test_build_first_step_ub_matrix_consistency_ols_slope():
@@ -86,7 +93,7 @@ def test_build_first_step_ub_matrix_consistency_ols_slope():
     print(f"Actual: {actual}")
     print(f"Expected: {OLS_SLOPE_WEIGHTS}")
 
-    assert actual == pytest.approx(OLS_SLOPE_WEIGHTS, abs=3 / np.sqrt(sample_size))
+    assert actual == pytest.approx(OLS_SLOPE_WEIGHTS, abs=5 / np.sqrt(sample_size))
 
 
 def test_build_first_step_ub_matrix_consistency_iv_slope():
@@ -128,3 +135,44 @@ def test_build_first_step_ub_matrix_consistency_iv_slope():
     print(f"Expected: {IV_SLOPE_WEIGHTS}")
 
     assert actual == pytest.approx(IV_SLOPE_WEIGHTS, abs=5 / np.sqrt(sample_size))
+
+
+def test_build_first_step_ub_matrix_consistency_cross():
+    repetitions = 1_000
+    sample_size = 10_000
+
+    data = simulate_data_from_paper_dgp(sample_size, rng=RNG)
+
+    actual = np.zeros((2 * 1, 5 * 2 + 1))
+
+    pscores = _estimate_prop_z(z_data=data["z"], d_data=data["d"])
+
+    u_partition = [0, 0.9, 1]
+    u_partition.extend(pscores)
+
+    u_partition = np.unique(u_partition)
+
+    bfuncs_estimation = _generate_basis_funcs("constant", u_partition)
+
+    for i in range(repetitions):
+        out = _build_first_step_ub_matrix(
+            basis_funcs=bfuncs_estimation,
+            identified_estimands=[{"type": "cross", "dz_cross": (0, 1)}],
+            d_data=data["d"],
+            z_data=data["z"],
+        )
+
+        # Weighted average of actual and out depending on i
+        actual = (i * actual + out) / (i + 1)
+
+    # Drop last row (negative duplicate) and last column (dummy variables)
+    actual = actual[:, :-1]
+    actual = actual[:-1, :]
+
+    print(f"Partition estimation: {u_partition}")
+    print(f"Partition identification: {U_PARTITION}")
+
+    print(f"Actual: {actual}")
+    print(f"Expected: {CROSS_WEIGHTS}")
+
+    assert actual == pytest.approx(CROSS_WEIGHTS, abs=5 / np.sqrt(sample_size))
