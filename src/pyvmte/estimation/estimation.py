@@ -166,7 +166,7 @@ def _estimate_instrument_pdf(z_data):
     return np.array(pdf_z)
 
 
-def _compute_u_partition(target, pscore_z, identified_estimands=None, tol=0.01):
+def _compute_u_partition(target, pscore_z, identified_estimands=None, tol=None):
     """Compute the partition of u based on identified, target estimands, and pscore of
     z."""
     knots = [0, 1]
@@ -180,24 +180,27 @@ def _compute_u_partition(target, pscore_z, identified_estimands=None, tol=0.01):
 
     knots = np.unique(knots)
 
-    # If difference between two knots is smaller than tol, remove one of them
-    # initialize the result with the first element
-    result = [knots[0]]
+    if tol is not None:
+        # If difference between two knots is smaller than tol, remove one of them
+        # initialize the result with the first element
+        result = [knots[0]]
 
-    # iterate over the rest of the knots
-    for x in knots[1:]:
-        # if the difference between x and the last added element is greater than 0.1
-        if x - result[-1] > tol:
-            # add x to the result
-            result.append(x)
+        # iterate over the rest of the knots
+        for x in knots[1:]:
+            # if the difference between x and the last added element is greater than 0.1
+            if x - result[-1] > tol:
+                # add x to the result
+                result.append(x)
 
-    # If result does not contain 1 replace last element by 1
-    if result[-1] != 1:
-        result[-1] = 1
+        # If result does not contain 1 replace last element by 1
+        if result[-1] != 1:
+            result[-1] = 1
 
-    # convert result back to a numpy array
-    result = np.array(result)
+        # convert result back to a numpy array
+        result = np.array(result)
 
+    else:
+        result = knots
     return result
 
 

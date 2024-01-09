@@ -4,6 +4,7 @@ import numpy as np
 
 from pyvmte.estimation.estimation import estimation
 from pyvmte.utilities import simulate_data_from_paper_dgp
+from pyvmte.estimation.estimation import _estimate_prop_z
 
 
 def monte_carlo_pyvmte(
@@ -26,6 +27,7 @@ def monte_carlo_pyvmte(
         second_step_lp_inputs = []
         u_partitions = []
         scipy_return_first_step = []
+        pscores = []
 
     for rep in range(repetitions):
         data = simulate_data_from_paper_dgp(sample_size=sample_size, rng=rng)
@@ -54,6 +56,7 @@ def monte_carlo_pyvmte(
             second_step_lp_inputs.append(results["inputs_second_step"])
             u_partitions.append(results["u_partition"])
             scipy_return_first_step.append(results["scipy_return_first_step"])
+            pscores.append(_estimate_prop_z(z_data, d_data))
 
     if lp_outputs is True:
         out = {
@@ -64,6 +67,7 @@ def monte_carlo_pyvmte(
             "second_step_lp_input": second_step_lp_inputs,
             "u_partition": u_partitions,
             "scipy_return_first_step": scipy_return_first_step,
+            "pscore": pscores,
         }
     else:
         out = {

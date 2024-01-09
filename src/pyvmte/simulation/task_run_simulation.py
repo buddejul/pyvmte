@@ -14,7 +14,7 @@ def task_run_monte_carlo_simulation(
     ols_slope_target = {"type": "ols_slope"}
     identified_estimands = [iv_slope_target, ols_slope_target]
 
-    sample_size = 10_000
+    sample_size = 100_000
     repetitions = 1_000
 
     tolerance = 1 / sample_size
