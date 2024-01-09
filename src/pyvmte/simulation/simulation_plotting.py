@@ -7,8 +7,8 @@ import plotly.io as pio
 def plot_upper_and_lower_bounds(results):
     """Returns plot of upper and lower bounds histograms."""
 
-    upper_bounds = results["upper_bounds"]
-    lower_bounds = results["lower_bounds"]
+    upper_bounds = results["upper_bound"]
+    lower_bounds = results["lower_bound"]
 
     fig = go.Figure()
     fig.add_trace(go.Histogram(x=upper_bounds, name="Upper Bounds"))
@@ -18,8 +18,6 @@ def plot_upper_and_lower_bounds(results):
         title_text="Upper and Lower Bounds",
         xaxis_title_text="Bounds",
         yaxis_title_text="Frequency",
-        bargap=0.2,
-        bargroupgap=0.1,
     )
 
     return fig

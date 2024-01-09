@@ -9,6 +9,7 @@ dependencies:
   - pip >=21.1
   - plotly>=5.13.0
   - pre-commit
+  - pygraphviz
   - pytask-latex>=0.4.0
   - pytask-parallel>=0.4.0
   - pytask>=0.4.0

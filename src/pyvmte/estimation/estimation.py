@@ -166,7 +166,7 @@ def _estimate_instrument_pdf(z_data):
     return np.array(pdf_z)
 
 
-def _compute_u_partition(target, pscore_z, identified_estimands=None):
+def _compute_u_partition(target, pscore_z, identified_estimands=None, tol=0.01):
     """Compute the partition of u based on identified, target estimands, and pscore of
     z."""
     knots = [0, 1]
@@ -178,7 +178,27 @@ def _compute_u_partition(target, pscore_z, identified_estimands=None):
     # Add p_score to list
     knots.extend(pscore_z)
 
-    return np.unique(knots)
+    knots = np.unique(knots)
+
+    # If difference between two knots is smaller than tol, remove one of them
+    # initialize the result with the first element
+    result = [knots[0]]
+
+    # iterate over the rest of the knots
+    for x in knots[1:]:
+        # if the difference between x and the last added element is greater than 0.1
+        if x - result[-1] > tol:
+            # add x to the result
+            result.append(x)
+
+    # If result does not contain 1 replace last element by 1
+    if result[-1] != 1:
+        result[-1] = 1
+
+    # convert result back to a numpy array
+    result = np.array(result)
+
+    return result
 
 
 def _generate_basis_funcs(basis_func_type, u_partition):
@@ -198,7 +218,7 @@ def _estimate_identified_estimands(identified_estimands, y_data, z_data, d_data)
     for estimand in identified_estimands:
         result = _estimate_estimand(estimand, y_data, z_data, d_data)
         list_of_estimands.append(result)
-    return list_of_estimands
+    return np.array(list_of_estimands)
 
 
 def _estimate_estimand(estimand, y_data, z_data, d_data):
@@ -351,6 +371,10 @@ def _compute_choice_weights_second_step(target, basis_funcs, identified_estimand
 
     upper_part = _compute_choice_weights(target, basis_funcs=basis_funcs)
     upper_part = np.array(upper_part)
+
+    # Analytical result for constant splines
+    lengths = np.array([bfunc["u_hi"] - bfunc["u_lo"] for bfunc in basis_funcs])
+    upper_part = upper_part * np.tile(lengths, 2)
 
     lower_part = np.zeros(len(identified_estimands))
     return np.append(upper_part, lower_part)

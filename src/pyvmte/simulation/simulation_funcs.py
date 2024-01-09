@@ -57,12 +57,12 @@ def monte_carlo_pyvmte(
 
     if lp_outputs is True:
         out = {
-            "upper_bounds": upper_bounds,
-            "lower_bounds": lower_bounds,
-            "minimal_deviations": minimal_deviations,
-            "first_step_lp_inputs": first_step_lp_inputs,
-            "second_step_lp_inputs": second_step_lp_inputs,
-            "u_partitions": u_partitions,
+            "upper_bound": upper_bounds,
+            "lower_bound": lower_bounds,
+            "minimal_deviation": minimal_deviations,
+            "first_step_lp_input": first_step_lp_inputs,
+            "second_step_lp_input": second_step_lp_inputs,
+            "u_partition": u_partitions,
             "scipy_return_first_step": scipy_return_first_step,
         }
     else:

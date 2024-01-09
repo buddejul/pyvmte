@@ -5,7 +5,8 @@ import pytask
 from pytask_latex import compilation_steps as cs
 from pyvmte.config import BLD, PAPER_DIR
 
-documents = ["pyvmte", "pyvmte_pres"]
+documents = ["pyvmte"]
+# documents = ["pyvmte", "pyvmte_pres"]
 
 for document in documents:
 
