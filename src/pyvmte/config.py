@@ -12,10 +12,33 @@ RNG = np.random.default_rng()
 
 __all__ = ["BLD", "SRC", "TEST_DIR", "GROUPS"]
 
+SETUP_FIG2 = {
+    "target": {"type": "late", "u_lo": 0.35, "u_hi": 0.9},
+    "identified_estimands": {"type": "iv_slope"},
+    "lower_bound": -0.421,
+    "upper_bound": 0.500,
+}
+
 SETUP_FIG3 = {
     "target": {"type": "late", "u_lo": 0.35, "u_hi": 0.9},
     "identified_estimands": [
         {"type": "iv_slope"},
         {"type": "ols_slope"},
     ],
+    "lower_bound": -0.411,
+    "upper_bound": 0.500,
+}
+
+SETUP_FIG5 = {
+    "target": {"type": "late", "u_lo": 0.35, "u_hi": 0.9},
+    "identified_estimands": [
+        {"type": "cross", "dz_cross": (0, 0)},
+        {"type": "cross", "dz_cross": (0, 1)},
+        {"type": "cross", "dz_cross": (0, 2)},
+        {"type": "cross", "dz_cross": (1, 0)},
+        {"type": "cross", "dz_cross": (1, 1)},
+        {"type": "cross", "dz_cross": (1, 2)},
+    ],
+    "lower_bound": -0.138,
+    "upper_bound": 0.407,
 }

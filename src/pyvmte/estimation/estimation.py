@@ -1,7 +1,13 @@
 """Function for estimation."""
 import numpy as np
 from pyvmte.identification.identification import _compute_choice_weights
-from pyvmte.utilities import s_cross, s_iv_slope, s_late, s_ols_slope
+from pyvmte.utilities import (
+    s_cross,
+    s_iv_slope,
+    s_late,
+    s_ols_slope,
+    _check_estimation_arguments,
+)
 
 from scipy.optimize import linprog
 
@@ -36,6 +42,19 @@ def estimation(
         dict: A dictionary containing the estimated upper and lower bound of the target estimand.
 
     """
+    # Get all arguments in a dictionary
+    _check_estimation_arguments(
+        target,
+        identified_estimands,
+        basis_func_type,
+        y_data,
+        z_data,
+        d_data,
+        tolerance,
+        x_data,
+        u_partition,
+    )
+
     if isinstance(identified_estimands, dict):
         identified_estimands = [identified_estimands]
 
@@ -226,7 +245,6 @@ def _estimate_identified_estimands(identified_estimands, y_data, z_data, d_data)
 
 def _estimate_estimand(estimand, y_data, z_data, d_data):
     """Estimate single identified estimand based on data."""
-
     if estimand["type"] == "late":
         pass
         # sfunc = lambda u: s_late(u, estimand["u_lo"], estimand["u_hi"])

@@ -548,3 +548,43 @@ def _estimate_cross_weight_for_estimation(u, d, data, dz_cross):
     )
 
     return np.mean(individual_weights)
+
+
+def _check_estimation_arguments(
+    target,
+    identified_estimands,
+    basis_func_type,
+    y_data,
+    z_data,
+    d_data,
+    tolerance,
+    x_data,
+    u_partition,
+):
+    """Check arguments provided to estimation function.
+
+    If there are errors, returns a comprehensive error report for all arguments.
+
+    """
+
+    error_report = ""
+
+    data_dict = {
+        "y_data": y_data,
+        "z_data": z_data,
+        "d_data": d_data,
+    }
+
+    # Check that all data arguments are numpy arrays
+    for key, value in data_dict.items():
+        if not isinstance(value, np.ndarray):
+            error_report += f"Argument {key} is not a numpy array.\n"
+
+    if error_report != "":
+        raise EstimationArgumentError(error_report)
+
+
+class EstimationArgumentError(Exception):
+    """Raised when arguments to estimation function are not valid."""
+
+    pass

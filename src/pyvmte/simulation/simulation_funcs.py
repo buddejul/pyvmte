@@ -32,9 +32,9 @@ def monte_carlo_pyvmte(
     for rep in range(repetitions):
         data = simulate_data_from_paper_dgp(sample_size=sample_size, rng=rng)
 
-        y_data = data["y"]
-        z_data = data["z"]
-        d_data = data["d"]
+        y_data = np.array(data["y"])
+        z_data = np.array(data["z"])
+        d_data = np.array(data["d"])
 
         results = estimation(
             target,
