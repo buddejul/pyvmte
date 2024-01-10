@@ -24,19 +24,19 @@ ID_TO_KWARGS = {
         sample_size=10_000,
         repetitions=100,
         setup=SETUP_FIG2,
-        path_to_data=Path("sim_results_figure2.pkl"),
+        path_to_data=BLD / "python" / "data" / Path("sim_results_figure2.pkl"),
     ),
     "figure3": _Arguments(
         sample_size=10_000,
         repetitions=100,
         setup=SETUP_FIG3,
-        path_to_data=Path("sim_results_figure3.pkl"),
+        path_to_data=BLD / "python" / "data" / Path("sim_results_figure3.pkl"),
     ),
     "figure5": _Arguments(
         sample_size=10_000,
         repetitions=100,
         setup=SETUP_FIG5,
-        path_to_data=Path("sim_results_figure5.pkl"),
+        path_to_data=BLD / "python" / "data" / Path("sim_results_figure5.pkl"),
     ),
 }
 
