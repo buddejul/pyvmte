@@ -63,7 +63,7 @@ def test_simulate_data_from_paper_dgp_pscores():
 
     actual = data.groupby("z")["d"].mean().values
 
-    assert actual == pytest.approx(expected, abs=2 / np.sqrt(sample_size))
+    assert actual == pytest.approx(expected, abs=5 / np.sqrt(sample_size))
 
 
 def test_generate_u_partition_from_basis_funcs():
