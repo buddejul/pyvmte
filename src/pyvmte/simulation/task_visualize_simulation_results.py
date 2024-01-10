@@ -68,9 +68,11 @@ for id_, kwargs in ID_TO_KWARGS_TABLE.items():
     ) -> None:
         df = pd.read_pickle(path_to_data)
 
-        df["left_mode"] = np.where(df["lower_bound"] < -0.6, 1, 0)
+        # .describe() and to_latex but only for mean, std, min, max
+        df = df.describe().T[["mean", "std", "min", "max"]]
+        df = df.round(3)
 
-        table = df.groupby("left_mode").describe().T.to_latex()
+        table = df.to_latex()
 
         with open(path_to_output, "w") as f:
             f.write(table.replace("%", "\\%").replace("_", "\\_"))

@@ -42,3 +42,14 @@ SETUP_FIG5 = {
     "lower_bound": -0.138,
     "upper_bound": 0.407,
 }
+
+
+SETUP_MONTE_CARLO = {
+    "sample_size": 10_000,
+    "repetitions": 10_000,
+}
+
+SETUP_MONTE_CARLO_BY_TARGET = {
+    "sample_size": 100,
+    "repetitions": 100,
+}

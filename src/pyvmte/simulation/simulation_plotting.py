@@ -11,8 +11,16 @@ def plot_upper_and_lower_bounds(results):
     lower_bounds = results["lower_bound"]
 
     fig = go.Figure()
-    fig.add_trace(go.Histogram(x=upper_bounds, name="Upper Bounds"))
-    fig.add_trace(go.Histogram(x=lower_bounds, name="Lower Bounds"))
+    fig.add_trace(
+        go.Histogram(
+            x=upper_bounds, histnorm="probability", name="Upper Bounds", nbinsx=20
+        )
+    )
+    fig.add_trace(
+        go.Histogram(
+            x=lower_bounds, histnorm="probability", name="Lower Bounds", nbinsx=20
+        )
+    )
 
     fig.update_layout(
         title_text="Upper and Lower Bounds",
