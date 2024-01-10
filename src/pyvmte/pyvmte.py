@@ -1,8 +1,7 @@
 """The main interface of the pyvmte package."""
 
-from pyvmte.processing import process_pyvmte_inputs
-from estimation.estimation import estimation
-from identification.identification import identification
+from pyvmte.estimation.estimation import estimation
+from pyvmte.identification.identification import identification
 
 
 def pyvmte(

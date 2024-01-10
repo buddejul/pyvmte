@@ -9,7 +9,7 @@ from pyvmte.simulation.simulation_funcs import monte_carlo_pyvmte
 
 from pyvmte.config import RNG
 
-import pandas as pd
+import pandas as pd  # type: ignore
 
 
 class _Arguments(NamedTuple):
@@ -42,7 +42,7 @@ ID_TO_KWARGS = {
 
 for id_, kwargs in ID_TO_KWARGS.items():
 
-    @task(id=id_, kwargs=kwargs)
+    @task(id=id_, kwargs=kwargs)  # type: ignore
     def task_run_monte_carlo_simulation(
         sample_size: int,
         repetitions: int,

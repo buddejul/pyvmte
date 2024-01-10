@@ -8,7 +8,7 @@ from pyvmte.utilities import (
     _generate_partition_midpoints,
 )
 
-from scipy.optimize import linprog
+from scipy.optimize import linprog  # type: ignore
 
 
 def identification(

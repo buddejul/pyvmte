@@ -1,7 +1,7 @@
 """Functions for plotting results of monte carlo simulations."""
 
-import plotly.graph_objects as go
-import plotly.io as pio
+import plotly.graph_objects as go  # type: ignore
+import plotly.io as pio  # type: ignore
 
 
 def plot_upper_and_lower_bounds(results):

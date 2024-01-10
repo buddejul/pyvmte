@@ -2,8 +2,8 @@
 
 import math
 import numpy as np
-import pandas as pd
-from scipy import integrate
+import pandas as pd  # type: ignore
+from scipy import integrate  # type: ignore
 
 
 def gamma_star(

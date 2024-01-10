@@ -6,9 +6,9 @@ from pathlib import Path
 from pytask import Product
 from pytask import task
 
-import pandas as pd
+import pandas as pd  # type: ignore
 import numpy as np
-import plotly.io as pio
+import plotly.io as pio  # type: ignore
 
 
 class _Arguments(NamedTuple):
@@ -48,7 +48,7 @@ ID_TO_KWARGS_TABLE = {
 
 for id_, kwargs in ID_TO_KWARGS_PLOT.items():
 
-    @task(id=id_, kwargs=kwargs)
+    @task(id=id_, kwargs=kwargs)  # type: ignore
     def task_plot_monte_carlo_upper_lower_bound(
         path_to_data: Path,
         path_to_output: Annotated[Path, Product],
@@ -61,7 +61,7 @@ for id_, kwargs in ID_TO_KWARGS_PLOT.items():
 
 for id_, kwargs in ID_TO_KWARGS_TABLE.items():
 
-    @task(id=id_, kwargs=kwargs)
+    @task(id=id_, kwargs=kwargs)  # type: ignore
     def task_create_table_by_mode(
         path_to_data: Path,
         path_to_output: Annotated[Path, Product],

@@ -9,7 +9,7 @@ from pyvmte.utilities import (
     _check_estimation_arguments,
 )
 
-from scipy.optimize import linprog
+from scipy.optimize import linprog  # type: ignore
 
 
 def estimation(

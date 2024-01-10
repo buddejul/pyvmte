@@ -1,5 +1,5 @@
 import numpy as np
-import pandas as pd
+import pandas as pd  # type: ignore
 import pytest
 from pyvmte.config import TEST_DIR
 from pyvmte.identification.identification import _compute_estimand, identification

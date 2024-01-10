@@ -1,16 +1,16 @@
 import numpy as np
-import pandas as pd
+import pandas as pd  # type: ignore
 import pytest
 from pyvmte.config import TEST_DIR
 
 from pyvmte.estimation.estimation import _estimate_estimand
 
-import statsmodels.api as sm
+import statsmodels.api as sm  # type: ignore
 
 from itertools import product
 
 # Import IV2SLS from statsmodels sandbox
-from statsmodels.sandbox.regression.gmm import IV2SLS
+from statsmodels.sandbox.regression.gmm import IV2SLS  # type: ignore
 
 RNG = np.random.default_rng(158192581)
 

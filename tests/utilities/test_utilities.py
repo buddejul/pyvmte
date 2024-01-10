@@ -1,5 +1,5 @@
 import numpy as np
-import pandas as pd
+import pandas as pd  # type: ignore
 import pytest
 from pyvmte.config import TEST_DIR
 from pyvmte.utilities import (
@@ -9,8 +9,8 @@ from pyvmte.utilities import (
     _generate_partition_midpoints,
 )
 
-import statsmodels.api as sm
-from statsmodels.sandbox.regression.gmm import IV2SLS
+import statsmodels.api as sm  # type: ignore
+from statsmodels.sandbox.regression.gmm import IV2SLS  # type: ignore
 
 DGP = load_paper_dgp()
 RNG = np.random.default_rng(9156781)
