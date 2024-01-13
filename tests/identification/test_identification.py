@@ -45,7 +45,7 @@ def test_paper_late():
         instrument=INSTRUMENT,
     )
 
-    np.isclose(actual, expected, atol=1e-4)
+    assert actual == pytest.approx(expected, abs=1e-4)
 
 
 def test_paper_ols_slope():
@@ -59,7 +59,7 @@ def test_paper_ols_slope():
         estimand=target_estimand, m0=DGP["m0"], m1=DGP["m1"], instrument=INSTRUMENT
     )
 
-    np.isclose(actual, expected, atol=1e-4)
+    assert actual == pytest.approx(expected, abs=1e-4)
 
 
 def test_paper_iv_slope():
@@ -71,7 +71,7 @@ def test_paper_iv_slope():
         estimand=target_estimand, m0=DGP["m0"], m1=DGP["m1"], instrument=INSTRUMENT
     )
 
-    np.isclose(actual, expected, atol=1e-4)
+    assert actual == pytest.approx(expected, abs=1e-3)
 
 
 def test_paper_late_ols_iv():
@@ -104,8 +104,7 @@ def test_paper_late_ols_iv():
         _compute(estimand) for estimand in [estimand_late, estimand_ols, estimand_iv]
     ]
 
-    # Check that all values are close to expected in one statement
-    np.allclose(actual, expected, atol=1e-4)
+    assert actual == pytest.approx(expected, abs=1e-3)
 
 
 def test_paper_figure2_bounds():
@@ -132,7 +131,8 @@ def test_paper_figure2_bounds():
         analytical_integration=False,
     )
 
-    np.isclose(list(actual.values()), expected, atol=1e-4)
+    actual = [actual["lower_bound"], actual["upper_bound"]]
+    assert actual == pytest.approx(expected, abs=1e-3)
 
 
 def test_paper_figure3_bounds():
@@ -163,7 +163,8 @@ def test_paper_figure3_bounds():
         analytical_integration=False,
     )
 
-    np.isclose(list(actual.values()), expected, atol=1e-4)
+    actual = [actual["lower_bound"], actual["upper_bound"]]
+    assert actual == pytest.approx(expected, abs=1e-3)
 
 
 def test_paper_figure5_bounds():
@@ -180,8 +181,7 @@ def test_paper_figure5_bounds():
     cross_estimands = [
         {"type": "cross", "dz_cross": list(comb)} for comb in combinations
     ]
-
-    actual = identification(
+    bounds = identification(
         target=target_estimand,
         identified_estimands=cross_estimands,
         basis_funcs=BASIS_FUNCS,
@@ -192,4 +192,6 @@ def test_paper_figure5_bounds():
         analytical_integration=False,
     )
 
-    np.isclose(list(actual.values()), expected, atol=1e-4)
+    actual = [bounds["lower_bound"], bounds["upper_bound"]]
+
+    assert actual == pytest.approx(expected, abs=1e-3)
