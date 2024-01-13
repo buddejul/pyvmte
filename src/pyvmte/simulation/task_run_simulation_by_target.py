@@ -63,4 +63,6 @@ for u_hi_target in np.arange(0.35, 1, 0.025):
         }
         df = pd.DataFrame(bounds)
 
+        # TODO @buddejul Store simulation setting alongside results or in separate object
+
         df.to_pickle(path_to_data)
