@@ -377,8 +377,8 @@ def _weight_cross(u, d, z, pz, dz_cross, d_data=None):
 
 def _compute_constant_spline_weights(
     estimand,
-    u,
     d,
+    bfunc,
     instrument=None,
     moments=None,
     data=None,
@@ -391,6 +391,9 @@ def _compute_constant_spline_weights(
     the law of iterated expectations.
 
     """
+    # TODO change this, do not actually need u here I think
+    u = (bfunc["u_lo"] + bfunc["u_hi"]) / 2
+
     # Put data into a dataframe if not already
     if data is not None:
         if not isinstance(data, pd.DataFrame):
@@ -435,6 +438,9 @@ def _compute_constant_spline_weights(
             out = _estimate_cross_weight_for_estimation(
                 u=u, d=d, data=df, dz_cross=estimand["dz_cross"]
             )
+
+    # Scale by length of interval
+    out = out * (bfunc["u_hi"] - bfunc["u_lo"])
 
     return out
 

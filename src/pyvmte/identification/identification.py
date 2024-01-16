@@ -108,10 +108,10 @@ def _compute_choice_weights(
 
         c = []
         for d in [0, 1]:
-            for u in u_evaluation_points:
+            for bfunc in basis_funcs:
                 weight = _compute_constant_spline_weights(
                     estimand=target,
-                    u=u,
+                    bfuncs=bfunc,
                     d=d,
                     instrument=instrument,
                     moments=moments,
@@ -131,6 +131,8 @@ def _compute_choice_weights(
                     instrument=instrument,
                 )
                 c.append(weight)
+
+    # TODO scale by length of basis function
 
     return c
 
