@@ -111,7 +111,7 @@ def _compute_choice_weights(
             for bfunc in basis_funcs:
                 weight = _compute_constant_spline_weights(
                     estimand=target,
-                    bfuncs=bfunc,
+                    basis_function=bfunc,
                     d=d,
                     instrument=instrument,
                     moments=moments,

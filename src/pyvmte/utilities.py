@@ -378,7 +378,7 @@ def _weight_cross(u, d, z, pz, dz_cross, d_data=None):
 def _compute_constant_spline_weights(
     estimand,
     d,
-    bfunc,
+    basis_function,
     instrument=None,
     moments=None,
     data=None,
@@ -392,7 +392,7 @@ def _compute_constant_spline_weights(
 
     """
     # TODO change this, do not actually need u here I think
-    u = (bfunc["u_lo"] + bfunc["u_hi"]) / 2
+    u = (basis_function["u_lo"] + basis_function["u_hi"]) / 2
 
     # Put data into a dataframe if not already
     if data is not None:
@@ -440,7 +440,7 @@ def _compute_constant_spline_weights(
             )
 
     # Scale by length of interval
-    out = out * (bfunc["u_hi"] - bfunc["u_lo"])
+    out = out * (basis_function["u_hi"] - basis_function["u_lo"])
 
     return out
 
