@@ -9,7 +9,6 @@ import statsmodels.api as sm  # type: ignore
 
 from itertools import product
 
-# Import IV2SLS from statsmodels sandbox
 from statsmodels.sandbox.regression.gmm import IV2SLS  # type: ignore
 
 RNG = np.random.default_rng(158192581)
