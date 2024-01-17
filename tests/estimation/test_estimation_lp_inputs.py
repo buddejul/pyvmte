@@ -11,6 +11,7 @@ from pyvmte.estimation.estimation import (
     _build_first_step_ub_matrix,
     _compute_u_partition,
     _compute_choice_weights_second_step,
+    _build_second_step_ub_matrix,
 )
 from pyvmte.identification.identification import (
     _compute_equality_constraint_matrix,
@@ -298,5 +299,87 @@ def test_second_step_lp_c_vector_paper_figures(setup):
 
     expected /= REPETITIONS - number_iter_diff_shape
     actual /= REPETITIONS - number_iter_diff_shape
+
+    if number_iter_diff_shape / REPETITIONS > 0.1:
+        raise ValueError("More than 10% of iterations had different shapes.")
+
+    assert actual == pytest.approx(expected, abs=3 / np.sqrt(SAMPLE_SIZE))
+
+
+@pytest.mark.parametrize(
+    "setup",
+    [(SETUP_FIG2), (SETUP_FIG3), (SETUP_FIG5)],
+    ids=["fig2", "fig3", "fig5"],
+)
+def test_second_step_lp_A_ub_matrix_paper_figures(setup):
+    identified_estimands = setup["identified_estimands"]
+    if type(identified_estimands) is not list:
+        identified_estimands = [identified_estimands]
+    target = setup["target"]
+
+    number_bfuncs = (len(BFUNCS) + 1) * 2
+    number_identif_estimands = len(identified_estimands)
+
+    actual = np.zeros(
+        (
+            1 + number_identif_estimands * 2,
+            number_bfuncs + number_identif_estimands,
+        )
+    )
+
+    expected_without_first_row = np.zeros(
+        (
+            number_identif_estimands * 2,
+            number_bfuncs + number_identif_estimands,
+        )
+    )
+
+    number_iter_diff_shape = 0
+
+    for _ in range(REPETITIONS):
+        data = simulate_data_from_paper_dgp(sample_size=SAMPLE_SIZE, rng=RNG)
+
+        pscore_z = _estimate_prop_z(z_data=data["z"], d_data=data["d"])
+        u_partition = _compute_u_partition(
+            target=target, pscore_z=pscore_z, identified_estimands=identified_estimands
+        )
+        basis_funcs = _generate_basis_funcs("constant", u_partition)
+
+        expected_weight = _compute_equality_constraint_matrix(
+            identified_estimands=identified_estimands,
+            basis_funcs=basis_funcs,
+            instrument=INSTRUMENT,
+        )
+
+        expected_second_row_block = np.hstack(
+            (expected_weight, -np.eye(number_identif_estimands))
+        )
+        expected_third_row_block = np.hstack(
+            (-expected_weight, -np.eye(number_identif_estimands))
+        )
+
+        expected_add = np.vstack((expected_second_row_block, expected_third_row_block))
+
+        actual_A_ub = _build_second_step_ub_matrix(
+            basis_funcs=basis_funcs,
+            identified_estimands=identified_estimands,
+            z_data=data["z"],
+            d_data=data["d"],
+        )
+
+        if actual.shape == actual_A_ub.shape:
+            actual += actual_A_ub
+            expected_without_first_row += expected_add
+        else:
+            number_iter_diff_shape += 1
+
+    expected_without_first_row /= REPETITIONS - number_iter_diff_shape
+    actual /= REPETITIONS - number_iter_diff_shape
+
+    if number_iter_diff_shape / REPETITIONS > 0.1:
+        raise ValueError("More than 10% of iterations had different shapes.")
+
+    first_row = np.hstack((np.zeros(number_bfuncs), np.ones(number_identif_estimands)))
+    expected = np.vstack((first_row, expected_without_first_row))
 
     assert actual == pytest.approx(expected, abs=3 / np.sqrt(SAMPLE_SIZE))
