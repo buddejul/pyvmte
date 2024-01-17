@@ -393,10 +393,6 @@ def _compute_choice_weights_second_step(target, basis_funcs, identified_estimand
     upper_part = _compute_choice_weights(target, basis_funcs=basis_funcs)
     upper_part = np.array(upper_part)
 
-    # Analytical result for constant splines
-    lengths = np.array([bfunc["u_hi"] - bfunc["u_lo"] for bfunc in basis_funcs])
-    upper_part = upper_part * np.tile(lengths, 2)
-
     lower_part = np.zeros(len(identified_estimands))
     return np.append(upper_part, lower_part)
 
