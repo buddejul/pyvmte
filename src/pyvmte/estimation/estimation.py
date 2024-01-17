@@ -19,7 +19,7 @@ def estimation(
     y_data,
     z_data,
     d_data,
-    tolerance,
+    tolerance=None,
     x_data=None,
     u_partition=None,
 ):
@@ -33,7 +33,8 @@ def estimation(
         y_data (np.array): Array containing the outcome data.
         z_data (np.array): Array containing the instrument data.
         d_data (np.array): Array containing the treatment data.
-        tolerance (float): Tolerance for the second-step linear program.
+        tolerance (float, optional): Tolerance for the second-step linear program.
+        The default is 1 / sample_size.
         x_data (np.array, optional): Array containing the covariate data.
         u_partition (list or np.array, optional): Partition of u for basis_funcs. Defaults to None.
         analytical_integration (bool, optional): Whether to use analytical integration. Defaults to False.
@@ -57,6 +58,9 @@ def estimation(
 
     if isinstance(identified_estimands, dict):
         identified_estimands = [identified_estimands]
+
+    if tolerance is None:
+        tolerance = 1 / len(y_data)
 
     instrument = _estimate_instrument_characteristics(z_data, d_data)
     u_partition = _compute_u_partition(
