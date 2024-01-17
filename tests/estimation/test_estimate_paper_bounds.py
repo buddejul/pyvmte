@@ -16,7 +16,7 @@ RNG = np.random.default_rng(495618721)
 
 
 SAMPLE_SIZE = 10_000
-NUM_SIMULATIONS = 1000
+NUM_SIMULATIONS = 1_000
 
 
 @pytest.mark.parametrize(
@@ -33,7 +33,7 @@ def test_consistently_estimate_figure_bounds(setup):
         target=setup["target"],
         identified_estimands=setup["identified_estimands"],
         basis_func_type="constant",
-        tolerance=1 / np.sqrt(SAMPLE_SIZE),
+        tolerance=1 / SAMPLE_SIZE,
         rng=RNG,
     )
 
@@ -42,4 +42,4 @@ def test_consistently_estimate_figure_bounds(setup):
 
     actual = [mean_lower_bound, mean_upper_bound]
 
-    assert actual == pytest.approx(expected, abs=5 / np.sqrt(SAMPLE_SIZE))
+    assert actual == pytest.approx(expected, abs=3 / np.sqrt(SAMPLE_SIZE))
