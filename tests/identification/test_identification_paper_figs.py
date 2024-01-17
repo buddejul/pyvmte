@@ -28,52 +28,6 @@ BFUNC5 = {"type": "constant", "u_lo": 0.9, "u_hi": 1.0}
 BASIS_FUNCS = [BFUNC1, BFUNC2, BFUNC3, BFUNC4, BFUNC5]
 
 
-def test_paper_late():
-    expected = DGP["late_35_90"]
-
-    target_estimand = {
-        "type": "late",
-        "u_lo": 0.35,
-        "u_hi": 0.9,
-    }
-
-    actual = _compute_estimand(
-        estimand=target_estimand,
-        m0=DGP["m0"],
-        m1=DGP["m1"],
-        u_part=[0.35, 0.9],
-        instrument=INSTRUMENT,
-    )
-
-    assert actual == pytest.approx(expected, abs=1e-4)
-
-
-def test_paper_ols_slope():
-    expected = DGP["ols_slope"]
-
-    target_estimand = {
-        "type": "ols_slope",
-    }
-
-    actual = _compute_estimand(
-        estimand=target_estimand, m0=DGP["m0"], m1=DGP["m1"], instrument=INSTRUMENT
-    )
-
-    assert actual == pytest.approx(expected, abs=1e-4)
-
-
-def test_paper_iv_slope():
-    expected = DGP["iv_slope"]
-
-    target_estimand = {"type": "iv_slope"}
-
-    actual = _compute_estimand(
-        estimand=target_estimand, m0=DGP["m0"], m1=DGP["m1"], instrument=INSTRUMENT
-    )
-
-    assert actual == pytest.approx(expected, abs=1e-3)
-
-
 def test_paper_late_ols_iv():
     expected = [DGP["late_35_90"], DGP["ols_slope"], DGP["iv_slope"]]
 
