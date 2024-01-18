@@ -1,4 +1,7 @@
 """Function for identification."""
+from typing import Callable
+import pandas as pd  # type: ignore
+from scipy.optimize import OptimizeResult  # type: ignore
 
 import numpy as np
 from pyvmte.utilities import (
@@ -57,14 +60,15 @@ def identification(
     return {"upper_bound": upper_bound, "lower_bound": lower_bound}
 
 
-def _get_helper_variables():
-    pass
-
-
 def _compute_identified_estimands(
-    identified_estimands, m0_dgp, m1_dgp, u_part, instrument
-):
+    identified_estimands: list,
+    m0_dgp: Callable,
+    m1_dgp: Callable,
+    u_part: np.ndarray,
+    instrument: dict,
+) -> list:
     """Wrapper for computing identified estimands based on provided dgp."""
+
     out = []
     for estimand in identified_estimands:
         result = _compute_estimand(estimand, m0_dgp, m1_dgp, u_part, instrument)
@@ -73,7 +77,13 @@ def _compute_identified_estimands(
     return out
 
 
-def _compute_estimand(estimand, m0, m1, u_part=None, instrument=None):
+def _compute_estimand(
+    estimand: dict,
+    m0: Callable,
+    m1: Callable,
+    u_part: np.ndarray | None = None,
+    instrument: dict | None = None,
+) -> float:
     """Compute single identified estimand."""
     a = gamma_star(
         md=m0,
@@ -94,17 +104,23 @@ def _compute_estimand(estimand, m0, m1, u_part=None, instrument=None):
 
 
 def _compute_choice_weights(
-    target, basis_funcs, instrument=None, moments=None, data=None
-):
+    target: dict,
+    basis_funcs: dict,
+    instrument: dict | None = None,
+    moments: dict | None = None,
+    data: pd.DataFrame | None = None,
+) -> list:
     """Compute weights on the choice variables."""
 
     bfunc_type = basis_funcs[0]["type"]
 
     if bfunc_type == "constant":
         u_partition = _generate_u_partition_from_basis_funcs(basis_funcs)
-        if moments is None:
+        # TODO improve this/think about separating identification and estimation
+        if moments is None and instrument is not None:
             moments = _compute_moments_for_weights(target, instrument)
-        u_evaluation_points = _generate_partition_midpoints(u_partition)
+        else:
+            raise ValueError("Either instrument or moments must be provided.")
 
         c = []
         for d in [0, 1]:
@@ -118,7 +134,7 @@ def _compute_choice_weights(
                     data=data,
                 )
                 c.append(weight)
-
+    # TODO delete this part for now
     else:
         c = []
 
@@ -137,7 +153,9 @@ def _compute_choice_weights(
     return c
 
 
-def _compute_equality_constraint_matrix(identified_estimands, basis_funcs, instrument):
+def _compute_equality_constraint_matrix(
+    identified_estimands: list, basis_funcs: dict, instrument: dict
+) -> np.ndarray:
     """Compute weight matrix for equality constraints."""
     bfunc_type = basis_funcs[0]["type"]
 
@@ -169,7 +187,7 @@ def _compute_equality_constraint_matrix(identified_estimands, basis_funcs, instr
     return np.array(c_matrix)
 
 
-def _solve_lp(lp_inputs, max_or_min):
+def _solve_lp(lp_inputs: dict, max_or_min: str) -> OptimizeResult:
     """Solve the linear program."""
 
     if max_or_min == "min":
@@ -185,7 +203,7 @@ def _solve_lp(lp_inputs, max_or_min):
     return result
 
 
-def _compute_moments_for_weights(target, instrument):
+def _compute_moments_for_weights(target: dict, instrument: dict) -> dict:
     """Compute relevant moments for computing weights on choice variables given target
     parameter and binary treatment."""
     moments = {}
@@ -212,18 +230,22 @@ def _compute_moments_for_weights(target, instrument):
     return moments
 
 
-def _compute_binary_expectation_using_lie(d_pdf_given_z, z_pdf):
+def _compute_binary_expectation_using_lie(
+    d_pdf_given_z: np.ndarray, z_pdf: np.ndarray
+) -> float:
     """Compute expectation of d using the law of iterated expectations."""
 
     return d_pdf_given_z @ z_pdf
 
 
-def _compute_expectation(support, pdf):
+def _compute_expectation(support: np.ndarray, pdf: np.ndarray) -> float:
     """Compute expectation of a discrete random variable."""
     return support @ pdf
 
 
-def _compute_covariance_dz(support_z, pscore_z, pdf_z):
+def _compute_covariance_dz(
+    support_z: np.ndarray, pscore_z: np.ndarray, pdf_z: np.ndarray
+) -> float:
     """Compute covariance between binary treatment and discrete instrument."""
     ez = support_z @ pdf_z
     ed = pscore_z @ pdf_z

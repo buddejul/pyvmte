@@ -66,13 +66,36 @@ REPETITIONS = 1_000
 
 
 @pytest.mark.parametrize(
-    "setup",
-    [(SETUP_FIG2), (SETUP_FIG3), (SETUP_FIG5)],
-    ids=["fig2", "fig3", "fig5"],
+    "setup,u_hi_target",
+    [
+        (SETUP_FIG2, 0.9),
+        (SETUP_FIG3, 0.9),
+        (SETUP_FIG5, 0.9),
+        (SETUP_FIG2, 0.8),
+        (SETUP_FIG3, 0.8),
+        (SETUP_FIG5, 0.8),
+        (SETUP_FIG2, 0.58),
+        (SETUP_FIG3, 0.58),
+        (SETUP_FIG5, 0.58),
+    ],
+    ids=[
+        "fig2_0.9",
+        "fig3_0.9",
+        "fig5_0.9",
+        "fig2_0.8",
+        "fig3_0.8",
+        "fig5_0.8",
+        "fig2_0.58",
+        "fig3_0.58",
+        "fig5_0.58",
+    ],
 )
-def test_first_step_lp_A_ub_matrix_paper_figures(setup):
+def test_first_step_lp_A_ub_matrix_paper_figures(setup, u_hi_target):
     target = setup["target"]
+    target["u_hi"] = u_hi_target
+
     identified_estimands = setup["identified_estimands"]
+
     if type(identified_estimands) is not list:
         identified_estimands = [identified_estimands]
 
@@ -130,15 +153,36 @@ def test_first_step_lp_A_ub_matrix_paper_figures(setup):
 
 
 @pytest.mark.parametrize(
-    "setup",
-    [(SETUP_FIG2), (SETUP_FIG3), (SETUP_FIG5)],
-    ids=["fig2", "fig3", "fig5"],
+    "setup,u_hi_target",
+    [
+        (SETUP_FIG2, 0.9),
+        (SETUP_FIG3, 0.9),
+        (SETUP_FIG5, 0.9),
+        (SETUP_FIG2, 0.8),
+        (SETUP_FIG3, 0.8),
+        (SETUP_FIG5, 0.8),
+        (SETUP_FIG2, 0.58),
+        (SETUP_FIG3, 0.58),
+        (SETUP_FIG5, 0.58),
+    ],
+    ids=[
+        "fig2_0.9",
+        "fig3_0.9",
+        "fig5_0.9",
+        "fig2_0.8",
+        "fig3_0.8",
+        "fig5_0.8",
+        "fig2_0.58",
+        "fig3_0.58",
+        "fig5_0.58",
+    ],
 )
-def test_second_step_lp_c_vector_paper_figures(setup):
+def test_second_step_lp_c_vector_paper_figures(setup, u_hi_target):
     identified_estimands = setup["identified_estimands"]
     if type(identified_estimands) is not list:
         identified_estimands = [identified_estimands]
     target = setup["target"]
+    target["u_hi"] = u_hi_target
 
     actual = np.zeros((len(BFUNCS) + 1) * 2 + len(identified_estimands))
     expected = np.zeros((len(BFUNCS) + 1) * 2 + len(identified_estimands))
@@ -184,15 +228,36 @@ def test_second_step_lp_c_vector_paper_figures(setup):
 
 
 @pytest.mark.parametrize(
-    "setup",
-    [(SETUP_FIG2), (SETUP_FIG3), (SETUP_FIG5)],
-    ids=["fig2", "fig3", "fig5"],
+    "setup,u_hi_target",
+    [
+        (SETUP_FIG2, 0.9),
+        (SETUP_FIG3, 0.9),
+        (SETUP_FIG5, 0.9),
+        (SETUP_FIG2, 0.8),
+        (SETUP_FIG3, 0.8),
+        (SETUP_FIG5, 0.8),
+        (SETUP_FIG2, 0.58),
+        (SETUP_FIG3, 0.58),
+        (SETUP_FIG5, 0.58),
+    ],
+    ids=[
+        "fig2_0.9",
+        "fig3_0.9",
+        "fig5_0.9",
+        "fig2_0.8",
+        "fig3_0.8",
+        "fig5_0.8",
+        "fig2_0.58",
+        "fig3_0.58",
+        "fig5_0.58",
+    ],
 )
-def test_second_step_lp_A_ub_matrix_paper_figures(setup):
+def test_second_step_lp_A_ub_matrix_paper_figures(setup, u_hi_target):
     identified_estimands = setup["identified_estimands"]
     if type(identified_estimands) is not list:
         identified_estimands = [identified_estimands]
     target = setup["target"]
+    target["u_hi"] = u_hi_target
 
     number_bfuncs = (len(BFUNCS) + 1) * 2
     number_identif_estimands = len(identified_estimands)
