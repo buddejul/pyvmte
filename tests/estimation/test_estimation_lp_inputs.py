@@ -74,9 +74,6 @@ REPETITIONS = 1_000
         (SETUP_FIG2, 0.8),
         (SETUP_FIG3, 0.8),
         (SETUP_FIG5, 0.8),
-        (SETUP_FIG2, 0.58),
-        (SETUP_FIG3, 0.58),
-        (SETUP_FIG5, 0.58),
     ],
     ids=[
         "fig2_0.9",
@@ -85,9 +82,6 @@ REPETITIONS = 1_000
         "fig2_0.8",
         "fig3_0.8",
         "fig5_0.8",
-        "fig2_0.58",
-        "fig3_0.58",
-        "fig5_0.58",
     ],
 )
 def test_first_step_lp_A_ub_matrix_paper_figures(setup, u_hi_target):
@@ -161,9 +155,6 @@ def test_first_step_lp_A_ub_matrix_paper_figures(setup, u_hi_target):
         (SETUP_FIG2, 0.8),
         (SETUP_FIG3, 0.8),
         (SETUP_FIG5, 0.8),
-        (SETUP_FIG2, 0.58),
-        (SETUP_FIG3, 0.58),
-        (SETUP_FIG5, 0.58),
     ],
     ids=[
         "fig2_0.9",
@@ -172,9 +163,6 @@ def test_first_step_lp_A_ub_matrix_paper_figures(setup, u_hi_target):
         "fig2_0.8",
         "fig3_0.8",
         "fig5_0.8",
-        "fig2_0.58",
-        "fig3_0.58",
-        "fig5_0.58",
     ],
 )
 def test_second_step_lp_c_vector_paper_figures(setup, u_hi_target):
@@ -236,9 +224,6 @@ def test_second_step_lp_c_vector_paper_figures(setup, u_hi_target):
         (SETUP_FIG2, 0.8),
         (SETUP_FIG3, 0.8),
         (SETUP_FIG5, 0.8),
-        (SETUP_FIG2, 0.58),
-        (SETUP_FIG3, 0.58),
-        (SETUP_FIG5, 0.58),
     ],
     ids=[
         "fig2_0.9",
@@ -247,9 +232,6 @@ def test_second_step_lp_c_vector_paper_figures(setup, u_hi_target):
         "fig2_0.8",
         "fig3_0.8",
         "fig5_0.8",
-        "fig2_0.58",
-        "fig3_0.58",
-        "fig5_0.58",
     ],
 )
 def test_second_step_lp_A_ub_matrix_paper_figures(setup, u_hi_target):

@@ -11,7 +11,6 @@ from pyvmte.estimation.estimation import (
     _compute_first_step_bounds,
     _first_step_linear_program,
     _compute_choice_weights_second_step,
-    _create_funcs_from_dicts,
     _build_second_step_ub_matrix,
     _compute_second_step_bounds,
     _compute_first_step_upper_bounds,
@@ -177,15 +176,6 @@ def test_compute_choice_weights_second_step():
     )
 
     assert result.shape == (len(basis_funcs) * 2 + len(identified_estimands),)
-
-
-def test_create_funcs_from_dicts():
-    u_partition = [0, 0.35, 0.65, 0.7, 1]
-    basis_funcs = _generate_basis_funcs("constant", u_partition)
-
-    out = _create_funcs_from_dicts(basis_funcs)
-
-    assert all([callable(func) for func in out]) and len(out) == len(u_partition) - 1
 
 
 def test_build_second_step_ub_matrix():

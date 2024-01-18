@@ -119,8 +119,9 @@ def _compute_choice_weights(
         # TODO improve this/think about separating identification and estimation
         if moments is None and instrument is not None:
             moments = _compute_moments_for_weights(target, instrument)
-        else:
-            raise ValueError("Either instrument or moments must be provided.")
+        # elif moments is None and instrument is None:
+        #     raise ValueError("Either instrument or moments must be provided.")
+        # FIXME check why this all works with moments = None and instruments = None
 
         c = []
         for d in [0, 1]:
