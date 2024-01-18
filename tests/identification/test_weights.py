@@ -4,7 +4,6 @@ import pytest
 from pyvmte.config import TEST_DIR
 from pyvmte.identification.identification import _compute_choice_weights
 from pyvmte.utilities import load_paper_dgp, _compute_constant_spline_weights
-from pyvmte.estimation.estimation import _generate_basis_funcs, _create_funcs_from_dicts
 
 DGP = load_paper_dgp()
 
@@ -29,7 +28,7 @@ BFUNC5 = {"type": "constant", "u_lo": 0.9, "u_hi": 1.0}
 
 BFUNCS = [BFUNC1, BFUNC2, BFUNC3, BFUNC4, BFUNC5]
 
-BFUNC_LENS = np.array([bfunc["u_hi"] - bfunc["u_lo"] for bfunc in BFUNCS])
+BFUNC_LENS = np.array([bfunc["u_hi"] - bfunc["u_lo"] for bfunc in BFUNCS])  # type: ignore
 
 
 def test_compute_choice_weights_late():

@@ -168,22 +168,6 @@ def _compute_equality_constraint_matrix(
 
             c_matrix.append(c_row)
 
-    else:
-        c_matrix = []
-
-        for target in identified_estimands:
-            c_row = []
-
-            for d in [0, 1]:
-                for basis_func in basis_funcs:
-                    weight = gamma_star(
-                        md=basis_func, estimand_dict=target, d=d, instrument=instrument
-                    )
-
-                    c_row.append(weight)
-
-            c_matrix.append(c_row)
-
     return np.array(c_matrix)
 
 
