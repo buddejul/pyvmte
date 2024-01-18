@@ -120,7 +120,7 @@ def estimation(
 
 def _first_step_linear_program(
     identified_estimands: list,
-    basis_funcs: dict,
+    basis_funcs: list,
     y_data: np.ndarray,
     d_data: np.ndarray,
     z_data: np.ndarray,
@@ -205,39 +205,18 @@ def _compute_u_partition(
 ) -> np.ndarray:
     """Compute the partition of u based on identified, target estimands, and pscore of
     z."""
-    knots = [0, 1]
+    knots = np.array([0, 1])
 
     if target["type"] == "late":
-        knots.append(target["u_lo"])
-        knots.append(target["u_hi"])
+        knots = np.append(knots, target["u_lo"])
+        knots = np.append(knots, target["u_hi"])
 
     # Add p_score to list
-    knots.extend(pscore_z)
+    knots = np.append(knots, pscore_z)
 
     knots = np.unique(knots)
 
-    if tol is not None:
-        # If difference between two knots is smaller than tol, remove one of them
-        # initialize the result with the first element
-        result = [knots[0]]
-
-        # iterate over the rest of the knots
-        for x in knots[1:]:
-            # if the difference between x and the last added element is greater than 0.1
-            if x - result[-1] > tol:
-                # add x to the result
-                result.append(x)
-
-        # If result does not contain 1 replace last element by 1
-        if result[-1] != 1:
-            result[-1] = 1
-
-        # convert result back to a numpy array
-        result = np.array(result)
-
-    else:
-        result = knots
-    return result
+    return knots
 
 
 def _generate_basis_funcs(basis_func_type: str, u_partition: np.ndarray) -> list:
@@ -372,9 +351,11 @@ def _compute_first_step_bounds(
     num_idestimands = len(identified_estimands)
     num_bfuncs = len(basis_funcs) * 2
 
-    return [(0, 1) for _ in range(num_bfuncs)] + [
+    result = [(0, 1) for _ in range(num_bfuncs)] + [
         (None, None) for _ in range(num_idestimands)
     ]
+
+    return np.array(result)
 
 
 def _second_step_linear_program(
@@ -421,12 +402,11 @@ def _second_step_linear_program(
 
 
 def _compute_choice_weights_second_step(
-    target: dict, basis_funcs: dict, identified_estimands: list
+    target: dict, basis_funcs: list, identified_estimands: list
 ) -> np.ndarray:
     """Compute choice weight vector c for second step linear program."""
 
     upper_part = _compute_choice_weights(target, basis_funcs=basis_funcs)
-    upper_part = np.array(upper_part)
 
     lower_part = np.zeros(len(identified_estimands))
     return np.append(upper_part, lower_part)
@@ -469,9 +449,11 @@ def _compute_second_step_bounds(
     num_bfuncs = len(basis_funcs) * 2
     num_idestimands = len(identified_estimands)
 
-    return [(0, 1) for _ in range(num_bfuncs)] + [
+    result = [(0, 1) for _ in range(num_bfuncs)] + [
         (None, None) for _ in range(num_idestimands)
     ]
+
+    return np.array(result)
 
 
 def _compute_first_step_upper_bounds(beta_hat: np.ndarray) -> np.ndarray:

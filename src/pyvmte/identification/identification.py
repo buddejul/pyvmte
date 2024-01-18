@@ -8,7 +8,6 @@ from pyvmte.utilities import (
     gamma_star,
     _compute_constant_spline_weights,
     _generate_u_partition_from_basis_funcs,
-    _generate_partition_midpoints,
 )
 
 from scipy.optimize import linprog  # type: ignore
@@ -66,7 +65,7 @@ def _compute_identified_estimands(
     m1_dgp: Callable,
     u_part: np.ndarray,
     instrument: dict,
-) -> list:
+) -> np.ndarray:
     """Wrapper for computing identified estimands based on provided dgp."""
 
     out = []
@@ -74,7 +73,7 @@ def _compute_identified_estimands(
         result = _compute_estimand(estimand, m0_dgp, m1_dgp, u_part, instrument)
         out.append(result)
 
-    return out
+    return np.array(out)
 
 
 def _compute_estimand(
@@ -105,11 +104,11 @@ def _compute_estimand(
 
 def _compute_choice_weights(
     target: dict,
-    basis_funcs: dict,
+    basis_funcs: list,
     instrument: dict | None = None,
     moments: dict | None = None,
     data: pd.DataFrame | None = None,
-) -> list:
+) -> np.ndarray:
     """Compute weights on the choice variables."""
 
     bfunc_type = basis_funcs[0]["type"]
@@ -151,11 +150,11 @@ def _compute_choice_weights(
 
     # TODO scale by length of basis function
 
-    return c
+    return np.array(c)
 
 
 def _compute_equality_constraint_matrix(
-    identified_estimands: list, basis_funcs: dict, instrument: dict
+    identified_estimands: list, basis_funcs: list, instrument: dict
 ) -> np.ndarray:
     """Compute weight matrix for equality constraints."""
     bfunc_type = basis_funcs[0]["type"]

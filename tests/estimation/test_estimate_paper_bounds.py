@@ -15,7 +15,7 @@ from pyvmte.config import (
 RNG = np.random.default_rng(495618721)
 
 
-SAMPLE_SIZE = 10_000
+SAMPLE_SIZE = 1_000
 NUM_SIMULATIONS = 1_000
 
 

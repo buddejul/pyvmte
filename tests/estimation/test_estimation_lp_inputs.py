@@ -23,7 +23,7 @@ from pyvmte.utilities import simulate_data_from_paper_dgp
 
 RNG = np.random.default_rng(9156781)
 
-U_PARTITION = [0.0, 0.35, 0.6, 0.7, 0.9, 1.0]
+U_PARTITION = np.array([0.0, 0.35, 0.6, 0.7, 0.9, 1.0])
 
 BFUNCS = _generate_basis_funcs("constant", U_PARTITION)
 
