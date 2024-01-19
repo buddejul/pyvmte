@@ -35,7 +35,9 @@ jobs:
           micromamba activate gha-testing
           pytest --cov-report=xml --cov=./
       - name: Upload coverage report.
-        if: runner.os == 'Linux' && matrix.python-version == '3.11'
+        # if: runner.os == 'Linux' && matrix.python-version == '3.11'
         uses: codecov/codecov-action@v3
         # with:
         #   token: ${{ secrets.CODECOV_TOKEN }}
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
