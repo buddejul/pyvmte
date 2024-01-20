@@ -120,8 +120,7 @@ def test_compute_first_step_bounds():
     ]
 
     actual = _compute_first_step_bounds(identified_estimands, basis_funcs)
-
-    assert actual == expected
+    assert actual == pytest.approx(expected)
 
 
 def test_first_step_linear_program_runs_and_non_zero():
@@ -224,8 +223,7 @@ def test_compute_second_step_bounds():
         (None, None),
         (None, None),
     ]
-
-    assert actual == expected
+    assert actual == pytest.approx(expected)
 
 
 def test_compute_first_step_upper_bounds():
@@ -233,7 +231,6 @@ def test_compute_first_step_upper_bounds():
     expected = np.array([1, 2, 3, -1, -2, -3])
 
     actual = _compute_first_step_upper_bounds(beta_hat)
-
     assert actual == pytest.approx(expected)
 
 

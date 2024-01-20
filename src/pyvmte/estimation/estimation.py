@@ -344,9 +344,7 @@ def _build_first_step_ub_matrix(
     return out
 
 
-def _compute_first_step_bounds(
-    identified_estimands: list, basis_funcs: list
-) -> np.ndarray:
+def _compute_first_step_bounds(identified_estimands: list, basis_funcs: list) -> list:
     """Generate list of tuples containing bounds for first step linear program."""
     num_idestimands = len(identified_estimands)
     num_bfuncs = len(basis_funcs) * 2
@@ -355,7 +353,7 @@ def _compute_first_step_bounds(
         (None, None) for _ in range(num_idestimands)
     ]
 
-    return np.array(result)
+    return result
 
 
 def _second_step_linear_program(
@@ -441,9 +439,7 @@ def _build_second_step_ub_matrix(
     return out
 
 
-def _compute_second_step_bounds(
-    basis_funcs: list, identified_estimands: list
-) -> np.ndarray:
+def _compute_second_step_bounds(basis_funcs: list, identified_estimands: list) -> list:
     """Compute bounds for second step linear program."""
 
     num_bfuncs = len(basis_funcs) * 2
@@ -453,7 +449,7 @@ def _compute_second_step_bounds(
         (None, None) for _ in range(num_idestimands)
     ]
 
-    return np.array(result)
+    return result
 
 
 def _compute_first_step_upper_bounds(beta_hat: np.ndarray) -> np.ndarray:
