@@ -84,8 +84,9 @@ REPETITIONS = 250
         "fig5_0.8",
     ],
 )
-def test_first_step_lp_A_ub_matrix_paper_figures(setup: Setup):
-    target = setup.target
+def test_first_step_lp_A_ub_matrix_paper_figures(setup: Setup, u_hi_target: float):
+    target = setup.target._replace(u_hi=u_hi_target)
+    target = target._replace(u_hi=u_hi_target)
     identified_estimands = setup.identified_estimands
     if type(identified_estimands) is not list:
         identified_estimands = [identified_estimands]
@@ -162,7 +163,7 @@ def test_first_step_lp_A_ub_matrix_paper_figures(setup: Setup):
         "fig5_0.8",
     ],
 )
-def test_second_step_lp_c_vector_paper_figures(setup: Setup):
+def test_second_step_lp_c_vector_paper_figures(setup: Setup, u_hi_target: float):
     identified_estimands = setup.identified_estimands
     if type(identified_estimands) is not list:
         identified_estimands = [identified_estimands]
@@ -230,7 +231,7 @@ def test_second_step_lp_c_vector_paper_figures(setup: Setup):
         "fig5_0.8",
     ],
 )
-def test_second_step_lp_A_ub_matrix_paper_figures(setup: Setup):
+def test_second_step_lp_A_ub_matrix_paper_figures(setup: Setup, u_hi_target: float):
     identified_estimands = setup.identified_estimands
     if type(identified_estimands) is not list:
         identified_estimands = [identified_estimands]
