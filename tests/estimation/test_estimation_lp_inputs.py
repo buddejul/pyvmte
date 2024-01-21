@@ -2,7 +2,7 @@
 import numpy as np
 import pandas as pd  # type: ignore
 import pytest
-from pyvmte.config import SETUP_FIG2, SETUP_FIG3, SETUP_FIG5
+from pyvmte.config import SETUP_FIG2, SETUP_FIG3, SETUP_FIG5, Setup
 
 from pyvmte.estimation.estimation import (
     _build_first_step_ub_matrix,
@@ -70,9 +70,9 @@ REPETITIONS = 1_000
     [(SETUP_FIG2), (SETUP_FIG3), (SETUP_FIG5)],
     ids=["fig2", "fig3", "fig5"],
 )
-def test_first_step_lp_A_ub_matrix_paper_figures(setup):
-    target = setup["target"]
-    identified_estimands = setup["identified_estimands"]
+def test_first_step_lp_A_ub_matrix_paper_figures(setup: Setup):
+    target = setup.target
+    identified_estimands = setup.identified_estimands
     if type(identified_estimands) is not list:
         identified_estimands = [identified_estimands]
 
@@ -134,11 +134,11 @@ def test_first_step_lp_A_ub_matrix_paper_figures(setup):
     [(SETUP_FIG2), (SETUP_FIG3), (SETUP_FIG5)],
     ids=["fig2", "fig3", "fig5"],
 )
-def test_second_step_lp_c_vector_paper_figures(setup):
-    identified_estimands = setup["identified_estimands"]
+def test_second_step_lp_c_vector_paper_figures(setup: Setup):
+    identified_estimands = setup.identified_estimands
     if type(identified_estimands) is not list:
         identified_estimands = [identified_estimands]
-    target = setup["target"]
+    target = setup.target
 
     actual = np.zeros((len(BFUNCS) + 1) * 2 + len(identified_estimands))
     expected = np.zeros((len(BFUNCS) + 1) * 2 + len(identified_estimands))
@@ -188,11 +188,11 @@ def test_second_step_lp_c_vector_paper_figures(setup):
     [(SETUP_FIG2), (SETUP_FIG3), (SETUP_FIG5)],
     ids=["fig2", "fig3", "fig5"],
 )
-def test_second_step_lp_A_ub_matrix_paper_figures(setup):
-    identified_estimands = setup["identified_estimands"]
+def test_second_step_lp_A_ub_matrix_paper_figures(setup: Setup):
+    identified_estimands = setup.identified_estimands
     if type(identified_estimands) is not list:
         identified_estimands = [identified_estimands]
-    target = setup["target"]
+    target = setup.target
 
     number_bfuncs = (len(BFUNCS) + 1) * 2
     number_identif_estimands = len(identified_estimands)
