@@ -153,57 +153,6 @@ def test_first_step_linear_program_runs_and_non_zero():
     assert result["minimal_deviations"] != 0
 
 
-def test_compute_choice_weights_second_step():
-    late_estimand = {
-        "type": "late",
-        "u_lo": 0.5,
-        "u_hi": 0.75,
-    }
-
-    iv_estimand = {"type": "iv_slope"}
-    ols_estimand = {"type": "ols_slope"}
-
-    u_partition = [0, 0.35, 0.65, 0.7, 1]
-
-    basis_funcs = _generate_basis_funcs("constant", u_partition)
-
-    identified_estimands = [iv_estimand, ols_estimand]
-    result = _compute_choice_weights_second_step(
-        target=late_estimand,
-        basis_funcs=basis_funcs,
-        identified_estimands=identified_estimands,
-    )
-
-    assert result.shape == (len(basis_funcs) * 2 + len(identified_estimands),)
-
-
-def test_build_second_step_ub_matrix():
-    u_partition = [0, 0.35, 0.65, 0.7, 1]
-    basis_funcs = _generate_basis_funcs("constant", u_partition)
-
-    iv_estimand = {
-        "type": "iv_slope",
-    }
-
-    ols_estimand = {
-        "type": "ols_slope",
-    }
-
-    identified_estimands = [iv_estimand, ols_estimand]
-
-    d_data = RNG.choice([0, 1], size=100)
-    z_data = RNG.choice([1, 2, 3], size=100)
-
-    result = _build_second_step_ub_matrix(
-        basis_funcs, identified_estimands, z_data, d_data
-    )
-
-    assert result.shape == (
-        1 + 2 * len(identified_estimands),
-        len(basis_funcs) * 2 + len(identified_estimands),
-    )
-
-
 def test_compute_second_step_bounds():
     u_partition = [0, 0.35, 0.65, 0.7, 1]
     basis_funcs = _generate_basis_funcs("constant", u_partition)
@@ -311,20 +260,6 @@ def test_compute_u_partition():
     actual = _compute_u_partition(target=target, pscore_z=pscore_z)
 
     assert actual == pytest.approx(expected)
-
-
-def test_estimate_weights_estimand_length():
-    u_partitition = [0, 0.35, 0.65, 0.7, 0.9, 1]
-    basis_funcs = _generate_basis_funcs("constant", u_partitition)
-
-    actual = _estimate_weights_estimand(
-        estimand={"type": "iv_slope"},
-        basis_funcs=basis_funcs,
-        z_data=RNG.normal(size=100),
-        d_data=RNG.normal(size=100),
-    )
-
-    assert len(actual) == len(basis_funcs) * 2
 
 
 @pytest.mark.skip(reason="Unsure whether this is true in finite sample")

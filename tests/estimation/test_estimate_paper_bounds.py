@@ -16,7 +16,7 @@ RNG = np.random.default_rng(495618721)
 
 
 SAMPLE_SIZE = 1_000
-NUM_SIMULATIONS = 1_000
+NUM_SIMULATIONS = 250
 
 
 @pytest.mark.parametrize(

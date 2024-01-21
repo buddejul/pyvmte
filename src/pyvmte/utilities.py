@@ -4,18 +4,19 @@ import math
 import numpy as np
 import pandas as pd  # type: ignore
 from scipy import integrate  # type: ignore
+from typing import Callable, Dict
 
 
 def gamma_star(
-    md,
-    d,
-    estimand_dict,
-    instrument=None,
-    dz_cross=None,
-    analyt_int=False,
-    u_part=None,
-    u_part_lo=None,
-    u_part_hi=None,
+    md: Callable,
+    d: int,
+    estimand_dict: Dict[str, np.ndarray | str | float | tuple],
+    instrument: Dict[str, np.ndarray] | None = None,
+    dz_cross: tuple | None = None,
+    analyt_int: bool = False,
+    u_part: np.ndarray | None = None,
+    u_part_lo: float | None = None,
+    u_part_hi: float | None = None,
 ):
     """Compute gamma* for a given MTR function and estimand
     Args:
@@ -125,75 +126,6 @@ def gamma_star(
                     for i, z in enumerate(support_z)
                 ]
             )
-
-    # Use analytic results on constant spline basis
-    if analyt_int == True:
-        if estimand == "iv_slope":
-            ez, ed, edz, cov_dz = compute_moments(support_z, pdf_z, pscore_z)
-
-            if d == 0:
-                return (u_part_hi - u_part_lo) * np.sum(
-                    [
-                        pdf_z[j]
-                        * s_iv_slope(z, ez, cov_dz)
-                        * (pscore_z[j] <= u_part_lo)
-                        for j, z in enumerate(support_z)
-                    ]
-                )
-
-            if d == 1:
-                return (u_part_hi - u_part_lo) * np.sum(
-                    [
-                        pdf_z[j]
-                        * s_iv_slope(z, ez, cov_dz)
-                        * (pscore_z[j] >= u_part_hi)
-                        for j, z in enumerate(support_z)
-                    ]
-                )
-
-        if estimand == "ols_slope":
-            ez, ed, edz, cov_dz = compute_moments(support_z, pdf_z, pscore_z)
-            var_d = ed * (1 - ed)
-
-            if d == 0:
-                return (u_part_hi - u_part_lo) * np.sum(
-                    [
-                        pdf_z[j]
-                        * s_ols_slope(d, ed, var_d)
-                        * (pscore_z[j] <= u_part_lo)
-                        for j, z in enumerate(support_z)
-                    ]
-                )
-
-            if d == 1:
-                return (u_part_hi - u_part_lo) * np.sum(
-                    [
-                        pdf_z[j]
-                        * s_ols_slope(d, ed, var_d)
-                        * (pscore_z[j] >= u_part_hi)
-                        for j, z in enumerate(support_z)
-                    ]
-                )
-
-        if estimand == "cross":
-            ez, ed, edz, cov_dz = compute_moments(support_z, pdf_z, pscore_z)
-            var_d = ed * (1 - ed)
-
-            if d == 0:
-                return (u_part_hi - u_part_lo) * np.sum(
-                    [
-                        pdf_z[j] * s_cross(d, z, dz_cross) * (pscore_z[j] <= u_part_lo)
-                        for j, z in enumerate(support_z)
-                    ]
-                )
-
-            if d == 1:
-                return (u_part_hi - u_part_lo) * np.sum(
-                    [
-                        pdf_z[j] * s_cross(d, z, dz_cross) * (pscore_z[j] >= u_part_hi)
-                        for j, z in enumerate(support_z)
-                    ]
-                )
 
 
 def compute_moments(supp_z, f_z, prop_z):

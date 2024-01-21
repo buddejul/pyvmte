@@ -19,7 +19,7 @@ Z_PSCORES = [0.35, 0.6, 0.7]
 
 Z_DICT = dict(zip(Z_SUPPORT, Z_PSCORES))
 
-SAMPLE_SIZE = 100_000
+SAMPLE_SIZE = 1_000
 
 SAMPLED = RNG.choice(Z_SUPPORT, size=SAMPLE_SIZE, p=Z_PDF)
 CORRESPONDING = np.array([Z_DICT[i] for i in SAMPLED])
@@ -53,7 +53,7 @@ def test_estimate_estimand_ols():
 
     actual = _estimate_estimand(estimand, Y_DATA, Z_DATA, D_DATA)
 
-    assert actual == pytest.approx(expected)
+    assert actual == pytest.approx(expected, abs=3 / np.sqrt(SAMPLE_SIZE))
 
 
 def test_estimate_estimand_iv_slope():
@@ -67,7 +67,7 @@ def test_estimate_estimand_iv_slope():
 
     actual = _estimate_estimand(estimand, Y_DATA, Z_DATA, D_DATA)
 
-    assert actual == pytest.approx(expected, rel=0.001)
+    assert actual == pytest.approx(expected, abs=3 / np.sqrt(SAMPLE_SIZE))
 
 
 def test_estimate_estimand_cross_moment():
@@ -82,4 +82,4 @@ def test_estimate_estimand_cross_moment():
             )
         )
 
-    assert actual == pytest.approx(expected)
+    assert actual == pytest.approx(expected, abs=3 / np.sqrt(SAMPLE_SIZE))

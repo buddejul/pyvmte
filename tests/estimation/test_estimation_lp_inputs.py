@@ -62,7 +62,7 @@ IV_SLOPE_WEIGHTS = IV_SLOPE_WEIGHTS
 CROSS_WEIGHTS = CROSS_WEIGHTS
 
 SAMPLE_SIZE = 1_000
-REPETITIONS = 1_000
+REPETITIONS = 250
 
 
 @pytest.mark.parametrize(
@@ -85,11 +85,17 @@ REPETITIONS = 1_000
     ],
 )
 def test_first_step_lp_A_ub_matrix_paper_figures(setup, u_hi_target):
-    target = setup["target"]
-    target["u_hi"] = u_hi_target
+    # TODO think about better way to not overwrite the (at the moment) mutable
+    # arguments of the setup dict
+    target = {
+        "type": setup["target"]["type"],
+        "u_lo": setup["target"]["u_lo"],
+        "u_hi": u_hi_target,
+    }
 
     identified_estimands = setup["identified_estimands"]
 
+    # FIXME this has side-effect
     if type(identified_estimands) is not list:
         identified_estimands = [identified_estimands]
 

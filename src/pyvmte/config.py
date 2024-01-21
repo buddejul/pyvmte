@@ -15,9 +15,17 @@ RNG = np.random.default_rng()
 
 __all__ = ["BLD", "SRC", "TEST_DIR", "GROUPS"]
 
+
+# TODO make these SETUPs into an (immutable) DataClass or NamedTuple
 SETUP_FIG2 = {
     "target": {"type": "late", "u_lo": 0.35, "u_hi": 0.9},
     "identified_estimands": {"type": "iv_slope"},
+    "lower_bound": -0.421,
+    "upper_bound": 0.500,
+}
+
+SETUP = {
+    "target": "late",
     "lower_bound": -0.421,
     "upper_bound": 0.500,
 }

@@ -74,7 +74,7 @@ def test_identification_paper_bounds(setup):
     if type(identified_estimands) is not list:
         identified_estimands = [identified_estimands]
 
-    actual = identification(
+    result = identification(
         target=target_estimand,
         identified_estimands=identified_estimands,
         basis_funcs=BASIS_FUNCS,
@@ -83,6 +83,5 @@ def test_identification_paper_bounds(setup):
         u_partition=U_PART,
         instrument=INSTRUMENT,
     )
-
-    actual = [actual["lower_bound"], actual["upper_bound"]]
+    actual = [result["lower_bound"], result["upper_bound"]]
     assert actual == pytest.approx(expected, abs=1e-3)
