@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd  # type: ignore
 import pytest
-from pyvmte.config import TEST_DIR, SETUP_FIG2, SETUP_FIG3, SETUP_FIG5
+from pyvmte.config import TEST_DIR, SETUP_FIG2, SETUP_FIG3, SETUP_FIG5, Setup
 from pyvmte.identification.identification import _compute_estimand, identification
 from pyvmte.utilities import load_paper_dgp
 
@@ -66,11 +66,11 @@ def test_paper_late_ols_iv():
     [(SETUP_FIG2), (SETUP_FIG3), (SETUP_FIG5)],
     ids=["fig2", "fig3", "fig5"],
 )
-def test_identification_paper_bounds(setup):
-    expected = [setup["lower_bound"], setup["upper_bound"]]
+def test_identification_paper_bounds(setup: Setup):
+    expected = [setup.lower_bound, setup.upper_bound]
 
-    target_estimand = setup["target"]
-    identified_estimands = setup["identified_estimands"]
+    target_estimand = setup.target
+    identified_estimands = setup.identified_estimands
     if type(identified_estimands) is not list:
         identified_estimands = [identified_estimands]
 

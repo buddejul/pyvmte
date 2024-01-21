@@ -6,11 +6,7 @@ from pyvmte.simulation.simulation_funcs import monte_carlo_pyvmte
 
 import pytest
 
-from pyvmte.config import (
-    SETUP_FIG2,
-    SETUP_FIG3,
-    SETUP_FIG5,
-)
+from pyvmte.config import SETUP_FIG2, SETUP_FIG3, SETUP_FIG5, Setup
 
 RNG = np.random.default_rng(495618721)
 
@@ -24,14 +20,14 @@ NUM_SIMULATIONS = 1_000
     [(SETUP_FIG2), (SETUP_FIG3), (SETUP_FIG5)],
     ids=["fig2", "fig3", "fig5"],
 )
-def test_consistently_estimate_figure_bounds(setup):
-    expected = [setup["lower_bound"], setup["upper_bound"]]
+def test_consistently_estimate_figure_bounds(setup: Setup):
+    expected = [setup.lower_bound, setup.upper_bound]
 
     results = monte_carlo_pyvmte(
         sample_size=SAMPLE_SIZE,
         repetitions=NUM_SIMULATIONS,
-        target=setup["target"],
-        identified_estimands=setup["identified_estimands"],
+        target=setup.target,
+        identified_estimands=setup.identified_estimands,
         basis_func_type="constant",
         tolerance=1 / SAMPLE_SIZE,
         rng=RNG,
