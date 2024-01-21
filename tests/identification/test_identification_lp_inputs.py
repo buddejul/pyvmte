@@ -33,7 +33,7 @@ BASIS_FUNCS = [BFUNC1, BFUNC2, BFUNC3, BFUNC4, BFUNC5]
 
 
 def test_lp_input_c_figure_3():
-    target = SETUP_FIG3["target"]
+    target = SETUP_FIG3.target
     late_weight = 1 / (target["u_hi"] - target["u_lo"])
     expected = [
         0,

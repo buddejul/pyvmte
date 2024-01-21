@@ -2,7 +2,7 @@
 import numpy as np
 import pandas as pd  # type: ignore
 import pytest
-from pyvmte.config import SETUP_FIG2, SETUP_FIG3, SETUP_FIG5
+from pyvmte.config import SETUP_FIG2, SETUP_FIG3, SETUP_FIG5, Setup
 
 from pyvmte.estimation.estimation import (
     _build_first_step_ub_matrix,
@@ -84,18 +84,9 @@ REPETITIONS = 250
         "fig5_0.8",
     ],
 )
-def test_first_step_lp_A_ub_matrix_paper_figures(setup, u_hi_target):
-    # TODO think about better way to not overwrite the (at the moment) mutable
-    # arguments of the setup dict
-    target = {
-        "type": setup["target"]["type"],
-        "u_lo": setup["target"]["u_lo"],
-        "u_hi": u_hi_target,
-    }
-
-    identified_estimands = setup["identified_estimands"]
-
-    # FIXME this has side-effect
+def test_first_step_lp_A_ub_matrix_paper_figures(setup: Setup):
+    target = setup.target
+    identified_estimands = setup.identified_estimands
     if type(identified_estimands) is not list:
         identified_estimands = [identified_estimands]
 
@@ -171,12 +162,11 @@ def test_first_step_lp_A_ub_matrix_paper_figures(setup, u_hi_target):
         "fig5_0.8",
     ],
 )
-def test_second_step_lp_c_vector_paper_figures(setup, u_hi_target):
-    identified_estimands = setup["identified_estimands"]
+def test_second_step_lp_c_vector_paper_figures(setup: Setup):
+    identified_estimands = setup.identified_estimands
     if type(identified_estimands) is not list:
         identified_estimands = [identified_estimands]
-    target = setup["target"]
-    target["u_hi"] = u_hi_target
+    target = setup.target
 
     actual = np.zeros((len(BFUNCS) + 1) * 2 + len(identified_estimands))
     expected = np.zeros((len(BFUNCS) + 1) * 2 + len(identified_estimands))
@@ -240,12 +230,11 @@ def test_second_step_lp_c_vector_paper_figures(setup, u_hi_target):
         "fig5_0.8",
     ],
 )
-def test_second_step_lp_A_ub_matrix_paper_figures(setup, u_hi_target):
-    identified_estimands = setup["identified_estimands"]
+def test_second_step_lp_A_ub_matrix_paper_figures(setup: Setup):
+    identified_estimands = setup.identified_estimands
     if type(identified_estimands) is not list:
         identified_estimands = [identified_estimands]
-    target = setup["target"]
-    target["u_hi"] = u_hi_target
+    target = setup.target
 
     number_bfuncs = (len(BFUNCS) + 1) * 2
     number_identif_estimands = len(identified_estimands)
