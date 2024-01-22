@@ -84,3 +84,5 @@ SETUP_MONTE_CARLO_BY_TARGET = {
     "sample_size": 10_000,
     "repetitions": 1_000,
 }
+
+U_HI_RANGE = np.arange(0.35, 0.9, 0.05)

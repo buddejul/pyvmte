@@ -4,7 +4,7 @@ from typing import Annotated, NamedTuple
 from pytask import Product
 from pytask import task
 
-from pyvmte.config import BLD, SETUP_FIG5, SETUP_MONTE_CARLO_BY_TARGET
+from pyvmte.config import BLD, SETUP_FIG5, SETUP_MONTE_CARLO_BY_TARGET, U_HI_RANGE
 from pyvmte.simulation.simulation_funcs import monte_carlo_pyvmte
 
 from pyvmte.config import RNG, Setup, Estimand
@@ -13,11 +13,7 @@ import pandas as pd  # type: ignore
 import numpy as np
 
 
-class _Arguments(NamedTuple):
-    path_to_data: Path
-
-
-for u_hi_target in np.arange(0.35, 0.9, 0.05):
+for u_hi_target in U_HI_RANGE:
 
     @task  # type: ignore
     def task_run_monte_carlo_simulation(
