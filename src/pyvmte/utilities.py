@@ -4,18 +4,21 @@ import math
 import numpy as np
 import pandas as pd  # type: ignore
 from scipy import integrate  # type: ignore
+from typing import Callable, Dict
+
+from pyvmte.config import Estimand
 
 
 def gamma_star(
-    md,
-    d,
-    estimand_dict,
-    instrument=None,
-    dz_cross=None,
-    analyt_int=False,
-    u_part=None,
-    u_part_lo=None,
-    u_part_hi=None,
+    md: Callable,
+    d: int,
+    estimand: Estimand,
+    instrument: Dict[str, np.ndarray] | None = None,
+    dz_cross: tuple | None = None,
+    analyt_int: bool = False,
+    u_part: np.ndarray | None = None,
+    u_part_lo: float | None = None,
+    u_part_hi: float | None = None,
 ):
     """Compute gamma* for a given MTR function and estimand
     Args:
@@ -31,22 +34,21 @@ def gamma_star(
         analyt_int (Boolean): Whether to integrate manually or use analytic results
     """
 
-    estimand = estimand_dict["type"]
-    u_lo = estimand_dict.get("u_lo")
-    u_hi = estimand_dict.get("u_hi")
-    dz_cross = estimand_dict.get("dz_cross")
+    u_lo = estimand.u_lo
+    u_hi = estimand.u_hi
+    dz_cross = estimand.dz_cross
 
     if instrument is not None:
         pdf_z = instrument.get("pdf_z")
         pscore_z = instrument.get("pscore_z")
         support_z = instrument.get("support_z")
 
-    if estimand == "late":
+    if estimand.type == "late":
         return integrate.quad(lambda u: md(u) * s_late(d, u, u_lo, u_hi), 0, 1)[0]
 
     # Do integration manually via scipy integrate
     if analyt_int == False:
-        if estimand == "iv_slope":
+        if estimand.type == "iv_slope":
             ez, ed, edz, cov_dz = compute_moments(support_z, pdf_z, pscore_z)
 
             if d == 0:
@@ -68,12 +70,12 @@ def gamma_star(
             # Integrate func over u in [0,1] for every z in support_z
             return np.sum(
                 [
-                    integrate.quad(func, 0, 1, args=(z,))[0] * pdf_z[i]
-                    for i, z in enumerate(support_z)
+                    integrate.quad(func, 0, 1, args=(z,))[0] * pdf_z[i]  # type: ignore
+                    for i, z in enumerate(support_z)  # type: ignore
                 ]
             )
 
-        if estimand == "ols_slope":
+        if estimand.type == "ols_slope":
             ez, ed, edz, cov_dz = compute_moments(support_z, pdf_z, pscore_z)
             var_d = ed * (1 - ed)
 
@@ -96,12 +98,12 @@ def gamma_star(
             # Integrate func over u in [0,1] for every z in support_z
             return np.sum(
                 [
-                    integrate.quad(func, 0, 1, args=(z,))[0] * pdf_z[i]
-                    for i, z in enumerate(support_z)
+                    integrate.quad(func, 0, 1, args=(z,))[0] * pdf_z[i]  # type: ignore
+                    for i, z in enumerate(support_z)  # type: ignore
                 ]
             )
 
-        if estimand == "cross":
+        if estimand.type == "cross":
             if d == 0:
 
                 def func(u, z):
@@ -121,79 +123,10 @@ def gamma_star(
             # Integrate func over u in [0,1] for every z in support_z
             return np.sum(
                 [
-                    integrate.quad(func, 0, 1, args=(z,))[0] * pdf_z[i]
-                    for i, z in enumerate(support_z)
+                    integrate.quad(func, 0, 1, args=(z,))[0] * pdf_z[i]  # type: ignore
+                    for i, z in enumerate(support_z)  # type: ignore
                 ]
             )
-
-    # Use analytic results on constant spline basis
-    if analyt_int == True:
-        if estimand == "iv_slope":
-            ez, ed, edz, cov_dz = compute_moments(support_z, pdf_z, pscore_z)
-
-            if d == 0:
-                return (u_part_hi - u_part_lo) * np.sum(
-                    [
-                        pdf_z[j]
-                        * s_iv_slope(z, ez, cov_dz)
-                        * (pscore_z[j] <= u_part_lo)
-                        for j, z in enumerate(support_z)
-                    ]
-                )
-
-            if d == 1:
-                return (u_part_hi - u_part_lo) * np.sum(
-                    [
-                        pdf_z[j]
-                        * s_iv_slope(z, ez, cov_dz)
-                        * (pscore_z[j] >= u_part_hi)
-                        for j, z in enumerate(support_z)
-                    ]
-                )
-
-        if estimand == "ols_slope":
-            ez, ed, edz, cov_dz = compute_moments(support_z, pdf_z, pscore_z)
-            var_d = ed * (1 - ed)
-
-            if d == 0:
-                return (u_part_hi - u_part_lo) * np.sum(
-                    [
-                        pdf_z[j]
-                        * s_ols_slope(d, ed, var_d)
-                        * (pscore_z[j] <= u_part_lo)
-                        for j, z in enumerate(support_z)
-                    ]
-                )
-
-            if d == 1:
-                return (u_part_hi - u_part_lo) * np.sum(
-                    [
-                        pdf_z[j]
-                        * s_ols_slope(d, ed, var_d)
-                        * (pscore_z[j] >= u_part_hi)
-                        for j, z in enumerate(support_z)
-                    ]
-                )
-
-        if estimand == "cross":
-            ez, ed, edz, cov_dz = compute_moments(support_z, pdf_z, pscore_z)
-            var_d = ed * (1 - ed)
-
-            if d == 0:
-                return (u_part_hi - u_part_lo) * np.sum(
-                    [
-                        pdf_z[j] * s_cross(d, z, dz_cross) * (pscore_z[j] <= u_part_lo)
-                        for j, z in enumerate(support_z)
-                    ]
-                )
-
-            if d == 1:
-                return (u_part_hi - u_part_lo) * np.sum(
-                    [
-                        pdf_z[j] * s_cross(d, z, dz_cross) * (pscore_z[j] >= u_part_hi)
-                        for j, z in enumerate(support_z)
-                    ]
-                )
 
 
 def compute_moments(supp_z, f_z, prop_z):
@@ -376,12 +309,12 @@ def _weight_cross(u, d, z, pz, dz_cross, d_data=None):
 
 
 def _compute_constant_spline_weights(
-    estimand,
-    d,
-    basis_function,
-    instrument=None,
-    moments=None,
-    data=None,
+    estimand: Estimand,
+    d: int,
+    basis_function: dict,
+    instrument: dict | None = None,
+    moments: dict | None = None,
+    data: dict | None = None,
 ):
     """Compute weights for constant spline basis. We use that for a constant spline
     basis with the right partition the weights are constant on each interval of the
@@ -399,7 +332,7 @@ def _compute_constant_spline_weights(
         if not isinstance(data, pd.DataFrame):
             df = pd.DataFrame(data)
 
-    if estimand["type"] == "ols_slope":
+    if estimand.type == "ols_slope":
         if data is None:
             out = _compute_ols_weight_for_identification(
                 u=u, d=d, instrument=instrument, moments=moments
@@ -409,7 +342,7 @@ def _compute_constant_spline_weights(
                 u=u, d=d, data=df, instrument=instrument, moments=moments
             )
 
-    if estimand["type"] == "iv_slope":
+    if estimand.type == "iv_slope":
         if data is None:
             out = _compute_iv_slope_weight_for_identification(
                 u=u, d=d, instrument=instrument, moments=moments
@@ -419,24 +352,22 @@ def _compute_constant_spline_weights(
                 u=u, d=d, moments=moments, data=df
             )
 
-    if estimand["type"] == "late":
+    if estimand.type == "late":
         if d == 1:
-            weights_by_z = _weight_late(u, u_lo=estimand["u_lo"], u_hi=estimand["u_hi"])
+            weights_by_z = _weight_late(u, u_lo=estimand.u_lo, u_hi=estimand.u_hi)
         else:
-            weights_by_z = -_weight_late(
-                u, u_lo=estimand["u_lo"], u_hi=estimand["u_hi"]
-            )
+            weights_by_z = -_weight_late(u, u_lo=estimand.u_lo, u_hi=estimand.u_hi)
 
         out = weights_by_z
 
-    if estimand["type"] == "cross":
+    if estimand.type == "cross":
         if data is None:
             out = _compute_cross_weight_for_identification(
-                u=u, d=d, instrument=instrument, dz_cross=estimand["dz_cross"]
+                u=u, d=d, instrument=instrument, dz_cross=estimand.dz_cross
             )
         else:
             out = _estimate_cross_weight_for_estimation(
-                u=u, d=d, data=df, dz_cross=estimand["dz_cross"]
+                u=u, d=d, data=df, dz_cross=estimand.dz_cross
             )
 
     # Scale by length of interval

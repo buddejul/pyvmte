@@ -1,10 +1,9 @@
 import numpy as np
 import pandas as pd  # type: ignore
 import pytest
-from pyvmte.config import TEST_DIR
+from pyvmte.config import TEST_DIR, Estimand
 from pyvmte.identification.identification import _compute_choice_weights
 from pyvmte.utilities import load_paper_dgp, _compute_constant_spline_weights
-from pyvmte.estimation.estimation import _generate_basis_funcs, _create_funcs_from_dicts
 
 DGP = load_paper_dgp()
 
@@ -29,13 +28,13 @@ BFUNC5 = {"type": "constant", "u_lo": 0.9, "u_hi": 1.0}
 
 BFUNCS = [BFUNC1, BFUNC2, BFUNC3, BFUNC4, BFUNC5]
 
-BFUNC_LENS = np.array([bfunc["u_hi"] - bfunc["u_lo"] for bfunc in BFUNCS])
+BFUNC_LENS = np.array([bfunc["u_hi"] - bfunc["u_lo"] for bfunc in BFUNCS])  # type: ignore
 
 
 def test_compute_choice_weights_late():
-    target = {"type": "late", "u_lo": 0.35, "u_hi": 0.9}
+    target = Estimand(type="late", u_lo=0.35, u_hi=0.9)
 
-    weight = 1 / (target["u_hi"] - target["u_lo"])
+    weight = 1 / (target.u_hi - target.u_lo)
     expected = np.array(
         [0, -weight, -weight, -weight, 0, 0, weight, weight, weight, 0]
     ) * np.tile(BFUNC_LENS, 2)
@@ -61,7 +60,7 @@ def test_compute_constant_spline_weights_ols_slope_d0():
 
     for bfunc in BFUNCS:
         result = _compute_constant_spline_weights(
-            estimand={"type": "ols_slope"},
+            estimand=Estimand(type="ols_slope"),
             basis_function=bfunc,
             d=0,
             moments=MOMENTS,
@@ -84,7 +83,7 @@ def test_compute_constant_spline_weights_ols_slope_d1():
 
     for bfunc in BFUNCS:
         result = _compute_constant_spline_weights(
-            estimand={"type": "ols_slope"},
+            estimand=Estimand(type="ols_slope"),
             basis_function=bfunc,
             d=1,
             moments=MOMENTS,
@@ -104,7 +103,7 @@ def test_compute_constant_spline_weights_iv_slope_d0():
 
     for bfunc in BFUNCS:
         result = _compute_constant_spline_weights(
-            estimand={"type": "iv_slope"},
+            estimand=Estimand(type="iv_slope"),
             basis_function=bfunc,
             d=0,
             moments=MOMENTS,
@@ -124,7 +123,7 @@ def test_compute_constant_spline_weights_iv_slope_d1():
 
     for bfunc in BFUNCS:
         result = _compute_constant_spline_weights(
-            estimand={"type": "iv_slope"},
+            estimand=Estimand(type="iv_slope"),
             basis_function=bfunc,
             d=1,
             moments=MOMENTS,
@@ -147,7 +146,7 @@ def test_compute_constant_spline_weights_late_d0():
 
     for bfunc in BFUNCS:
         result = _compute_constant_spline_weights(
-            estimand={"type": "late", "u_lo": u_lo, "u_hi": u_hi},
+            estimand=Estimand(type="late", u_lo=u_lo, u_hi=u_hi),
             basis_function=bfunc,
             d=0,
         )
@@ -170,7 +169,7 @@ def test_compute_constant_spline_weights_late_d1():
 
     for bfunc in BFUNCS:
         result = _compute_constant_spline_weights(
-            estimand={"type": "late", "u_lo": u_lo, "u_hi": u_hi},
+            estimand=Estimand(type="late", u_lo=u_lo, u_hi=u_hi),
             basis_function=bfunc,
             d=1,
         )

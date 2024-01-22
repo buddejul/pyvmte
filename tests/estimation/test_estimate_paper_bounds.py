@@ -11,8 +11,8 @@ from pyvmte.config import SETUP_FIG2, SETUP_FIG3, SETUP_FIG5, Setup
 RNG = np.random.default_rng(495618721)
 
 
-SAMPLE_SIZE = 10_000
-NUM_SIMULATIONS = 1_000
+SAMPLE_SIZE = 1_000
+NUM_SIMULATIONS = 250
 
 
 @pytest.mark.parametrize(

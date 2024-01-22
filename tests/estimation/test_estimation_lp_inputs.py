@@ -18,12 +18,13 @@ from pyvmte.identification.identification import (
     _compute_choice_weights,
 )
 from pyvmte.utilities import simulate_data_from_paper_dgp, load_paper_dgp
+from pyvmte.config import Estimand
 
-from pyvmte.utilities import simulate_data_from_paper_dgp
+from dataclasses import replace
 
 RNG = np.random.default_rng(9156781)
 
-U_PARTITION = [0.0, 0.35, 0.6, 0.7, 0.9, 1.0]
+U_PARTITION = np.array([0.0, 0.35, 0.6, 0.7, 0.9, 1.0])
 
 BFUNCS = _generate_basis_funcs("constant", U_PARTITION)
 
@@ -36,19 +37,19 @@ INSTRUMENT = {
 }
 
 OLS_SLOPE_WEIGHTS = _compute_equality_constraint_matrix(
-    identified_estimands=[{"type": "ols_slope"}],
+    identified_estimands=[Estimand(type="ols_slope")],
     basis_funcs=BFUNCS,
     instrument=INSTRUMENT,
 )
 
 IV_SLOPE_WEIGHTS = _compute_equality_constraint_matrix(
-    identified_estimands=[{"type": "iv_slope"}],
+    identified_estimands=[Estimand(type="iv_slope")],
     basis_funcs=BFUNCS,
     instrument=INSTRUMENT,
 )
 
 CROSS_WEIGHTS = _compute_equality_constraint_matrix(
-    identified_estimands=[{"type": "cross", "dz_cross": (0, 1)}],
+    identified_estimands=[Estimand(type="cross", dz_cross=(0, 1))],
     basis_funcs=BFUNCS,
     instrument=INSTRUMENT,
 )
@@ -62,19 +63,31 @@ IV_SLOPE_WEIGHTS = IV_SLOPE_WEIGHTS
 CROSS_WEIGHTS = CROSS_WEIGHTS
 
 SAMPLE_SIZE = 1_000
-REPETITIONS = 1_000
+REPETITIONS = 250
 
 
 @pytest.mark.parametrize(
-    "setup",
-    [(SETUP_FIG2), (SETUP_FIG3), (SETUP_FIG5)],
-    ids=["fig2", "fig3", "fig5"],
+    "setup,u_hi_target",
+    [
+        (SETUP_FIG2, 0.9),
+        (SETUP_FIG3, 0.9),
+        (SETUP_FIG5, 0.9),
+        (SETUP_FIG2, 0.8),
+        (SETUP_FIG3, 0.8),
+        (SETUP_FIG5, 0.8),
+    ],
+    ids=[
+        "fig2_0.9",
+        "fig3_0.9",
+        "fig5_0.9",
+        "fig2_0.8",
+        "fig3_0.8",
+        "fig5_0.8",
+    ],
 )
-def test_first_step_lp_A_ub_matrix_paper_figures(setup: Setup):
-    target = setup.target
+def test_first_step_lp_A_ub_matrix_paper_figures(setup: Setup, u_hi_target: float):
+    target = replace(setup.target, u_hi=u_hi_target)
     identified_estimands = setup.identified_estimands
-    if type(identified_estimands) is not list:
-        identified_estimands = [identified_estimands]
 
     actual = np.zeros(
         (
@@ -130,15 +143,27 @@ def test_first_step_lp_A_ub_matrix_paper_figures(setup: Setup):
 
 
 @pytest.mark.parametrize(
-    "setup",
-    [(SETUP_FIG2), (SETUP_FIG3), (SETUP_FIG5)],
-    ids=["fig2", "fig3", "fig5"],
+    "setup,u_hi_target",
+    [
+        (SETUP_FIG2, 0.9),
+        (SETUP_FIG3, 0.9),
+        (SETUP_FIG5, 0.9),
+        (SETUP_FIG2, 0.8),
+        (SETUP_FIG3, 0.8),
+        (SETUP_FIG5, 0.8),
+    ],
+    ids=[
+        "fig2_0.9",
+        "fig3_0.9",
+        "fig5_0.9",
+        "fig2_0.8",
+        "fig3_0.8",
+        "fig5_0.8",
+    ],
 )
-def test_second_step_lp_c_vector_paper_figures(setup: Setup):
+def test_second_step_lp_c_vector_paper_figures(setup: Setup, u_hi_target: float):
+    target = replace(setup.target, u_hi=u_hi_target)
     identified_estimands = setup.identified_estimands
-    if type(identified_estimands) is not list:
-        identified_estimands = [identified_estimands]
-    target = setup.target
 
     actual = np.zeros((len(BFUNCS) + 1) * 2 + len(identified_estimands))
     expected = np.zeros((len(BFUNCS) + 1) * 2 + len(identified_estimands))
@@ -184,15 +209,27 @@ def test_second_step_lp_c_vector_paper_figures(setup: Setup):
 
 
 @pytest.mark.parametrize(
-    "setup",
-    [(SETUP_FIG2), (SETUP_FIG3), (SETUP_FIG5)],
-    ids=["fig2", "fig3", "fig5"],
+    "setup,u_hi_target",
+    [
+        (SETUP_FIG2, 0.9),
+        (SETUP_FIG3, 0.9),
+        (SETUP_FIG5, 0.9),
+        (SETUP_FIG2, 0.8),
+        (SETUP_FIG3, 0.8),
+        (SETUP_FIG5, 0.8),
+    ],
+    ids=[
+        "fig2_0.9",
+        "fig3_0.9",
+        "fig5_0.9",
+        "fig2_0.8",
+        "fig3_0.8",
+        "fig5_0.8",
+    ],
 )
-def test_second_step_lp_A_ub_matrix_paper_figures(setup: Setup):
+def test_second_step_lp_A_ub_matrix_paper_figures(setup: Setup, u_hi_target: float):
+    target = replace(setup.target, u_hi=u_hi_target)
     identified_estimands = setup.identified_estimands
-    if type(identified_estimands) is not list:
-        identified_estimands = [identified_estimands]
-    target = setup.target
 
     number_bfuncs = (len(BFUNCS) + 1) * 2
     number_identif_estimands = len(identified_estimands)

@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd  # type: ignore
 import pytest
-from pyvmte.config import TEST_DIR, SETUP_FIG2, SETUP_FIG3, SETUP_FIG5, Setup
+from pyvmte.config import TEST_DIR, SETUP_FIG2, SETUP_FIG3, SETUP_FIG5, Setup, Estimand
 from pyvmte.identification.identification import _compute_estimand, identification
 from pyvmte.utilities import load_paper_dgp
 
@@ -40,19 +40,11 @@ def test_paper_late_ols_iv():
             instrument=INSTRUMENT,
         )
 
-    estimand_late = {
-        "type": "late",
-        "u_lo": 0.35,
-        "u_hi": 0.9,
-    }
+    estimand_late = Estimand(type="late", u_lo=0.35, u_hi=0.9)
 
-    estimand_ols = {
-        "type": "ols_slope",
-    }
+    estimand_ols = Estimand(type="ols_slope")
 
-    estimand_iv = {
-        "type": "iv_slope",
-    }
+    estimand_iv = Estimand(type="iv_slope")
 
     actual = [
         _compute(estimand) for estimand in [estimand_late, estimand_ols, estimand_iv]
@@ -71,10 +63,8 @@ def test_identification_paper_bounds(setup: Setup):
 
     target_estimand = setup.target
     identified_estimands = setup.identified_estimands
-    if type(identified_estimands) is not list:
-        identified_estimands = [identified_estimands]
 
-    actual = identification(
+    result = identification(
         target=target_estimand,
         identified_estimands=identified_estimands,
         basis_funcs=BASIS_FUNCS,
@@ -84,5 +74,5 @@ def test_identification_paper_bounds(setup: Setup):
         instrument=INSTRUMENT,
     )
 
-    actual = [actual["lower_bound"], actual["upper_bound"]]
+    actual = [result["lower_bound"], result["upper_bound"]]
     assert actual == pytest.approx(expected, abs=1e-3)

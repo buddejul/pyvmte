@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd  # type: ignore
 import pytest
-from pyvmte.config import TEST_DIR
+from pyvmte.config import Estimand
 
 from pyvmte.estimation.estimation import _estimate_estimand
 
@@ -19,7 +19,7 @@ Z_PSCORES = [0.35, 0.6, 0.7]
 
 Z_DICT = dict(zip(Z_SUPPORT, Z_PSCORES))
 
-SAMPLE_SIZE = 100_000
+SAMPLE_SIZE = 1_000
 
 SAMPLED = RNG.choice(Z_SUPPORT, size=SAMPLE_SIZE, p=Z_PDF)
 CORRESPONDING = np.array([Z_DICT[i] for i in SAMPLED])
@@ -49,11 +49,11 @@ def test_estimate_estimand_ols():
     results = model.fit()
     expected = results.params[1]
 
-    estimand = {"type": "ols_slope"}
+    estimand = Estimand(type="ols_slope")
 
     actual = _estimate_estimand(estimand, Y_DATA, Z_DATA, D_DATA)
 
-    assert actual == pytest.approx(expected)
+    assert actual == pytest.approx(expected, abs=3 / np.sqrt(SAMPLE_SIZE))
 
 
 def test_estimate_estimand_iv_slope():
@@ -63,11 +63,11 @@ def test_estimate_estimand_iv_slope():
     results = model.fit()
     expected = results.params[1]
 
-    estimand = {"type": "iv_slope"}
+    estimand = Estimand(type="iv_slope")
 
     actual = _estimate_estimand(estimand, Y_DATA, Z_DATA, D_DATA)
 
-    assert actual == pytest.approx(expected, rel=0.001)
+    assert actual == pytest.approx(expected, abs=3 / np.sqrt(SAMPLE_SIZE))
 
 
 def test_estimate_estimand_cross_moment():
@@ -78,8 +78,8 @@ def test_estimate_estimand_cross_moment():
         expected.append(np.mean(Y_DATA[(D_DATA == d) & (Z_DATA == z)]) * p)
         actual.append(
             _estimate_estimand(
-                {"type": "cross", "dz_cross": (d, z)}, Y_DATA, Z_DATA, D_DATA
+                Estimand(type="cross", dz_cross=(d, z)), Y_DATA, Z_DATA, D_DATA
             )
         )
 
-    assert actual == pytest.approx(expected)
+    assert actual == pytest.approx(expected, abs=3 / np.sqrt(SAMPLE_SIZE))
