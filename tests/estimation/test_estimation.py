@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd  # type: ignore
 import pytest
-from pyvmte.config import TEST_DIR
+from pyvmte.config import Estimand
 
 from pyvmte.estimation.estimation import _estimate_estimand
 
@@ -49,7 +49,7 @@ def test_estimate_estimand_ols():
     results = model.fit()
     expected = results.params[1]
 
-    estimand = {"type": "ols_slope"}
+    estimand = Estimand(type="ols_slope")
 
     actual = _estimate_estimand(estimand, Y_DATA, Z_DATA, D_DATA)
 
@@ -63,7 +63,7 @@ def test_estimate_estimand_iv_slope():
     results = model.fit()
     expected = results.params[1]
 
-    estimand = {"type": "iv_slope"}
+    estimand = Estimand(type="iv_slope")
 
     actual = _estimate_estimand(estimand, Y_DATA, Z_DATA, D_DATA)
 
@@ -78,7 +78,7 @@ def test_estimate_estimand_cross_moment():
         expected.append(np.mean(Y_DATA[(D_DATA == d) & (Z_DATA == z)]) * p)
         actual.append(
             _estimate_estimand(
-                {"type": "cross", "dz_cross": (d, z)}, Y_DATA, Z_DATA, D_DATA
+                Estimand(type="cross", dz_cross=(d, z)), Y_DATA, Z_DATA, D_DATA
             )
         )
 

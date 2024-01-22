@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd  # type: ignore
 import pytest
-from pyvmte.config import TEST_DIR
+from pyvmte.config import Estimand
 
 from pyvmte.estimation.estimation import (
     _generate_basis_funcs,
@@ -10,8 +10,6 @@ from pyvmte.estimation.estimation import (
     _build_first_step_ub_matrix,
     _compute_first_step_bounds,
     _first_step_linear_program,
-    _compute_choice_weights_second_step,
-    _build_second_step_ub_matrix,
     _compute_second_step_bounds,
     _compute_first_step_upper_bounds,
     _second_step_linear_program,
@@ -67,13 +65,9 @@ def test_build_first_step_ub_matrix():
     u_partition = [0, 0.35, 0.65, 0.7, 1]
     basis_funcs = _generate_basis_funcs("constant", u_partition)
 
-    iv_estimand = {
-        "type": "iv_slope",
-    }
+    iv_estimand = Estimand(type="iv_slope")
 
-    ols_estimand = {
-        "type": "ols_slope",
-    }
+    ols_estimand = Estimand(type="ols_slope")
 
     identified_estimands = [iv_estimand, ols_estimand]
 
@@ -95,12 +89,8 @@ def test_build_first_step_ub_matrix():
 
 def test_compute_first_step_bounds():
     identified_estimands = [
-        {
-            "type": "iv_slope",
-        },
-        {
-            "type": "ols_slope",
-        },
+        Estimand(type="iv_slope"),
+        Estimand(type="ols_slope"),
     ]
 
     u_partition = [0, 0.35, 0.65, 0.7, 1]
@@ -125,12 +115,8 @@ def test_compute_first_step_bounds():
 
 def test_first_step_linear_program_runs_and_non_zero():
     identified_estimands = [
-        {
-            "type": "iv_slope",
-        },
-        {
-            "type": "ols_slope",
-        },
+        Estimand(type="iv_slope"),
+        Estimand(type="ols_slope"),
     ]
 
     u_partition = [0, 0.35, 0.65, 0.7, 1]
@@ -189,14 +175,10 @@ def test_estimate_identified_estimands():
 
 
 def test_second_step_linear_program_runs():
-    target = {"type": "late", "u_lo": 0.35, "u_hi": 0.9}
+    target = Estimand(type="late", u_lo=0.35, u_hi=0.9)
     identified_estimands = [
-        {
-            "type": "iv_slope",
-        },
-        {
-            "type": "ols_slope",
-        },
+        Estimand(type="iv_slope"),
+        Estimand(type="ols_slope"),
     ]
 
     u_partition = [0, 0.35, 0.65, 0.7, 0.9, 1]
@@ -252,7 +234,7 @@ def test_compute_second_step_upper_bounds():
 
 
 def test_compute_u_partition():
-    target = {"type": "late", "u_lo": 0.35, "u_hi": 0.9}
+    target = Estimand(type="late", u_lo=0.35, u_hi=0.9)
     pscore_z = [0.1, 0.2, 0.64, 0.83]
 
     expected = [0, 0.1, 0.2, 0.35, 0.64, 0.83, 0.9, 1]
@@ -268,7 +250,7 @@ def test_estimate_weights_estimand_symmetry():
     basis_funcs = _generate_basis_funcs("constant", u_partitition)
 
     actual = _estimate_weights_estimand(
-        estimand={"type": "iv_slope"},
+        estimand=Estimand(type="iv_slope"),
         basis_funcs=basis_funcs,
         z_data=RNG.normal(size=100),
         d_data=RNG.normal(size=100),
@@ -285,13 +267,9 @@ def test_build_first_step_ub_matrix_symmetry():
     u_partition = [0, 0.35, 0.65, 0.7, 1]
     basis_funcs = _generate_basis_funcs("constant", u_partition)
 
-    iv_estimand = {
-        "type": "iv_slope",
-    }
+    iv_estimand = Estimand(type="iv_slope")
 
-    ols_estimand = {
-        "type": "ols_slope",
-    }
+    ols_estimand = Estimand(type="ols_slope")
 
     identified_estimands = [iv_estimand, ols_estimand]
 

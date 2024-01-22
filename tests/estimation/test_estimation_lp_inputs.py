@@ -18,8 +18,9 @@ from pyvmte.identification.identification import (
     _compute_choice_weights,
 )
 from pyvmte.utilities import simulate_data_from_paper_dgp, load_paper_dgp
+from pyvmte.config import Estimand
 
-from pyvmte.utilities import simulate_data_from_paper_dgp
+from dataclasses import replace
 
 RNG = np.random.default_rng(9156781)
 
@@ -36,19 +37,19 @@ INSTRUMENT = {
 }
 
 OLS_SLOPE_WEIGHTS = _compute_equality_constraint_matrix(
-    identified_estimands=[{"type": "ols_slope"}],
+    identified_estimands=[Estimand(type="ols_slope")],
     basis_funcs=BFUNCS,
     instrument=INSTRUMENT,
 )
 
 IV_SLOPE_WEIGHTS = _compute_equality_constraint_matrix(
-    identified_estimands=[{"type": "iv_slope"}],
+    identified_estimands=[Estimand(type="iv_slope")],
     basis_funcs=BFUNCS,
     instrument=INSTRUMENT,
 )
 
 CROSS_WEIGHTS = _compute_equality_constraint_matrix(
-    identified_estimands=[{"type": "cross", "dz_cross": (0, 1)}],
+    identified_estimands=[Estimand(type="cross", dz_cross=(0, 1))],
     basis_funcs=BFUNCS,
     instrument=INSTRUMENT,
 )
@@ -85,11 +86,8 @@ REPETITIONS = 250
     ],
 )
 def test_first_step_lp_A_ub_matrix_paper_figures(setup: Setup, u_hi_target: float):
-    target = setup.target._replace(u_hi=u_hi_target)
-    target = target._replace(u_hi=u_hi_target)
+    target = replace(setup.target, u_hi=u_hi_target)
     identified_estimands = setup.identified_estimands
-    if type(identified_estimands) is not list:
-        identified_estimands = [identified_estimands]
 
     actual = np.zeros(
         (
@@ -164,10 +162,8 @@ def test_first_step_lp_A_ub_matrix_paper_figures(setup: Setup, u_hi_target: floa
     ],
 )
 def test_second_step_lp_c_vector_paper_figures(setup: Setup, u_hi_target: float):
+    target = replace(setup.target, u_hi=u_hi_target)
     identified_estimands = setup.identified_estimands
-    if type(identified_estimands) is not list:
-        identified_estimands = [identified_estimands]
-    target = setup.target
 
     actual = np.zeros((len(BFUNCS) + 1) * 2 + len(identified_estimands))
     expected = np.zeros((len(BFUNCS) + 1) * 2 + len(identified_estimands))
@@ -232,10 +228,8 @@ def test_second_step_lp_c_vector_paper_figures(setup: Setup, u_hi_target: float)
     ],
 )
 def test_second_step_lp_A_ub_matrix_paper_figures(setup: Setup, u_hi_target: float):
+    target = replace(setup.target, u_hi=u_hi_target)
     identified_estimands = setup.identified_estimands
-    if type(identified_estimands) is not list:
-        identified_estimands = [identified_estimands]
-    target = setup.target
 
     number_bfuncs = (len(BFUNCS) + 1) * 2
     number_identif_estimands = len(identified_estimands)
