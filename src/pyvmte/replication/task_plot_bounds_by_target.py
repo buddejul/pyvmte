@@ -1,6 +1,7 @@
 from typing import Annotated
 from pathlib import Path
 from pytask import Product
+import pytask
 
 from pyvmte.replication.plot_bounds_by_target import (
     create_bounds_by_target_df,
@@ -20,11 +21,6 @@ INSTRUMENT = {
     "pdf_z": DGP["pdf_z"],
 }
 
-SETUP = SETUP_FIG5
-SETUP["instrument"] = INSTRUMENT
-SETUP["m0"] = DGP["m0"]
-SETUP["m1"] = DGP["m1"]
-
 
 def task_create_bounds_by_target_df(
     path_to_data: Annotated[Path, Product] = BLD
@@ -32,10 +28,17 @@ def task_create_bounds_by_target_df(
     / "data"
     / "bounds_by_target.pickle"
 ):
-    bounds_by_target = create_bounds_by_target_df(SETUP, 100)
+    bounds_by_target = create_bounds_by_target_df(
+        setup=SETUP_FIG5,
+        instrument=INSTRUMENT,
+        m0=DGP["m0"],
+        m1=DGP["m1"],
+        n_gridpoints=100,
+    )
     bounds_by_target.to_pickle(path_to_data)
 
 
+@pytask.mark.skip()
 def task_plot_bounds_by_target(
     path_to_data: Path = BLD / "python" / "data" / "bounds_by_target.pickle",
     path_to_plot: Annotated[Path, Product] = BLD

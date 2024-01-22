@@ -4,7 +4,7 @@ import plotly.graph_objects as go  # type: ignore
 import plotly.io as pio  # type: ignore
 
 
-def plot_upper_and_lower_bounds(results):
+def plot_upper_and_lower_bounds(results: dict) -> go.Figure:
     """Returns plot of upper and lower bounds histograms."""
 
     upper_bounds = results["upper_bound"]

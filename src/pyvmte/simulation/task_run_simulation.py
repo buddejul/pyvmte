@@ -4,7 +4,15 @@ from typing import Annotated, NamedTuple
 from pytask import Product
 from pytask import task
 
-from pyvmte.config import BLD, SETUP_FIG2, SETUP_FIG3, SETUP_FIG5, SETUP_MONTE_CARLO
+from pyvmte.config import (
+    BLD,
+    SETUP_FIG2,
+    SETUP_FIG3,
+    SETUP_FIG5,
+    SETUP_MONTE_CARLO,
+    Estimand,
+    Setup,
+)
 from pyvmte.simulation.simulation_funcs import monte_carlo_pyvmte
 
 from pyvmte.config import RNG
@@ -37,7 +45,7 @@ for id_, kwargs in ID_TO_KWARGS.items():
 
     @task(id=id_, kwargs=kwargs)  # type: ignore
     def task_run_monte_carlo_simulation(
-        setup: dict,
+        setup: Setup,
         path_to_data: Annotated[Path, Product],
         setup_mc: dict = SETUP_MONTE_CARLO,
     ) -> None:
@@ -46,8 +54,8 @@ for id_, kwargs in ID_TO_KWARGS.items():
         result = monte_carlo_pyvmte(
             sample_size=setup_mc["sample_size"],
             repetitions=setup_mc["repetitions"],
-            target=setup["target"],
-            identified_estimands=setup["identified_estimands"],
+            target=setup.target,
+            identified_estimands=setup.identified_estimands,
             basis_func_type="constant",
             tolerance=tolerance,
             rng=RNG,
