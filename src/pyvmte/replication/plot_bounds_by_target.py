@@ -1,8 +1,7 @@
 import numpy as np
 import pandas as pd  # type: ignore
 
-from pyvmte.config import SETUP_FIG5, BLD, Estimand, Setup
-from pyvmte.utilities import load_paper_dgp
+from pyvmte.config import SETUP_FIG5, BLD, Setup, Instrument
 from pyvmte.identification import identification
 from pyvmte.estimation.estimation import _generate_basis_funcs, _compute_u_partition
 
@@ -49,7 +48,7 @@ def plot_bounds_by_target(data: pd.DataFrame) -> go.Figure:
 
 
 def create_bounds_by_target_df(
-    setup: Setup, instrument: dict, m0: Callable, m1: Callable, n_gridpoints: int
+    setup: Setup, instrument: Instrument, m0: Callable, m1: Callable, n_gridpoints: int
 ) -> pd.DataFrame:
     """Returns dataframe of bounds for different targets."""
 
@@ -60,7 +59,7 @@ def create_bounds_by_target_df(
     for i, u_hi in enumerate(range_of_targets):
         target = replace(setup.target, u_hi=u_hi)
 
-        u_partition = _compute_u_partition(target, instrument["pscore_z"])
+        u_partition = _compute_u_partition(target, instrument.pscores)
         bfuncs = _generate_basis_funcs("constant", u_partition)
         bounds = identification(
             target=target,

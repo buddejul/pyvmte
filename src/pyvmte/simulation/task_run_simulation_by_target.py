@@ -14,18 +14,10 @@ import numpy as np
 
 
 class _Arguments(NamedTuple):
-    setup: Annotated[dict, "Setup for simulation DGP."]
     path_to_data: Path
 
 
-ID_TO_KWARGS = {
-    "figure5": _Arguments(
-        setup=SETUP_FIG5,
-        path_to_data=BLD / "python" / "data" / Path("sim_results_figure5.pkl"),
-    ),
-}
-
-for u_hi_target in np.arange(0.35, 1, 0.025):
+for u_hi_target in [0.5, 0.6, 0.9]:
 
     @task  # type: ignore
     def task_run_monte_carlo_simulation(
@@ -36,11 +28,10 @@ for u_hi_target in np.arange(0.35, 1, 0.025):
         / "by_target"
         / Path(f"sim_results_figure5_u_hi_{u_hi_target}.pkl"),
         setup_mc: dict = SETUP_MONTE_CARLO_BY_TARGET,
+        u_hi_target: float = u_hi_target,
     ) -> None:
         tolerance = 1 / setup_mc["sample_size"]
-
-        target = Estimand(type="late", u_lo=0, u_hi=u_hi_target)
-
+        target = Estimand(type="late", u_lo=0.35, u_hi=u_hi_target)
         result = monte_carlo_pyvmte(
             sample_size=setup_mc["sample_size"],
             repetitions=setup_mc["repetitions"],
