@@ -18,6 +18,13 @@ class Estimand:
     dz_cross: Optional[tuple[int, int]] = None
 
 
+@dataclass
+class Instrument:
+    support: np.ndarray
+    pmf: np.ndarray
+    pscores: np.ndarray
+
+
 class Setup(NamedTuple):
     target: Estimand
     identified_estimands: list[Estimand]

@@ -10,7 +10,7 @@ from pyvmte.utilities import (
     _check_estimation_arguments,
 )
 
-from pyvmte.config import Estimand
+from pyvmte.config import Estimand, Instrument
 
 from scipy.optimize import linprog  # type: ignore
 
@@ -46,7 +46,6 @@ def estimation(
         dict: A dictionary containing the estimated upper and lower bound of the target estimand.
 
     """
-    # Get all arguments in a dictionary
     _check_estimation_arguments(
         target,
         identified_estimands,
@@ -59,18 +58,18 @@ def estimation(
         u_partition,
     )
 
-    if isinstance(identified_estimands, dict):
-        identified_estimands = [identified_estimands]
-
+    ########################### Preliminary Computations ###############################
     if tolerance is None:
         tolerance = 1 / len(y_data)
 
     instrument = _estimate_instrument_characteristics(z_data, d_data)
+
     u_partition = _compute_u_partition(
         target=target,
         identified_estimands=identified_estimands,
-        pscore_z=instrument["pscore_z"],
+        pscore_z=instrument.pscores,
     )
+
     basis_funcs = _generate_basis_funcs(basis_func_type, u_partition)
 
     beta_hat = _estimate_identified_estimands(
@@ -80,8 +79,7 @@ def estimation(
         d_data=d_data,
     )
 
-    beta_hat = np.array(beta_hat)
-
+    ############################ First Step Linear Program #############################
     results_first_step = _first_step_linear_program(
         identified_estimands=identified_estimands,
         basis_funcs=basis_funcs,
@@ -89,10 +87,12 @@ def estimation(
         d_data=d_data,
         z_data=z_data,
         beta_hat=beta_hat,
+        instrument=instrument,
     )
 
     minimal_deviations = results_first_step["minimal_deviations"]
 
+    ############################ Second Step Linear Program ############################
     results_second_step = _second_step_linear_program(
         target=target,
         identified_estimands=identified_estimands,
@@ -102,8 +102,10 @@ def estimation(
         minimal_deviations=minimal_deviations,
         tolerance=tolerance,
         beta_hat=beta_hat,
+        instrument=instrument,
     )
 
+    ############################### Output #############################################
     out = {
         "upper_bound": results_second_step["upper_bound"],
         "lower_bound": results_second_step["lower_bound"],
@@ -127,6 +129,7 @@ def _first_step_linear_program(
     d_data: np.ndarray,
     z_data: np.ndarray,
     beta_hat: np.ndarray,
+    instrument: Instrument,
 ) -> dict:
     """First step linear program to get minimal deviations in constraint."""
     num_bfuncs = len(basis_funcs) * 2
@@ -136,10 +139,10 @@ def _first_step_linear_program(
     )
     lp_first_inputs["b_ub"] = _compute_first_step_upper_bounds(beta_hat)
     lp_first_inputs["A_ub"] = _build_first_step_ub_matrix(
-        basis_funcs, identified_estimands, d_data, z_data
+        basis_funcs, identified_estimands, d_data, z_data, instrument
     )
     lp_first_inputs["bounds"] = _compute_first_step_bounds(
-        identified_estimands, basis_funcs
+        identified_estimands, basis_funcs  # type: ignore
     )
 
     first_step_solution = _solve_first_step_lp_estimation(lp_first_inputs)
@@ -271,14 +274,20 @@ def _estimate_estimand(
 
 
 def _estimate_weights_estimand(
-    estimand: Estimand, basis_funcs: list, z_data: np.ndarray, d_data: np.ndarray
+    estimand: Estimand,
+    basis_funcs: list,
+    z_data: np.ndarray,
+    d_data: np.ndarray,
+    instrument: Instrument,
 ) -> np.ndarray:
     """Estimate the weights on each basis function for a single estimand."""
 
     moments = _estimate_moments_for_weights(estimand, z_data, d_data)
 
     data = {"z": z_data, "d": d_data}
-    data["pscores"] = _generate_array_of_pscores(z_data, d_data)
+    data["pscores"] = _generate_array_of_pscores(
+        z_data, instrument.support, instrument.pscores
+    )
 
     weights = np.zeros(len(basis_funcs) * 2)
 
@@ -296,16 +305,15 @@ def _estimate_weights_estimand(
     return weights
 
 
-def _generate_array_of_pscores(z_data: np.ndarray, d_data: np.ndarray) -> np.ndarray:
+def _generate_array_of_pscores(
+    z_data: np.ndarray, support: np.ndarray, pscores: np.ndarray
+) -> np.ndarray:
     """For input data on instrument and treatment generates array of same length with
     estimated propensity scores for each corresponding entry of z."""
 
-    # Estimate propensity scores
-    p = _estimate_prop_z(z_data, d_data)
+    idx = np.searchsorted(support, z_data)
 
-    # Get vector of p corresponding to z
-    supp_z = np.unique(z_data)
-    return p[np.searchsorted(supp_z, z_data)]
+    return pscores[idx]
 
 
 def _estimate_prop_z(z_data: np.ndarray, d_data: np.ndarray) -> np.ndarray:
@@ -326,6 +334,7 @@ def _build_first_step_ub_matrix(
     identified_estimands: list[Estimand],
     d_data: np.ndarray,
     z_data: np.ndarray,
+    instrument: Instrument,
 ) -> np.ndarray:
     """Build matrix for first step lp involving dummy variables."""
     num_bfuncs = len(basis_funcs) * 2
@@ -334,7 +343,9 @@ def _build_first_step_ub_matrix(
     weight_matrix = np.empty(shape=(num_idestimands, num_bfuncs))
 
     for i, estimand in enumerate(identified_estimands):
-        weights = _estimate_weights_estimand(estimand, basis_funcs, z_data, d_data)
+        weights = _estimate_weights_estimand(
+            estimand, basis_funcs, z_data, d_data, instrument
+        )
 
         weight_matrix[i, :] = weights
 
@@ -369,6 +380,7 @@ def _second_step_linear_program(
     minimal_deviations: float,
     tolerance: float,
     beta_hat: np.ndarray,
+    instrument: Instrument,
 ) -> dict:
     """Second step linear program to estimate upper and lower bounds."""
 
@@ -384,9 +396,10 @@ def _second_step_linear_program(
         identified_estimands=identified_estimands,
         z_data=z_data,
         d_data=d_data,
+        instrument=instrument,
     )
     lp_second_inputs["bounds"] = _compute_second_step_bounds(
-        basis_funcs, identified_estimands
+        basis_funcs, identified_estimands  # type: ignore
     )
 
     result_upper = _solve_second_step_lp_estimation(lp_second_inputs, "max")
@@ -419,6 +432,7 @@ def _build_second_step_ub_matrix(
     identified_estimands: list[Estimand],
     z_data: np.ndarray,
     d_data: np.ndarray,
+    instrument: Instrument,
 ) -> np.ndarray:
     """Build A_ub matrix for second step linear program."""
 
@@ -430,7 +444,9 @@ def _build_second_step_ub_matrix(
     weight_matrix = np.empty(shape=(num_idestimands, num_bfuncs))
 
     for i, estimand in enumerate(identified_estimands):
-        weights = _estimate_weights_estimand(estimand, basis_funcs, z_data, d_data)
+        weights = _estimate_weights_estimand(
+            estimand, basis_funcs, z_data, d_data, instrument
+        )
 
         weight_matrix[i, :] = weights
 
@@ -494,16 +510,16 @@ def _estimate_moments_for_weights(
 
 def _estimate_instrument_characteristics(
     z_data: np.ndarray, d_data: np.ndarray
-) -> dict:
-    """Estimate relevant characteristics of instrument z."""
+) -> Instrument:
+    """Estimate instrument characteristics and return in instrument class."""
 
-    instrument = {}
+    out = Instrument(
+        support=np.unique(z_data),
+        pscores=_estimate_prop_z(z_data, d_data),
+        pmf=_estimate_instrument_pdf(z_data),
+    )
 
-    instrument["pscore_z"] = _estimate_prop_z(z_data, d_data)
-    instrument["support_z"] = np.unique(z_data)
-    instrument["pdf_z"] = _estimate_instrument_pdf(z_data)
-
-    return instrument
+    return out
 
 
 def _estimate_gamma_for_basis_funcs(
