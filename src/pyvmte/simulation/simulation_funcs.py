@@ -14,8 +14,8 @@ def monte_carlo_pyvmte(
     target: Estimand,
     identified_estimands: list[Estimand],
     basis_func_type: str,
-    tolerance: float,
     rng: np.random.Generator,
+    tolerance: float | None = None,
     lp_outputs: bool = False,
 ) -> dict:
     """Run monte carlo simulation using pyvmte module."""
