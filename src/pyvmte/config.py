@@ -81,6 +81,6 @@ SETUP_MONTE_CARLO = {
 }
 
 SETUP_MONTE_CARLO_BY_TARGET = {
-    "sample_size": 100_000,
+    "sample_size": 10_000,
     "repetitions": 1_000,
 }

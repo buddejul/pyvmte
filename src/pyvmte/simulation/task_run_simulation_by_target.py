@@ -17,7 +17,7 @@ class _Arguments(NamedTuple):
     path_to_data: Path
 
 
-for u_hi_target in [0.5, 0.6, 0.9]:
+for u_hi_target in np.arange(0.35, 0.9, 0.05):
 
     @task  # type: ignore
     def task_run_monte_carlo_simulation(
