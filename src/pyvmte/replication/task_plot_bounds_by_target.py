@@ -8,18 +8,18 @@ from pyvmte.replication.plot_bounds_by_target import (
     plot_bounds_by_target,
 )
 from pyvmte.utilities import load_paper_dgp
-from pyvmte.config import SETUP_FIG5, BLD
+from pyvmte.config import SETUP_FIG5, BLD, Instrument
 
 import plotly.io as pio  # type: ignore
 import pandas as pd  # type: ignore
 
 DGP = load_paper_dgp()
 
-INSTRUMENT = {
-    "support_z": DGP["support_z"],
-    "pscore_z": DGP["pscore_z"],
-    "pdf_z": DGP["pdf_z"],
-}
+INSTRUMENT = Instrument(
+    support=DGP["support_z"],
+    pmf=DGP["pdf_z"],
+    pscores=DGP["pscore_z"],
+)
 
 
 def task_create_bounds_by_target_df(

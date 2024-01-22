@@ -12,13 +12,14 @@ from pyvmte.estimation.estimation import (
     _compute_u_partition,
     _compute_choice_weights_second_step,
     _build_second_step_ub_matrix,
+    _estimate_instrument_pdf,
 )
 from pyvmte.identification.identification import (
     _compute_equality_constraint_matrix,
     _compute_choice_weights,
 )
 from pyvmte.utilities import simulate_data_from_paper_dgp, load_paper_dgp
-from pyvmte.config import Estimand
+from pyvmte.config import Estimand, Instrument
 
 from dataclasses import replace
 
@@ -30,11 +31,11 @@ BFUNCS = _generate_basis_funcs("constant", U_PARTITION)
 
 DGP = load_paper_dgp()
 
-INSTRUMENT = {
-    "support_z": DGP["support_z"],
-    "pdf_z": DGP["pdf_z"],
-    "pscore_z": DGP["pscore_z"],
-}
+INSTRUMENT = Instrument(
+    support=DGP["support_z"],
+    pmf=DGP["pdf_z"],
+    pscores=DGP["pscore_z"],
+)
 
 OLS_SLOPE_WEIGHTS = _compute_equality_constraint_matrix(
     identified_estimands=[Estimand(type="ols_slope")],
@@ -112,11 +113,19 @@ def test_first_step_lp_A_ub_matrix_paper_figures(setup: Setup, u_hi_target: floa
             target=target, pscore_z=pscore_z, identified_estimands=identified_estimands
         )
         basis_funcs = _generate_basis_funcs("constant", u_partition)
+
+        instrument = Instrument(
+            support=np.unique(data["z"]),
+            pmf=_estimate_instrument_pdf(data["z"]),
+            pscores=pscore_z,
+        )
+
         A_ub = _build_first_step_ub_matrix(
             basis_funcs=basis_funcs,
             identified_estimands=identified_estimands,
             d_data=data["d"],
             z_data=data["z"],
+            instrument=instrument,
         )
         # Sometimes we exactly estimate the pscore and then we have fewer bfuncs
         # Require shape of actual and A_ub coincides for update
@@ -124,7 +133,7 @@ def test_first_step_lp_A_ub_matrix_paper_figures(setup: Setup, u_hi_target: floa
         weights = _compute_equality_constraint_matrix(
             identified_estimands=identified_estimands,
             basis_funcs=basis_funcs,
-            instrument=INSTRUMENT,
+            instrument=instrument,
         )
 
         expected_upper = np.hstack((weights, -np.eye(len(identified_estimands))))
@@ -179,10 +188,16 @@ def test_second_step_lp_c_vector_paper_figures(setup: Setup, u_hi_target: float)
         )
         basis_funcs = _generate_basis_funcs("constant", u_partition)
 
+        instrument = Instrument(
+            support=np.unique(data["z"]),
+            pmf=_estimate_instrument_pdf(data["z"]),
+            pscores=pscore_z,
+        )
+
         expected_weight = _compute_choice_weights(
             target=target,
             basis_funcs=basis_funcs,
-            instrument=INSTRUMENT,
+            instrument=instrument,
         )
 
         expected_c = np.hstack((expected_weight, np.zeros(len(identified_estimands))))
@@ -259,10 +274,16 @@ def test_second_step_lp_A_ub_matrix_paper_figures(setup: Setup, u_hi_target: flo
         )
         basis_funcs = _generate_basis_funcs("constant", u_partition)
 
+        instrument = Instrument(
+            support=np.unique(data["z"]),
+            pmf=_estimate_instrument_pdf(data["z"]),
+            pscores=pscore_z,
+        )
+
         expected_weight = _compute_equality_constraint_matrix(
             identified_estimands=identified_estimands,
             basis_funcs=basis_funcs,
-            instrument=INSTRUMENT,
+            instrument=instrument,
         )
 
         expected_second_row_block = np.hstack(
@@ -279,6 +300,7 @@ def test_second_step_lp_A_ub_matrix_paper_figures(setup: Setup, u_hi_target: flo
             identified_estimands=identified_estimands,
             z_data=data["z"],
             d_data=data["d"],
+            instrument=instrument,
         )
 
         if actual.shape == actual_A_ub.shape:

@@ -3,7 +3,7 @@ from typing import Callable
 import pandas as pd  # type: ignore
 from scipy.optimize import OptimizeResult  # type: ignore
 
-from pyvmte.config import Estimand
+from pyvmte.config import Estimand, Instrument
 
 import numpy as np
 from pyvmte.utilities import (
@@ -21,7 +21,7 @@ def identification(
     basis_funcs: list[dict],
     m0_dgp: Callable,
     m1_dgp: Callable,
-    instrument: dict,
+    instrument: Instrument,
     u_partition: np.ndarray,
     analytical_integration: bool | None = False,
 ):
@@ -66,7 +66,7 @@ def _compute_identified_estimands(
     m0_dgp: Callable,
     m1_dgp: Callable,
     u_part: np.ndarray,
-    instrument: dict,
+    instrument: Instrument,
 ) -> np.ndarray:
     """Wrapper for computing identified estimands based on provided dgp."""
 
@@ -83,7 +83,7 @@ def _compute_estimand(
     m0: Callable,
     m1: Callable,
     u_part: np.ndarray | None = None,
-    instrument: dict | None = None,
+    instrument: Instrument | None = None,
 ) -> float:
     """Compute single identified estimand."""
     a = gamma_star(
@@ -107,7 +107,7 @@ def _compute_estimand(
 def _compute_choice_weights(
     target: Estimand,
     basis_funcs: list[dict],
-    instrument: dict | None = None,
+    instrument: Instrument | None = None,
     moments: dict | None = None,
     data: pd.DataFrame | None = None,
 ) -> np.ndarray:
@@ -139,7 +139,7 @@ def _compute_choice_weights(
 
 
 def _compute_equality_constraint_matrix(
-    identified_estimands: list[Estimand], basis_funcs: list, instrument: dict
+    identified_estimands: list[Estimand], basis_funcs: list, instrument: Instrument
 ) -> np.ndarray:
     """Compute weight matrix for equality constraints."""
     bfunc_type = basis_funcs[0]["type"]
@@ -172,15 +172,15 @@ def _solve_lp(lp_inputs: dict, max_or_min: str) -> OptimizeResult:
     return result
 
 
-def _compute_moments_for_weights(target: Estimand, instrument: dict) -> dict:
+def _compute_moments_for_weights(target: Estimand, instrument: Instrument) -> dict:
     """Compute relevant moments for computing weights on choice variables given target
     parameter and binary treatment."""
     moments = {}
 
     if target.type == "ols_slope":
         moments["expectation_d"] = _compute_binary_expectation_using_lie(
-            d_pdf_given_z=instrument["pscore_z"],
-            z_pdf=instrument["pdf_z"],
+            d_pdf_given_z=instrument.pscores,
+            z_pdf=instrument.pmf,
         )
         moments["variance_d"] = moments["expectation_d"] * (
             1 - moments["expectation_d"]
@@ -188,12 +188,12 @@ def _compute_moments_for_weights(target: Estimand, instrument: dict) -> dict:
 
     if target.type == "iv_slope":
         moments["expectation_z"] = _compute_expectation(
-            support=instrument["support_z"], pdf=instrument["pdf_z"]
+            support=instrument.support, pdf=instrument.pmf
         )
         moments["covariance_dz"] = _compute_covariance_dz(
-            support_z=instrument["support_z"],
-            pscore_z=instrument["pscore_z"],
-            pdf_z=instrument["pdf_z"],
+            support_z=instrument.support,
+            pscore_z=instrument.pscores,
+            pdf_z=instrument.pmf,
         )
 
     return moments

@@ -6,14 +6,14 @@ import pandas as pd  # type: ignore
 from scipy import integrate  # type: ignore
 from typing import Callable, Dict
 
-from pyvmte.config import Estimand
+from pyvmte.config import Estimand, Instrument
 
 
 def gamma_star(
     md: Callable,
     d: int,
     estimand: Estimand,
-    instrument: Dict[str, np.ndarray] | None = None,
+    instrument: Instrument | None = None,
     dz_cross: tuple | None = None,
     analyt_int: bool = False,
     u_part: np.ndarray | None = None,
@@ -39,9 +39,9 @@ def gamma_star(
     dz_cross = estimand.dz_cross
 
     if instrument is not None:
-        pdf_z = instrument.get("pdf_z")
-        pscore_z = instrument.get("pscore_z")
-        support_z = instrument.get("support_z")
+        pdf_z = instrument.pmf
+        pscore_z = instrument.pscores
+        support_z = instrument.support
 
     if estimand.type == "late":
         return integrate.quad(lambda u: md(u) * s_late(d, u, u_lo, u_hi), 0, 1)[0]
@@ -318,7 +318,7 @@ def _compute_constant_spline_weights(
     estimand: Estimand,
     d: int,
     basis_function: dict,
-    instrument: dict | None = None,
+    instrument: Instrument | None = None,
     moments: dict | None = None,
     data: dict | None = None,
 ):
@@ -400,7 +400,7 @@ def _generate_partition_midpoints(partition):
     )
 
 
-def _compute_ols_weight_for_identification(u, d, instrument, moments):
+def _compute_ols_weight_for_identification(u, d, instrument: Instrument, moments):
     expectation_d = moments["expectation_d"]
     variance_d = moments["variance_d"]
 
@@ -411,29 +411,29 @@ def _compute_ols_weight_for_identification(u, d, instrument, moments):
         ed=expectation_d,
         var_d=variance_d,
     )
-    pdf_z = instrument["pdf_z"]
-    pscore_z = instrument["pscore_z"]
+    pdf_z = instrument.pmf
+    pscore_z = instrument.pscores
 
     weights_by_z = [_weight(u, d, pz) * pdf_z[i] for i, pz in enumerate(pscore_z)]
     return np.sum(weights_by_z)
 
 
-def _estimate_ols_weight_for_estimation(u, d, data, instrument, moments):
+def _estimate_ols_weight_for_estimation(u, d, data, instrument: Instrument, moments):
     expectation_d = moments["expectation_d"]
     variance_d = moments["variance_d"]
 
     coef = (d - expectation_d) / variance_d
 
 
-def _compute_iv_slope_weight_for_identification(u, d, instrument, moments):
+def _compute_iv_slope_weight_for_identification(u, d, instrument: Instrument, moments):
     expectation_z = moments["expectation_z"]
     covariance_dz = moments["covariance_dz"]
     _weight = lambda u, d, z, pz: _weight_iv_slope(
         u, d, z, pz, ez=expectation_z, cov_dz=covariance_dz
     )
-    pdf_z = instrument["pdf_z"]
-    pscore_z = instrument["pscore_z"]
-    support_z = instrument["support_z"]
+    pdf_z = instrument.pmf
+    pscore_z = instrument.pscores
+    support_z = instrument.support
 
     weights_by_z = [
         _weight(u, d, z, pz) * pdf_z[i]
@@ -461,12 +461,12 @@ def _estimate_iv_slope_weight_for_estimation(u, d, moments, data):
     return np.mean(individual_weights)
 
 
-def _compute_cross_weight_for_identification(u, d, instrument, dz_cross):
+def _compute_cross_weight_for_identification(u, d, instrument: Instrument, dz_cross):
     _weight = lambda u, d, z, pz: _weight_cross(u, d, z, pz, dz_cross=dz_cross)
 
-    pdf_z = instrument["pdf_z"]
-    pscore_z = instrument["pscore_z"]
-    support_z = instrument["support_z"]
+    pdf_z = instrument.pmf
+    pscore_z = instrument.pscores
+    support_z = instrument.support
 
     weights_by_z = [
         _weight(u, d, z, pz) * pdf_z[i]

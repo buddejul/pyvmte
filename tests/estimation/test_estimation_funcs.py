@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd  # type: ignore
 import pytest
-from pyvmte.config import Estimand
+from pyvmte.config import Estimand, Instrument
 
 from pyvmte.estimation.estimation import (
     _generate_basis_funcs,
@@ -17,6 +17,7 @@ from pyvmte.estimation.estimation import (
     _estimate_identified_estimands,
     _compute_u_partition,
     _estimate_weights_estimand,
+    _estimate_instrument_pdf,
 )
 
 from pyvmte.utilities import simulate_data_from_paper_dgp
@@ -54,9 +55,11 @@ def test_generate_array_of_pscores():
     z_data = np.array([1, 1, 2, 2, 2, 3, 3, 3, 3])
     d_data = np.array([0, 1, 0, 1, 1, 0, 1, 1, 1])
 
+    pscores = _estimate_prop_z(z_data, d_data)
+
     expected = np.array([0.5, 0.5, 2 / 3, 2 / 3, 2 / 3, 0.75, 0.75, 0.75, 0.75])
 
-    actual = _generate_array_of_pscores(z_data, d_data)
+    actual = _generate_array_of_pscores(z_data, np.unique(z_data), pscores)
 
     assert actual == pytest.approx(expected)
 
@@ -74,11 +77,18 @@ def test_build_first_step_ub_matrix():
     d_data = RNG.choice([0, 1], size=100)
     z_data = RNG.choice([1, 2, 3], size=100)
 
+    instrument = Instrument(
+        support=np.unique(z_data),
+        pmf=_estimate_instrument_pdf(z_data),
+        pscores=_estimate_prop_z(z_data, d_data),
+    )
+
     A_ub = _build_first_step_ub_matrix(
         basis_funcs=basis_funcs,
         identified_estimands=identified_estimands,
         d_data=d_data,
         z_data=z_data,
+        instrument=instrument,
     )
 
     expected = (2 * 2, 4 * 2 + 2)
@@ -126,6 +136,12 @@ def test_first_step_linear_program_runs_and_non_zero():
     z_data = RNG.choice([1, 2, 3], size=100)
     y_data = RNG.normal(size=100)
 
+    instrument = Instrument(
+        support=np.unique(z_data),
+        pmf=_estimate_instrument_pdf(z_data),
+        pscores=_estimate_prop_z(z_data, d_data),
+    )
+
     beta_hat = RNG.normal(size=len(identified_estimands))
     result = _first_step_linear_program(
         identified_estimands=identified_estimands,
@@ -134,6 +150,7 @@ def test_first_step_linear_program_runs_and_non_zero():
         d_data=d_data,
         z_data=z_data,
         beta_hat=beta_hat,
+        instrument=instrument,
     )
 
     assert result["minimal_deviations"] != 0
@@ -192,6 +209,12 @@ def test_second_step_linear_program_runs():
     d_data = np.array(data["d"].astype(float))
     z_data = np.array(data["z"].astype(float))
 
+    instrument = Instrument(
+        support=np.unique(z_data),
+        pmf=_estimate_instrument_pdf(z_data),
+        pscores=_estimate_prop_z(z_data, d_data),
+    )
+
     beta_hat = _estimate_identified_estimands(
         identified_estimands=identified_estimands,
         y_data=y_data,
@@ -214,6 +237,7 @@ def test_second_step_linear_program_runs():
         minimal_deviations,
         tolerance,
         beta_hat,
+        instrument=instrument,
     )
 
     assert result is not None

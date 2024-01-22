@@ -1,17 +1,17 @@
 import numpy as np
 import pandas as pd  # type: ignore
 import pytest
-from pyvmte.config import TEST_DIR, Estimand
+from pyvmte.config import TEST_DIR, Estimand, Instrument
 from pyvmte.identification.identification import _compute_choice_weights
 from pyvmte.utilities import load_paper_dgp, _compute_constant_spline_weights
 
 DGP = load_paper_dgp()
 
-INSTRUMENT = {
-    "support_z": DGP["support_z"],
-    "pdf_z": DGP["pdf_z"],
-    "pscore_z": DGP["pscore_z"],
-}
+INSTRUMENT = Instrument(
+    support=DGP["support_z"],
+    pmf=DGP["pdf_z"],
+    pscores=DGP["pscore_z"],
+)
 
 MOMENTS = {
     "expectation_d": DGP["expectation_d"],
