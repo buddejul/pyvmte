@@ -1,0 +1,140 @@
+from pyvmte.config import Estimand, Instrument
+import numpy as np
+from pyvmte.utilities import simulate_data_from_paper_dgp
+from pyvmte.estimation.estimation import (
+    _estimate_moments_for_weights,
+    _generate_array_of_pscores,
+    _estimate_instrument_characteristics,
+    _generate_basis_funcs,
+    _compute_u_partition,
+)
+
+from numba import njit, jit  # type: ignore
+
+sample_size = 100_000
+
+d_value = 0
+estimand = Estimand(type="ols_slope")
+
+bfunc = {
+    "u_lo": 0.35,
+    "u_hi": 0.7,
+    "type": "constant",
+}
+
+rng = np.random.default_rng()
+
+data = simulate_data_from_paper_dgp(sample_size=sample_size, rng=rng)
+
+instrument = _estimate_instrument_characteristics(z_data=data["z"], d_data=data["d"])
+data["pscores"] = _generate_array_of_pscores(
+    z_data=data["z"], support=instrument.support, pscores=instrument.pscores
+)
+
+moments = _estimate_moments_for_weights(z_data=data["z"], d_data=data["d"])
+
+u_partition = _compute_u_partition(target=estimand, pscore_z=instrument.pscores)
+
+basis_functions = _generate_basis_funcs("constant", u_partition)
+
+
+def _estimate_weights_estimand(
+    estimand: Estimand,
+    basis_funcs: list,
+    data: dict[str, np.ndarray],
+    moments: dict,
+) -> np.ndarray:
+    """Estimate the weights on each basis function for a single estimand."""
+
+    weights = np.zeros(len(basis_funcs) * 2)
+
+    for d_value in [0, 1]:
+        for i, basis_func in enumerate(basis_funcs):
+            idx = i + d_value * len(basis_funcs)
+            weights[idx] = _estimate_gamma_for_basis_funcs(
+                d_value=d_value,
+                estimand=estimand,
+                basis_func=basis_func,
+                data=data,
+                moments=moments,
+            )
+
+    return weights
+
+
+# Function creating list of tuples from list of dictionaries
+def _create_list_of_tuples(basis_funcs: list) -> list[tuple]:
+    """Create list of tuples from list of dictionaries."""
+
+    basis_funcs_tuples = []
+    for basis_func in basis_funcs:
+        basis_funcs_tuples.append((basis_func["u_lo"], basis_func["u_hi"]))
+
+    return basis_funcs_tuples
+
+
+@njit
+def _naivejit__estimate_weights_estimand(
+    estimand_type: str,
+    basis_funcs: list[tuple],
+    pscores: np.ndarray,
+    data_z: np.ndarray,
+    expectation_d,
+    variance_d,
+    covariance_dz,
+    expectation_z,
+    estimand_dz_cross: tuple[int, int] | None = None,
+) -> np.ndarray:
+    """Estimate the weights on each basis function for a single estimand."""
+
+    weights = np.zeros(len(basis_funcs) * 2, dtype=np.float64)
+
+    for d_value in [0, 1]:
+        for i, basis_func in enumerate(basis_funcs):
+            idx = int(i + d_value * len(basis_funcs))
+            length = basis_func[1] - basis_func[0]
+
+            if estimand_type == "ols_slope":
+                coef = (d_value - expectation_d) / variance_d
+
+            if d_value == 0:
+                # Create array of 1 if basis_funcs["u_lo"] > data["pscores"] else 0
+                indicators = np.where(basis_func[0] >= pscores, 1, 0)
+            else:
+                indicators = np.where(basis_func[1] <= pscores, 1, 0)
+            weights[idx] = length * np.mean(coef * indicators)
+
+    return weights
+
+
+# FIXME think about accurate timing, e.g. calling functions first to compile them
+
+
+def _estimate_gamma_for_basis_funcs(
+    d_value: int, estimand: Estimand, basis_func: dict, data: dict, moments: dict
+) -> float:
+    """Estimate gamma linear map for basis function (cf.
+
+    S33 in Appendix).
+
+    """
+
+    length = basis_func["u_hi"] - basis_func["u_lo"]
+
+    if estimand.type == "ols_slope":
+        coef = (d_value - moments["expectation_d"]) / moments["variance_d"]
+    if estimand.type == "iv_slope":
+        coef = (data["z"] - moments["expectation_z"]) / moments["covariance_dz"]
+    if estimand.type == "cross":
+        # TODO make specification of cross estimands safer
+        d_cross = estimand.dz_cross[0]  # type: ignore
+        z_cross = estimand.dz_cross[1]  # type: ignore
+        coef = np.where(d_value == d_cross, data["z"] == z_cross, 0)
+
+    if d_value == 0:
+        # Create array of 1 if basis_funcs["u_lo"] > data["pscores"] else 0
+        indicators = np.where(basis_func["u_lo"] >= data["pscores"], 1, 0)
+    else:
+        indicators = np.where(basis_func["u_hi"] <= data["pscores"], 1, 0)
+
+    return length * np.mean(coef * indicators)

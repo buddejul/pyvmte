@@ -6,6 +6,7 @@ dependencies:
   - ipykernel
   - jupyterlab
   - line_profiler
+  - numba
   - pandas
   - pip >=21.1
   - plotly>=5.13.0

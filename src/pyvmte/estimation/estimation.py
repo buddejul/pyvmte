@@ -280,7 +280,6 @@ def _estimate_weights_estimand(
     estimand: Estimand,
     basis_funcs: list,
     data: dict[str, np.ndarray],
-    instrument: Instrument,
     moments: dict,
 ) -> np.ndarray:
     """Estimate the weights on each basis function for a single estimand."""
@@ -344,7 +343,6 @@ def _build_first_step_ub_matrix(
             estimand=estimand,
             basis_funcs=basis_funcs,
             data=data,
-            instrument=instrument,
             moments=moments,
         )
 
@@ -448,7 +446,6 @@ def _build_second_step_ub_matrix(
             estimand=estimand,
             basis_funcs=basis_funcs,
             data=data,
-            instrument=instrument,
             moments=moments,
         )
 
@@ -521,6 +518,7 @@ def _estimate_instrument_characteristics(
     return out
 
 
+# TODO optimize: spend about 50% of time here
 def _estimate_gamma_for_basis_funcs(
     d_value: int, estimand: Estimand, basis_func: dict, data: dict, moments: dict
 ) -> float:
