@@ -273,16 +273,17 @@ def _estimate_estimand(
     return np.mean(ind_elements)
 
 
+# TODO spend 60% of time here
+# take out estimation of moments and generating array of pscores
 def _estimate_weights_estimand(
     estimand: Estimand,
     basis_funcs: list,
     z_data: np.ndarray,
     d_data: np.ndarray,
     instrument: Instrument,
+    moments: dict,
 ) -> np.ndarray:
     """Estimate the weights on each basis function for a single estimand."""
-
-    moments = _estimate_moments_for_weights(estimand, z_data, d_data)
 
     data = {"z": z_data, "d": d_data}
     data["pscores"] = _generate_array_of_pscores(
@@ -342,9 +343,11 @@ def _build_first_step_ub_matrix(
 
     weight_matrix = np.empty(shape=(num_idestimands, num_bfuncs))
 
+    moments = _estimate_moments_for_weights(z_data, d_data)
+
     for i, estimand in enumerate(identified_estimands):
         weights = _estimate_weights_estimand(
-            estimand, basis_funcs, z_data, d_data, instrument
+            estimand, basis_funcs, z_data, d_data, instrument, moments
         )
 
         weight_matrix[i, :] = weights
@@ -443,9 +446,11 @@ def _build_second_step_ub_matrix(
 
     weight_matrix = np.empty(shape=(num_idestimands, num_bfuncs))
 
+    moments = _estimate_moments_for_weights(z_data, d_data)
+
     for i, estimand in enumerate(identified_estimands):
         weights = _estimate_weights_estimand(
-            estimand, basis_funcs, z_data, d_data, instrument
+            estimand, basis_funcs, z_data, d_data, instrument, moments
         )
 
         weight_matrix[i, :] = weights
@@ -490,20 +495,15 @@ def _compute_second_step_upper_bounds(
     )
 
 
-def _estimate_moments_for_weights(
-    estimand: Estimand, z_data: np.ndarray, d_data: np.ndarray
-) -> dict:
+def _estimate_moments_for_weights(z_data: np.ndarray, d_data: np.ndarray) -> dict:
     """Estimate relevant moments for computing weights on LP choice variables."""
 
     moments = {}
 
-    if estimand.type == "ols_slope":
-        moments["expectation_d"] = np.mean(d_data)
-        moments["variance_d"] = np.var(d_data)
-
-    elif estimand.type == "iv_slope":
-        moments["expectation_z"] = np.mean(z_data)
-        moments["covariance_dz"] = np.cov(d_data, z_data)[0, 1]
+    moments["expectation_d"] = np.mean(d_data)
+    moments["variance_d"] = np.var(d_data)
+    moments["expectation_z"] = np.mean(z_data)
+    moments["covariance_dz"] = np.cov(d_data, z_data)[0, 1]
 
     return moments
 
