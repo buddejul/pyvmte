@@ -22,7 +22,7 @@ DGP = load_paper_dgp()
 INSTRUMENT = Instrument(
     support=DGP["support_z"],
     pmf=DGP["pdf_z"],
-    pscores=DGP["pscore_z"],
+    pscores=DGP["pscores"],
 )
 
 U_PART = [0, 0.35, 0.6, 0.7, 0.9, 1]

@@ -79,13 +79,17 @@ def estimation(
         d_data=d_data,
     )
 
+    data = {"y": y_data, "z": z_data, "d": d_data}
+
+    data["pscores"] = _generate_array_of_pscores(
+        z_data=z_data, support=instrument.support, pscores=instrument.pscores
+    )
+
     ############################ First Step Linear Program #############################
     results_first_step = _first_step_linear_program(
         identified_estimands=identified_estimands,
         basis_funcs=basis_funcs,
-        y_data=y_data,
-        d_data=d_data,
-        z_data=z_data,
+        data=data,
         beta_hat=beta_hat,
         instrument=instrument,
     )
@@ -97,8 +101,7 @@ def estimation(
         target=target,
         identified_estimands=identified_estimands,
         basis_funcs=basis_funcs,
-        z_data=z_data,
-        d_data=d_data,
+        data=data,
         minimal_deviations=minimal_deviations,
         tolerance=tolerance,
         beta_hat=beta_hat,
@@ -125,9 +128,7 @@ def estimation(
 def _first_step_linear_program(
     identified_estimands: list[Estimand],
     basis_funcs: list[dict],
-    y_data: np.ndarray,
-    d_data: np.ndarray,
-    z_data: np.ndarray,
+    data: dict[str, np.ndarray],
     beta_hat: np.ndarray,
     instrument: Instrument,
 ) -> dict:
@@ -139,7 +140,7 @@ def _first_step_linear_program(
     )
     lp_first_inputs["b_ub"] = _compute_first_step_upper_bounds(beta_hat)
     lp_first_inputs["A_ub"] = _build_first_step_ub_matrix(
-        basis_funcs, identified_estimands, d_data, z_data, instrument
+        basis_funcs, identified_estimands, data, instrument
     )
     lp_first_inputs["bounds"] = _compute_first_step_bounds(
         identified_estimands, basis_funcs  # type: ignore
@@ -278,17 +279,11 @@ def _estimate_estimand(
 def _estimate_weights_estimand(
     estimand: Estimand,
     basis_funcs: list,
-    z_data: np.ndarray,
-    d_data: np.ndarray,
+    data: dict[str, np.ndarray],
     instrument: Instrument,
     moments: dict,
 ) -> np.ndarray:
     """Estimate the weights on each basis function for a single estimand."""
-
-    data = {"z": z_data, "d": d_data}
-    data["pscores"] = _generate_array_of_pscores(
-        z_data, instrument.support, instrument.pscores
-    )
 
     weights = np.zeros(len(basis_funcs) * 2)
 
@@ -333,8 +328,7 @@ def _estimate_prop_z(z_data: np.ndarray, d_data: np.ndarray) -> np.ndarray:
 def _build_first_step_ub_matrix(
     basis_funcs: list[dict],
     identified_estimands: list[Estimand],
-    d_data: np.ndarray,
-    z_data: np.ndarray,
+    data: dict[str, np.ndarray],
     instrument: Instrument,
 ) -> np.ndarray:
     """Build matrix for first step lp involving dummy variables."""
@@ -343,11 +337,15 @@ def _build_first_step_ub_matrix(
 
     weight_matrix = np.empty(shape=(num_idestimands, num_bfuncs))
 
-    moments = _estimate_moments_for_weights(z_data, d_data)
+    moments = _estimate_moments_for_weights(data["z"], data["d"])
 
     for i, estimand in enumerate(identified_estimands):
         weights = _estimate_weights_estimand(
-            estimand, basis_funcs, z_data, d_data, instrument, moments
+            estimand=estimand,
+            basis_funcs=basis_funcs,
+            data=data,
+            instrument=instrument,
+            moments=moments,
         )
 
         weight_matrix[i, :] = weights
@@ -378,8 +376,7 @@ def _second_step_linear_program(
     target: Estimand,
     identified_estimands: list[Estimand],
     basis_funcs: list[dict],
-    z_data: np.ndarray,
-    d_data: np.ndarray,
+    data: dict[str, np.ndarray],
     minimal_deviations: float,
     tolerance: float,
     beta_hat: np.ndarray,
@@ -397,8 +394,7 @@ def _second_step_linear_program(
     lp_second_inputs["A_ub"] = _build_second_step_ub_matrix(
         basis_funcs=basis_funcs,
         identified_estimands=identified_estimands,
-        z_data=z_data,
-        d_data=d_data,
+        data=data,
         instrument=instrument,
     )
     lp_second_inputs["bounds"] = _compute_second_step_bounds(
@@ -433,8 +429,7 @@ def _compute_choice_weights_second_step(
 def _build_second_step_ub_matrix(
     basis_funcs: list[dict],
     identified_estimands: list[Estimand],
-    z_data: np.ndarray,
-    d_data: np.ndarray,
+    data: dict[str, np.ndarray],
     instrument: Instrument,
 ) -> np.ndarray:
     """Build A_ub matrix for second step linear program."""
@@ -446,11 +441,15 @@ def _build_second_step_ub_matrix(
 
     weight_matrix = np.empty(shape=(num_idestimands, num_bfuncs))
 
-    moments = _estimate_moments_for_weights(z_data, d_data)
+    moments = _estimate_moments_for_weights(data["z"], data["d"])
 
     for i, estimand in enumerate(identified_estimands):
         weights = _estimate_weights_estimand(
-            estimand, basis_funcs, z_data, d_data, instrument, moments
+            estimand=estimand,
+            basis_funcs=basis_funcs,
+            data=data,
+            instrument=instrument,
+            moments=moments,
         )
 
         weight_matrix[i, :] = weights

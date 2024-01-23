@@ -13,6 +13,7 @@ from pyvmte.estimation.estimation import (
     _compute_choice_weights_second_step,
     _build_second_step_ub_matrix,
     _estimate_instrument_pdf,
+    _generate_array_of_pscores,
 )
 from pyvmte.identification.identification import (
     _compute_equality_constraint_matrix,
@@ -34,7 +35,7 @@ DGP = load_paper_dgp()
 INSTRUMENT = Instrument(
     support=DGP["support_z"],
     pmf=DGP["pdf_z"],
-    pscores=DGP["pscore_z"],
+    pscores=DGP["pscores"],
 )
 
 OLS_SLOPE_WEIGHTS = _compute_equality_constraint_matrix(
@@ -120,11 +121,13 @@ def test_first_step_lp_A_ub_matrix_paper_figures(setup: Setup, u_hi_target: floa
             pscores=pscore_z,
         )
 
+        data["pscores"] = _generate_array_of_pscores(
+            z_data=data["z"], support=instrument.support, pscores=instrument.pscores
+        )
         A_ub = _build_first_step_ub_matrix(
             basis_funcs=basis_funcs,
             identified_estimands=identified_estimands,
-            d_data=data["d"],
-            z_data=data["z"],
+            data=data,
             instrument=instrument,
         )
         # Sometimes we exactly estimate the pscore and then we have fewer bfuncs
@@ -147,7 +150,6 @@ def test_first_step_lp_A_ub_matrix_paper_figures(setup: Setup, u_hi_target: floa
 
     expected /= REPETITIONS - number_iter_diff_shape
     actual /= REPETITIONS - number_iter_diff_shape
-
     assert actual == pytest.approx(expected, abs=3 / np.sqrt(SAMPLE_SIZE))
 
 
@@ -295,11 +297,14 @@ def test_second_step_lp_A_ub_matrix_paper_figures(setup: Setup, u_hi_target: flo
 
         expected_add = np.vstack((expected_second_row_block, expected_third_row_block))
 
+        data["pscores"] = _generate_array_of_pscores(
+            z_data=data["z"], support=instrument.support, pscores=instrument.pscores
+        )
+
         actual_A_ub = _build_second_step_ub_matrix(
             basis_funcs=basis_funcs,
             identified_estimands=identified_estimands,
-            z_data=data["z"],
-            d_data=data["d"],
+            data=data,
             instrument=instrument,
         )
 

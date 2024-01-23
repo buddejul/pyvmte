@@ -207,7 +207,7 @@ def load_paper_dgp():
         + 0.25 * bern_bas(2, 2, u)
     )
     out["support_z"] = np.array([0, 1, 2])
-    out["pscore_z"] = np.array([0.35, 0.6, 0.7])
+    out["pscores"] = np.array([0.35, 0.6, 0.7])
     out["pdf_z"] = np.array([0.5, 0.4, 0.1])
     out["ols_slope"] = 0.253
     out["late_35_90"] = 0.046
@@ -219,7 +219,7 @@ def load_paper_dgp():
         0: {0: 0.325, 1: 0.16, 2: 0.03},
     }
 
-    out["expectation_d"] = np.sum(out["pscore_z"] * out["pdf_z"])
+    out["expectation_d"] = np.sum(out["pscores"] * out["pdf_z"])
     out["variance_d"] = out["expectation_d"] * (1 - out["expectation_d"])
     out["expectation_z"] = np.sum(out["support_z"] * out["pdf_z"])
 
@@ -252,11 +252,11 @@ def simulate_data_from_paper_dgp(sample_size, rng):
     data = choices[idx]
 
     # Put data into df
-    data = pd.DataFrame(data, columns=["z", "pscore_z"])
+    data = pd.DataFrame(data, columns=["z", "pscores"])
 
     data["u"] = rng.uniform(size=sample_size)
 
-    data["d"] = data["u"] < data["pscore_z"]
+    data["d"] = data["u"] < data["pscores"]
 
     dgp = load_paper_dgp()
 
@@ -266,13 +266,19 @@ def simulate_data_from_paper_dgp(sample_size, rng):
     # FIXME 20% here
     data["y"] = np.where(data["d"] == 0, m0(data["u"]), m1(data["u"]))
 
-    data["pscore_z"] = data["pscore_z"].astype(float)
+    data["pscores"] = data["pscores"].astype(float)
     data["z"] = data["z"].astype(int)
     data["u"] = data["u"].astype(float)
     data["d"] = data["d"].astype(int)
     data["y"] = data["y"].astype(float)
 
-    return data
+    # Only return basic data
+    data_dict = {}
+    data_dict["z"] = np.array(data["z"])
+    data_dict["d"] = np.array(data["d"])
+    data_dict["y"] = np.array(data["y"])
+
+    return data_dict
 
 
 def _weight_late(u, u_lo, u_hi):
@@ -513,9 +519,9 @@ def _check_estimation_arguments(
     error_report = ""
 
     data_dict = {
-        "y_data": y_data,
-        "z_data": z_data,
-        "d_data": d_data,
+        "y": y_data,
+        "z": z_data,
+        "d": d_data,
     }
 
     # Check that all data arguments are numpy arrays

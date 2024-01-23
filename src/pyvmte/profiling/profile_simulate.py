@@ -10,7 +10,7 @@ def simulate_data_from_paper_dgp(sample_size, rng):
 
     dgp = load_paper_dgp()
 
-    z_dict = dict(zip(dgp["support_z"], dgp["pscore_z"]))
+    z_dict = dict(zip(dgp["support_z"], dgp["pscores"]))
 
     sampled = np.random.choice(dgp["support_z"], size=sample_size, p=dgp["pdf_z"])
 
@@ -19,11 +19,11 @@ def simulate_data_from_paper_dgp(sample_size, rng):
     pscores_corresponding = np.array([z_dict[i] for i in sampled])
 
     data["z"] = sampled
-    data["pscore_z"] = pscores_corresponding
+    data["pscores"] = pscores_corresponding
 
     data["u"] = rng.uniform(size=sample_size)
 
-    data["d"] = data["u"] < data["pscore_z"]
+    data["d"] = data["u"] < data["pscores"]
 
     m0 = dgp["m0"]
     m1 = dgp["m1"]
@@ -31,7 +31,7 @@ def simulate_data_from_paper_dgp(sample_size, rng):
     # FIXME 20% here
     data["y"] = np.where(data["d"] == 0, m0(data["u"]), m1(data["u"]))
 
-    data["pscore_z"] = data["pscore_z"].astype(float)
+    data["pscores"] = data["pscores"].astype(float)
     data["z"] = data["z"].astype(int)
     data["u"] = data["u"].astype(float)
     data["d"] = data["d"].astype(int)
@@ -56,11 +56,11 @@ def fast_simulate(sample_size, rng):
     data = choices[idx]
 
     # Put data into df
-    data = pd.DataFrame(data, columns=["z", "pscore_z"])
+    data = pd.DataFrame(data, columns=["z", "pscores"])
 
     data["u"] = rng.uniform(size=sample_size)
 
-    data["d"] = data["u"] < data["pscore_z"]
+    data["d"] = data["u"] < data["pscores"]
 
     dgp = load_paper_dgp()
 
@@ -70,7 +70,7 @@ def fast_simulate(sample_size, rng):
     # FIXME 20% here
     data["y"] = np.where(data["d"] == 0, m0(data["u"]), m1(data["u"]))
 
-    data["pscore_z"] = data["pscore_z"].astype(float)
+    data["pscores"] = data["pscores"].astype(float)
     data["z"] = data["z"].astype(int)
     data["u"] = data["u"].astype(float)
     data["d"] = data["d"].astype(int)
@@ -95,11 +95,11 @@ def vectorized_fast_simulate(sample_size, rng):
     data = choices[idx]
 
     # Put data into df
-    data = pd.DataFrame(data, columns=["z", "pscore_z"])
+    data = pd.DataFrame(data, columns=["z", "pscores"])
 
     data["u"] = rng.uniform(size=sample_size)
 
-    data["d"] = data["u"] < data["pscore_z"]
+    data["d"] = data["u"] < data["pscores"]
 
     dgp = load_paper_dgp()
 
@@ -114,7 +114,7 @@ def vectorized_fast_simulate(sample_size, rng):
         data["d"] == 0, vectorized_m0(data["u"]), vectorized_m1(data["u"])
     )
 
-    data["pscore_z"] = data["pscore_z"].astype(float)
+    data["pscores"] = data["pscores"].astype(float)
     data["z"] = data["z"].astype(int)
     data["u"] = data["u"].astype(float)
     data["d"] = data["d"].astype(int)

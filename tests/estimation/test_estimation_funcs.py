@@ -77,6 +77,18 @@ def test_build_first_step_ub_matrix():
     d_data = RNG.choice([0, 1], size=100)
     z_data = RNG.choice([1, 2, 3], size=100)
 
+    data = {"d": d_data, "z": z_data}
+
+    instrument = Instrument(
+        support=np.unique(z_data),
+        pmf=_estimate_instrument_pdf(z_data),
+        pscores=_estimate_prop_z(z_data, d_data),
+    )
+
+    data["pscores"] = _generate_array_of_pscores(
+        z_data, instrument.support, instrument.pscores
+    )
+
     instrument = Instrument(
         support=np.unique(z_data),
         pmf=_estimate_instrument_pdf(z_data),
@@ -86,8 +98,7 @@ def test_build_first_step_ub_matrix():
     A_ub = _build_first_step_ub_matrix(
         basis_funcs=basis_funcs,
         identified_estimands=identified_estimands,
-        d_data=d_data,
-        z_data=z_data,
+        data=data,
         instrument=instrument,
     )
 
@@ -136,19 +147,23 @@ def test_first_step_linear_program_runs_and_non_zero():
     z_data = RNG.choice([1, 2, 3], size=100)
     y_data = RNG.normal(size=100)
 
+    data = {"d": d_data, "z": z_data, "y": y_data}
+
     instrument = Instrument(
         support=np.unique(z_data),
         pmf=_estimate_instrument_pdf(z_data),
         pscores=_estimate_prop_z(z_data, d_data),
     )
 
+    data["pscores"] = _generate_array_of_pscores(
+        z_data, instrument.support, instrument.pscores
+    )
+
     beta_hat = RNG.normal(size=len(identified_estimands))
     result = _first_step_linear_program(
         identified_estimands=identified_estimands,
         basis_funcs=basis_funcs,
-        y_data=y_data,
-        d_data=d_data,
-        z_data=z_data,
+        data=data,
         beta_hat=beta_hat,
         instrument=instrument,
     )
@@ -215,6 +230,10 @@ def test_second_step_linear_program_runs():
         pscores=_estimate_prop_z(z_data, d_data),
     )
 
+    data["pscores"] = _generate_array_of_pscores(
+        z_data, instrument.support, instrument.pscores
+    )
+
     beta_hat = _estimate_identified_estimands(
         identified_estimands=identified_estimands,
         y_data=y_data,
@@ -229,14 +248,13 @@ def test_second_step_linear_program_runs():
     minimal_deviations = 10e-5
 
     result = _second_step_linear_program(
-        target,
-        identified_estimands,
-        basis_funcs,
-        z_data,
-        d_data,
-        minimal_deviations,
-        tolerance,
-        beta_hat,
+        target=target,
+        identified_estimands=identified_estimands,
+        basis_funcs=basis_funcs,
+        data=data,
+        minimal_deviations=minimal_deviations,
+        tolerance=tolerance,
+        beta_hat=beta_hat,
         instrument=instrument,
     )
 
@@ -300,11 +318,12 @@ def test_build_first_step_ub_matrix_symmetry():
     d_data = RNG.choice([0, 1], size=100)
     z_data = RNG.choice([1, 2, 3], size=100)
 
+    data = {"d": d_data, "z": z_data}
+
     A_ub = _build_first_step_ub_matrix(
         basis_funcs=basis_funcs,
         identified_estimands=identified_estimands,
-        d_data=d_data,
-        z_data=z_data,
+        data=data,
     )
 
     num_bfuncs = len(basis_funcs) * 2
