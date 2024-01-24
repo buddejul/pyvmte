@@ -281,6 +281,7 @@ def _estimate_weights_estimand(
     basis_funcs: list,
     data: dict[str, np.ndarray],
     moments: dict,
+    instrument: Instrument,
 ) -> np.ndarray:
     """Estimate the weights on each basis function for a single estimand."""
 
@@ -295,6 +296,7 @@ def _estimate_weights_estimand(
                 basis_func=basis_func,
                 data=data,
                 moments=moments,
+                instrument=instrument,
             )
 
     return weights
@@ -344,6 +346,7 @@ def _build_first_step_ub_matrix(
             basis_funcs=basis_funcs,
             data=data,
             moments=moments,
+            instrument=instrument,
         )
 
         weight_matrix[i, :] = weights
@@ -447,6 +450,7 @@ def _build_second_step_ub_matrix(
             basis_funcs=basis_funcs,
             data=data,
             moments=moments,
+            instrument=instrument,
         )
 
         weight_matrix[i, :] = weights
@@ -520,7 +524,12 @@ def _estimate_instrument_characteristics(
 
 # TODO optimize: spend about 50% of time here
 def _estimate_gamma_for_basis_funcs(
-    d_value: int, estimand: Estimand, basis_func: dict, data: dict, moments: dict
+    d_value: int,
+    estimand: Estimand,
+    basis_func: dict,
+    data: dict,
+    moments: dict,
+    instrument: Instrument,
 ) -> float:
     """Estimate gamma linear map for basis function (cf.
 
@@ -538,12 +547,38 @@ def _estimate_gamma_for_basis_funcs(
         # TODO make specification of cross estimands safer
         d_cross = estimand.dz_cross[0]  # type: ignore
         z_cross = estimand.dz_cross[1]  # type: ignore
-        coef = np.where(d_value == d_cross, data["z"] == z_cross, 0)
+
+        if d_value != d_cross:
+            return 0
+        else:
+            if d_value == 0:
+                # Could use instrment values here!
+                if basis_func["u_lo"] < instrument.pscores[0]:
+                    return 0
+                else:
+                    mask1 = basis_func["u_lo"] >= data["pscores"]
+                    mask2 = data["z"] == z_cross
+                    cross_indicators = np.logical_and(mask1, mask2)
+                    # cross_indicators = np.where((basis_func["u_lo"] >= data["pscores"]) & (data["z"] == z_cross), 1, 0)
+            if d_value == 1:
+                if basis_func["u_hi"] > instrument.pscores[-1]:
+                    return 0
+                else:
+                    mask1 = basis_func["u_hi"] <= data["pscores"]
+                    mask2 = data["z"] == z_cross
+                    cross_indicators = np.logical_and(mask1, mask2)
+                    # cross_indicators = np.where((basis_func["u_hi"] <= data["pscores"]) & (data["z"] == z_cross), 1, 0)
+
+        return length * np.count_nonzero(cross_indicators) / len(cross_indicators)
 
     if d_value == 0:
         # Create array of 1 if basis_funcs["u_lo"] > data["pscores"] else 0
-        indicators = np.where(basis_func["u_lo"] >= data["pscores"], 1, 0)
+        indicators = basis_func["u_lo"] >= data["pscores"]
     else:
-        indicators = np.where(basis_func["u_hi"] <= data["pscores"], 1, 0)
+        indicators = basis_func["u_hi"] <= data["pscores"]
 
-    return length * np.mean(coef * indicators)
+    if estimand.type == "ols_slope":
+        share = np.count_nonzero(indicators) / len(indicators)
+        return length * coef * share
+    else:
+        return length * np.mean(coef * indicators)

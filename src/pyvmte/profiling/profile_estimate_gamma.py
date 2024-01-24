@@ -14,7 +14,10 @@ from numba import njit, jit  # type: ignore
 sample_size = 100_000
 
 d_value = 0
-estimand = Estimand(type="ols_slope")
+ols_estimand = Estimand(type="ols_slope")
+iv_estimand = Estimand(type="iv_slope")
+cross_estimand = Estimand(type="cross", dz_cross=(0, 1))
+late_estimand = Estimand(type="late", u_lo=0.35, u_hi=0.9)
 
 bfunc = {
     "u_lo": 0.35,
@@ -33,7 +36,7 @@ data["pscores"] = _generate_array_of_pscores(
 
 moments = _estimate_moments_for_weights(z_data=data["z"], d_data=data["d"])
 
-u_partition = _compute_u_partition(target=estimand, pscore_z=instrument.pscores)
+u_partition = _compute_u_partition(target=late_estimand, pscore_z=instrument.pscores)
 
 basis_functions = _generate_basis_funcs("constant", u_partition)
 
@@ -121,6 +124,67 @@ def _njit__estimate_weights_estimand(
 
 
 # FIXME think about accurate timing, e.g. calling functions first to compile them
+
+
+def _optimized_estimate_gamma_for_basis_funcs(
+    d_value: int,
+    estimand: Estimand,
+    basis_func: dict,
+    data: dict,
+    moments: dict,
+    instrument: Instrument,
+) -> float:
+    """Estimate gamma linear map for basis function (cf.
+
+    S33 in Appendix).
+
+    """
+
+    length = basis_func["u_hi"] - basis_func["u_lo"]
+
+    if estimand.type == "ols_slope":
+        coef = (d_value - moments["expectation_d"]) / moments["variance_d"]
+    if estimand.type == "iv_slope":
+        coef = (data["z"] - moments["expectation_z"]) / moments["covariance_dz"]
+    if estimand.type == "cross":
+        # TODO make specification of cross estimands safer
+        d_cross = estimand.dz_cross[0]  # type: ignore
+        z_cross = estimand.dz_cross[1]  # type: ignore
+
+        if d_value != d_cross:
+            return 0
+        else:
+            if d_value == 0:
+                # Could use instrment values here!
+                if basis_func["u_lo"] < instrument.pscores[0]:
+                    return 0
+                else:
+                    mask1 = basis_func["u_lo"] >= data["pscores"]
+                    mask2 = data["z"] == z_cross
+                    cross_indicators = np.logical_and(mask1, mask2)
+                    # cross_indicators = np.where((basis_func["u_lo"] >= data["pscores"]) & (data["z"] == z_cross), 1, 0)
+            if d_value == 1:
+                if basis_func["u_hi"] > instrument.pscores[-1]:
+                    return 0
+                else:
+                    mask1 = basis_func["u_hi"] <= data["pscores"]
+                    mask2 = data["z"] == z_cross
+                    cross_indicators = np.logical_and(mask1, mask2)
+                    # cross_indicators = np.where((basis_func["u_hi"] <= data["pscores"]) & (data["z"] == z_cross), 1, 0)
+
+        return length * np.count_nonzero(cross_indicators) / len(cross_indicators)
+
+    if d_value == 0:
+        # Create array of 1 if basis_funcs["u_lo"] > data["pscores"] else 0
+        indicators = basis_func["u_lo"] >= data["pscores"]
+    else:
+        indicators = basis_func["u_hi"] <= data["pscores"]
+
+    if estimand.type == "ols_slope":
+        share = np.count_nonzero(indicators) / len(indicators)
+        return length * coef * share
+    else:
+        return length * np.mean(coef * indicators)
 
 
 def _estimate_gamma_for_basis_funcs(
