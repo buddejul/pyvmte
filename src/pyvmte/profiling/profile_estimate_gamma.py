@@ -73,36 +73,47 @@ def _create_list_of_tuples(basis_funcs: list) -> list[tuple]:
     return basis_funcs_tuples
 
 
-@njit
+# Function creating array of all hi or low points from dictionary
+def _create_array_of_points(basis_funcs: list, point: str) -> np.ndarray:
+    """Create array of all hi or low points from dictionary."""
+
+    points = []
+    for basis_func in basis_funcs:
+        points.append(basis_func[point])
+
+    return np.array(points)
+
+
+@njit()
 def _naivejit__estimate_weights_estimand(
     estimand_type: str,
-    basis_funcs: list[tuple],
+    basis_funcs_hi: np.ndarray,
+    basis_funcs_lo: np.ndarray,
     pscores: np.ndarray,
-    data_z: np.ndarray,
     expectation_d,
     variance_d,
-    covariance_dz,
-    expectation_z,
-    estimand_dz_cross: tuple[int, int] | None = None,
 ) -> np.ndarray:
     """Estimate the weights on each basis function for a single estimand."""
 
-    weights = np.zeros(len(basis_funcs) * 2, dtype=np.float64)
+    number_bfuncs = len(basis_funcs_hi)
+
+    weights = np.zeros(number_bfuncs * 2, dtype=np.float64)
 
     for d_value in [0, 1]:
-        for i, basis_func in enumerate(basis_funcs):
-            idx = int(i + d_value * len(basis_funcs))
-            length = basis_func[1] - basis_func[0]
+        for i in range(number_bfuncs):
+            idx = int(i + d_value * number_bfuncs)
 
-            if estimand_type == "ols_slope":
-                coef = (d_value - expectation_d) / variance_d
+            coef = (d_value - expectation_d) / variance_d
 
             if d_value == 0:
                 # Create array of 1 if basis_funcs["u_lo"] > data["pscores"] else 0
-                indicators = np.where(basis_func[0] >= pscores, 1, 0)
+                indicators = np.where(basis_funcs_lo[i] >= pscores, 1, 0)
             else:
-                indicators = np.where(basis_func[1] <= pscores, 1, 0)
-            weights[idx] = length * np.mean(coef * indicators)
+                indicators = np.where(basis_funcs_hi[i] <= pscores, 1, 0)
+
+            weights[idx] = (basis_funcs_hi[i] - basis_funcs_lo[i]) * np.mean(
+                coef * indicators
+            )
 
     return weights
 
