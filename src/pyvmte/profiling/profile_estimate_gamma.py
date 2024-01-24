@@ -85,7 +85,7 @@ def _create_array_of_points(basis_funcs: list, point: str) -> np.ndarray:
 
 
 @njit()
-def _naivejit__estimate_weights_estimand(
+def _njit__estimate_weights_estimand(
     estimand_type: str,
     basis_funcs_hi: np.ndarray,
     basis_funcs_lo: np.ndarray,
@@ -99,21 +99,23 @@ def _naivejit__estimate_weights_estimand(
 
     weights = np.zeros(number_bfuncs * 2, dtype=np.float64)
 
-    for d_value in [0, 1]:
+    for d_value in range(2):
+        coef = (d_value - expectation_d) / variance_d
+
         for i in range(number_bfuncs):
-            idx = int(i + d_value * number_bfuncs)
+            indicators = np.full(len(pscores), False)
 
-            coef = (d_value - expectation_d) / variance_d
+            for j in range(len(pscores)):
+                if d_value == 0:
+                    if basis_funcs_lo[i] >= pscores[j]:
+                        indicators[j] = True
+                else:
+                    if basis_funcs_hi[i] <= pscores[j]:
+                        indicators[j] = True
 
-            if d_value == 0:
-                # Create array of 1 if basis_funcs["u_lo"] > data["pscores"] else 0
-                indicators = np.where(basis_funcs_lo[i] >= pscores, 1, 0)
-            else:
-                indicators = np.where(basis_funcs_hi[i] <= pscores, 1, 0)
-
-            weights[idx] = (basis_funcs_hi[i] - basis_funcs_lo[i]) * np.mean(
-                coef * indicators
-            )
+            weights[i + d_value * number_bfuncs] = (
+                basis_funcs_hi[i] - basis_funcs_lo[i]
+            ) * np.mean(coef * indicators)
 
     return weights
 
