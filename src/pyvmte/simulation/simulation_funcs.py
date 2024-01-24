@@ -5,18 +5,19 @@ import numpy as np
 from pyvmte.estimation.estimation import estimation
 from pyvmte.utilities import simulate_data_from_paper_dgp
 from pyvmte.estimation.estimation import _estimate_prop_z
+from pyvmte.config import Estimand
 
 
 def monte_carlo_pyvmte(
-    sample_size,
-    repetitions,
-    target,
-    identified_estimands,
-    basis_func_type,
-    tolerance,
-    rng,
-    lp_outputs=False,
-):
+    sample_size: int,
+    repetitions: int,
+    target: Estimand,
+    identified_estimands: list[Estimand],
+    basis_func_type: str,
+    rng: np.random.Generator,
+    tolerance: float | None = None,
+    lp_outputs: bool = False,
+) -> dict:
     """Run monte carlo simulation using pyvmte module."""
 
     upper_bounds = np.zeros(repetitions)

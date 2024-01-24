@@ -5,6 +5,8 @@ dependencies:
   - conda-lock
   - ipykernel
   - jupyterlab
+  - line_profiler
+  - numba
   - pandas
   - pip >=21.1
   - plotly>=5.13.0
@@ -21,6 +23,7 @@ dependencies:
   - pyyaml
   - scipy
   - setuptools_scm
+  - snakeviz
   - statsmodels
   - toml
   - pip: [-e ., kaleido==0.1.0.post1, pdbp]

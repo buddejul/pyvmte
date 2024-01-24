@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd  # type: ignore
 import pytest
-from pyvmte.config import TEST_DIR, SETUP_FIG3
+from pyvmte.config import TEST_DIR, SETUP_FIG3, Instrument
 
 from pyvmte.identification.identification import (
     _compute_choice_weights,
@@ -15,11 +15,11 @@ from itertools import product
 
 DGP = load_paper_dgp()
 
-INSTRUMENT = {
-    "support_z": DGP["support_z"],
-    "pscore_z": DGP["pscore_z"],
-    "pdf_z": DGP["pdf_z"],
-}
+INSTRUMENT = Instrument(
+    support=DGP["support_z"],
+    pmf=DGP["pdf_z"],
+    pscores=DGP["pscores"],
+)
 
 U_PART = [0, 0.35, 0.6, 0.7, 0.9, 1]
 

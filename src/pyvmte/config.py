@@ -18,6 +18,13 @@ class Estimand:
     dz_cross: Optional[tuple[int, int]] = None
 
 
+@dataclass
+class Instrument:
+    support: np.ndarray
+    pmf: np.ndarray
+    pscores: np.ndarray
+
+
 class Setup(NamedTuple):
     target: Estimand
     identified_estimands: list[Estimand]
@@ -74,6 +81,8 @@ SETUP_MONTE_CARLO = {
 }
 
 SETUP_MONTE_CARLO_BY_TARGET = {
-    "sample_size": 1_000,
+    "sample_size": 10_000,
     "repetitions": 1_000,
 }
+
+U_HI_RANGE = np.arange(0.35, 0.9, 0.05)

@@ -4,52 +4,35 @@ from typing import Annotated, NamedTuple
 from pytask import Product
 from pytask import task
 
-from pyvmte.config import BLD, SETUP_FIG5, SETUP_MONTE_CARLO_BY_TARGET
+from pyvmte.config import BLD, SETUP_FIG5, SETUP_MONTE_CARLO_BY_TARGET, U_HI_RANGE
 from pyvmte.simulation.simulation_funcs import monte_carlo_pyvmte
 
-from pyvmte.config import RNG
+from pyvmte.config import RNG, Setup, Estimand
 
 import pandas as pd  # type: ignore
 import numpy as np
 
 
-class _Arguments(NamedTuple):
-    setup: Annotated[dict, "Setup for simulation DGP."]
-    path_to_data: Path
-
-
-ID_TO_KWARGS = {
-    "figure5": _Arguments(
-        setup=SETUP_FIG5,
-        path_to_data=BLD / "python" / "data" / Path("sim_results_figure5.pkl"),
-    ),
-}
-
-for u_hi_target in np.arange(0.35, 1, 0.025):
+for u_hi_target in U_HI_RANGE:
 
     @task  # type: ignore
     def task_run_monte_carlo_simulation(
-        setup: dict = SETUP_FIG5,
+        setup: Setup = SETUP_FIG5,
         path_to_data: Annotated[Path, Product] = BLD
         / "python"
         / "data"
         / "by_target"
         / Path(f"sim_results_figure5_u_hi_{u_hi_target}.pkl"),
         setup_mc: dict = SETUP_MONTE_CARLO_BY_TARGET,
+        u_hi_target: float = u_hi_target,
     ) -> None:
         tolerance = 1 / setup_mc["sample_size"]
-
-        target = {
-            "type": "late",
-            "u_lo": 0.35,
-            "u_hi": u_hi_target,
-        }
-
+        target = Estimand(type="late", u_lo=0.35, u_hi=u_hi_target)
         result = monte_carlo_pyvmte(
             sample_size=setup_mc["sample_size"],
             repetitions=setup_mc["repetitions"],
             target=target,
-            identified_estimands=setup["identified_estimands"],
+            identified_estimands=setup.identified_estimands,
             basis_func_type="constant",
             tolerance=tolerance,
             rng=RNG,

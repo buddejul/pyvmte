@@ -25,4 +25,4 @@ bld/
 *.run.xml
 *.synctex.gz
 
-src/*.ipynb
+*.ipynb

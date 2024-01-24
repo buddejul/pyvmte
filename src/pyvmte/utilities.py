@@ -6,14 +6,14 @@ import pandas as pd  # type: ignore
 from scipy import integrate  # type: ignore
 from typing import Callable, Dict
 
-from pyvmte.config import Estimand
+from pyvmte.config import Estimand, Instrument
 
 
 def gamma_star(
     md: Callable,
     d: int,
     estimand: Estimand,
-    instrument: Dict[str, np.ndarray] | None = None,
+    instrument: Instrument | None = None,
     dz_cross: tuple | None = None,
     analyt_int: bool = False,
     u_part: np.ndarray | None = None,
@@ -39,9 +39,9 @@ def gamma_star(
     dz_cross = estimand.dz_cross
 
     if instrument is not None:
-        pdf_z = instrument.get("pdf_z")
-        pscore_z = instrument.get("pscore_z")
-        support_z = instrument.get("support_z")
+        pdf_z = instrument.pmf
+        pscore_z = instrument.pscores
+        support_z = instrument.support
 
     if estimand.type == "late":
         return integrate.quad(lambda u: md(u) * s_late(d, u, u_lo, u_hi), 0, 1)[0]
@@ -207,7 +207,7 @@ def load_paper_dgp():
         + 0.25 * bern_bas(2, 2, u)
     )
     out["support_z"] = np.array([0, 1, 2])
-    out["pscore_z"] = np.array([0.35, 0.6, 0.7])
+    out["pscores"] = np.array([0.35, 0.6, 0.7])
     out["pdf_z"] = np.array([0.5, 0.4, 0.1])
     out["ols_slope"] = 0.253
     out["late_35_90"] = 0.046
@@ -219,7 +219,7 @@ def load_paper_dgp():
         0: {0: 0.325, 1: 0.16, 2: 0.03},
     }
 
-    out["expectation_d"] = np.sum(out["pscore_z"] * out["pdf_z"])
+    out["expectation_d"] = np.sum(out["pscores"] * out["pdf_z"])
     out["variance_d"] = out["expectation_d"] * (1 - out["expectation_d"])
     out["expectation_z"] = np.sum(out["support_z"] * out["pdf_z"])
 
@@ -240,33 +240,38 @@ def simulate_data_from_paper_dgp(sample_size, rng):
     """Simulate data using the dgp from MST 2018 ECMA."""
     data = pd.DataFrame()
 
-    dgp = load_paper_dgp()
+    support = np.array([0, 1, 2])
+    pmf = np.array([0.5, 0.4, 0.1])
+    pscores = np.array([0.35, 0.6, 0.7])
 
-    z_dict = dict(zip(dgp["support_z"], dgp["pscore_z"]))
+    choices = np.hstack([support.reshape(-1, 1), pscores.reshape(-1, 1)])
 
-    sampled = np.random.choice(dgp["support_z"], size=sample_size, p=dgp["pdf_z"])
+    # Draw random ndices
+    idx = np.random.choice(support, size=sample_size, p=pmf)
 
-    pscores_corresponding = np.array([z_dict[i] for i in sampled])
+    data = choices[idx]
 
-    data["z"] = sampled
-    data["pscore_z"] = pscores_corresponding
+    # Put data into df
+    z = np.array(data[:, 0], dtype=int)
+    pscores = data[:, 1]
 
-    data["u"] = rng.uniform(size=sample_size)
+    u = rng.uniform(size=sample_size)
+    d = u < pscores
 
-    data["d"] = data["u"] < data["pscore_z"]
+    y = np.empty(sample_size)
+    idx = d == 0
+    # TODO do this properly
+    y[idx] = (
+        +0.6 * (1 - u[idx]) ** 2 + 0.4 * 2 * u[idx] * (1 - u[idx]) + 0.3 * u[idx] ** 2
+    )
 
-    m0 = dgp["m0"]
-    m1 = dgp["m1"]
+    y[~idx] = (
+        +0.75 * (1 - u[~idx]) ** 2
+        + 0.5 * 2 * u[~idx] * (1 - u[~idx])
+        + 0.25 * u[~idx] ** 2
+    )
 
-    data["y"] = np.where(data["d"] == 0, m0(data["u"]), m1(data["u"]))
-
-    data["pscore_z"] = data["pscore_z"].astype(float)
-    data["z"] = data["z"].astype(int)
-    data["u"] = data["u"].astype(float)
-    data["d"] = data["d"].astype(int)
-    data["y"] = data["y"].astype(float)
-
-    return data
+    return {"z": z, "d": d, "y": y, "u": u}
 
 
 def _weight_late(u, u_lo, u_hi):
@@ -312,7 +317,7 @@ def _compute_constant_spline_weights(
     estimand: Estimand,
     d: int,
     basis_function: dict,
-    instrument: dict | None = None,
+    instrument: Instrument | None = None,
     moments: dict | None = None,
     data: dict | None = None,
 ):
@@ -394,7 +399,7 @@ def _generate_partition_midpoints(partition):
     )
 
 
-def _compute_ols_weight_for_identification(u, d, instrument, moments):
+def _compute_ols_weight_for_identification(u, d, instrument: Instrument, moments):
     expectation_d = moments["expectation_d"]
     variance_d = moments["variance_d"]
 
@@ -405,29 +410,29 @@ def _compute_ols_weight_for_identification(u, d, instrument, moments):
         ed=expectation_d,
         var_d=variance_d,
     )
-    pdf_z = instrument["pdf_z"]
-    pscore_z = instrument["pscore_z"]
+    pdf_z = instrument.pmf
+    pscore_z = instrument.pscores
 
     weights_by_z = [_weight(u, d, pz) * pdf_z[i] for i, pz in enumerate(pscore_z)]
     return np.sum(weights_by_z)
 
 
-def _estimate_ols_weight_for_estimation(u, d, data, instrument, moments):
+def _estimate_ols_weight_for_estimation(u, d, data, instrument: Instrument, moments):
     expectation_d = moments["expectation_d"]
     variance_d = moments["variance_d"]
 
     coef = (d - expectation_d) / variance_d
 
 
-def _compute_iv_slope_weight_for_identification(u, d, instrument, moments):
+def _compute_iv_slope_weight_for_identification(u, d, instrument: Instrument, moments):
     expectation_z = moments["expectation_z"]
     covariance_dz = moments["covariance_dz"]
     _weight = lambda u, d, z, pz: _weight_iv_slope(
         u, d, z, pz, ez=expectation_z, cov_dz=covariance_dz
     )
-    pdf_z = instrument["pdf_z"]
-    pscore_z = instrument["pscore_z"]
-    support_z = instrument["support_z"]
+    pdf_z = instrument.pmf
+    pscore_z = instrument.pscores
+    support_z = instrument.support
 
     weights_by_z = [
         _weight(u, d, z, pz) * pdf_z[i]
@@ -455,12 +460,12 @@ def _estimate_iv_slope_weight_for_estimation(u, d, moments, data):
     return np.mean(individual_weights)
 
 
-def _compute_cross_weight_for_identification(u, d, instrument, dz_cross):
+def _compute_cross_weight_for_identification(u, d, instrument: Instrument, dz_cross):
     _weight = lambda u, d, z, pz: _weight_cross(u, d, z, pz, dz_cross=dz_cross)
 
-    pdf_z = instrument["pdf_z"]
-    pscore_z = instrument["pscore_z"]
-    support_z = instrument["support_z"]
+    pdf_z = instrument.pmf
+    pscore_z = instrument.pscores
+    support_z = instrument.support
 
     weights_by_z = [
         _weight(u, d, z, pz) * pdf_z[i]
@@ -507,9 +512,9 @@ def _check_estimation_arguments(
     error_report = ""
 
     data_dict = {
-        "y_data": y_data,
-        "z_data": z_data,
-        "d_data": d_data,
+        "y": y_data,
+        "z": z_data,
+        "d": d_data,
     }
 
     # Check that all data arguments are numpy arrays

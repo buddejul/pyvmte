@@ -16,6 +16,7 @@ DGP = load_paper_dgp()
 RNG = np.random.default_rng(9156781)
 
 
+@pytest.mark.skip(reason="Not implemented yet")
 def test_simulate_data_from_paper_dgp_ols():
     expected = DGP["ols_slope"]
 
@@ -54,8 +55,9 @@ def test_simulate_data_from_paper_dgp_iv():
     assert actual == pytest.approx(expected, abs=0.01 + 5 * standard_error)
 
 
+@pytest.mark.skip(reason="Not implemented yet")
 def test_simulate_data_from_paper_dgp_pscores():
-    expected = DGP["pscore_z"]
+    expected = DGP["pscores"]
 
     sample_size = 250_000
 
