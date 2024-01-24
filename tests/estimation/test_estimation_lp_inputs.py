@@ -14,6 +14,7 @@ from pyvmte.estimation.estimation import (
     _build_second_step_ub_matrix,
     _estimate_instrument_pdf,
     _generate_array_of_pscores,
+    _estimate_instrument_characteristics,
 )
 from pyvmte.identification.identification import (
     _compute_equality_constraint_matrix,
@@ -109,16 +110,16 @@ def test_first_step_lp_A_ub_matrix_paper_figures(setup: Setup, u_hi_target: floa
     for _ in range(REPETITIONS):
         data = simulate_data_from_paper_dgp(sample_size=SAMPLE_SIZE, rng=RNG)
 
-        pscore_z = _estimate_prop_z(z_data=data["z"], d_data=data["d"])
+        pscore_z = _estimate_prop_z(
+            z_data=data["z"], d_data=data["d"], support=np.unique(data["z"])
+        )
         u_partition = _compute_u_partition(
             target=target, pscore_z=pscore_z, identified_estimands=identified_estimands
         )
         basis_funcs = _generate_basis_funcs("constant", u_partition)
 
-        instrument = Instrument(
-            support=np.unique(data["z"]),
-            pmf=_estimate_instrument_pdf(data["z"]),
-            pscores=pscore_z,
+        instrument = _estimate_instrument_characteristics(
+            z_data=data["z"], d_data=data["d"]
         )
 
         data["pscores"] = _generate_array_of_pscores(
@@ -184,16 +185,16 @@ def test_second_step_lp_c_vector_paper_figures(setup: Setup, u_hi_target: float)
     for _ in range(REPETITIONS):
         data = simulate_data_from_paper_dgp(sample_size=SAMPLE_SIZE, rng=RNG)
 
-        pscore_z = _estimate_prop_z(z_data=data["z"], d_data=data["d"])
+        pscore_z = _estimate_prop_z(
+            z_data=data["z"], d_data=data["d"], support=np.unique(data["z"])
+        )
         u_partition = _compute_u_partition(
             target=target, pscore_z=pscore_z, identified_estimands=identified_estimands
         )
         basis_funcs = _generate_basis_funcs("constant", u_partition)
 
-        instrument = Instrument(
-            support=np.unique(data["z"]),
-            pmf=_estimate_instrument_pdf(data["z"]),
-            pscores=pscore_z,
+        instrument = _estimate_instrument_characteristics(
+            z_data=data["z"], d_data=data["d"]
         )
 
         expected_weight = _compute_choice_weights(
@@ -270,16 +271,16 @@ def test_second_step_lp_A_ub_matrix_paper_figures(setup: Setup, u_hi_target: flo
     for _ in range(REPETITIONS):
         data = simulate_data_from_paper_dgp(sample_size=SAMPLE_SIZE, rng=RNG)
 
-        pscore_z = _estimate_prop_z(z_data=data["z"], d_data=data["d"])
+        pscore_z = _estimate_prop_z(
+            z_data=data["z"], d_data=data["d"], support=np.unique(data["z"])
+        )
         u_partition = _compute_u_partition(
             target=target, pscore_z=pscore_z, identified_estimands=identified_estimands
         )
         basis_funcs = _generate_basis_funcs("constant", u_partition)
 
-        instrument = Instrument(
-            support=np.unique(data["z"]),
-            pmf=_estimate_instrument_pdf(data["z"]),
-            pscores=pscore_z,
+        instrument = _estimate_instrument_characteristics(
+            z_data=data["z"], d_data=data["d"]
         )
 
         expected_weight = _compute_equality_constraint_matrix(

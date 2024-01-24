@@ -190,14 +190,12 @@ def _solve_second_step_lp_estimation(
     return result
 
 
-def _estimate_instrument_pdf(z_data: np.ndarray) -> np.ndarray:
+def _estimate_instrument_pdf(z_data: np.ndarray, support) -> np.ndarray:
     """Estimate the marginal density of instrument z."""
-
-    supp_z = np.unique(z_data)
 
     pdf_z = []
 
-    for z_val in supp_z:
+    for z_val in support:
         pdf_z.append(np.mean(z_data == z_val))
 
     return np.array(pdf_z)
@@ -313,14 +311,14 @@ def _generate_array_of_pscores(
     return pscores[idx]
 
 
-def _estimate_prop_z(z_data: np.ndarray, d_data: np.ndarray) -> np.ndarray:
+def _estimate_prop_z(
+    z_data: np.ndarray, d_data: np.ndarray, support: np.ndarray
+) -> np.ndarray:
     """Estimate propensity score of z given d."""
-
-    supp_z = np.unique(z_data)
 
     pscore = []
 
-    for z_val in supp_z:
+    for z_val in support:
         pscore.append(np.mean(d_data[z_data == z_val]))
 
     return np.array(pscore)
@@ -513,10 +511,12 @@ def _estimate_instrument_characteristics(
 ) -> Instrument:
     """Estimate instrument characteristics and return in instrument class."""
 
+    support = np.unique(z_data)
+
     out = Instrument(
-        support=np.unique(z_data),
-        pscores=_estimate_prop_z(z_data, d_data),
-        pmf=_estimate_instrument_pdf(z_data),
+        support=support,
+        pscores=_estimate_prop_z(z_data, d_data, support),
+        pmf=_estimate_instrument_pdf(z_data, support),
     )
 
     return out

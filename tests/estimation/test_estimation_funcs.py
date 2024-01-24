@@ -18,6 +18,7 @@ from pyvmte.estimation.estimation import (
     _compute_u_partition,
     _estimate_weights_estimand,
     _estimate_instrument_pdf,
+    _estimate_instrument_characteristics,
 )
 
 from pyvmte.utilities import simulate_data_from_paper_dgp
@@ -46,7 +47,7 @@ def test_estimate_prop_z():
 
     expected = np.array([0.5, 2 / 3, 0.75])
 
-    actual = _estimate_prop_z(z_data, d_data)
+    actual = _estimate_prop_z(z_data, d_data, support=np.unique(z_data))
 
     assert actual == pytest.approx(expected)
 
@@ -55,7 +56,7 @@ def test_generate_array_of_pscores():
     z_data = np.array([1, 1, 2, 2, 2, 3, 3, 3, 3])
     d_data = np.array([0, 1, 0, 1, 1, 0, 1, 1, 1])
 
-    pscores = _estimate_prop_z(z_data, d_data)
+    pscores = _estimate_prop_z(z_data, d_data, support=np.unique(z_data))
 
     expected = np.array([0.5, 0.5, 2 / 3, 2 / 3, 2 / 3, 0.75, 0.75, 0.75, 0.75])
 
@@ -79,21 +80,13 @@ def test_build_first_step_ub_matrix():
 
     data = {"d": d_data, "z": z_data}
 
-    instrument = Instrument(
-        support=np.unique(z_data),
-        pmf=_estimate_instrument_pdf(z_data),
-        pscores=_estimate_prop_z(z_data, d_data),
-    )
+    instrument = _estimate_instrument_characteristics(z_data, d_data)
 
     data["pscores"] = _generate_array_of_pscores(
         z_data, instrument.support, instrument.pscores
     )
 
-    instrument = Instrument(
-        support=np.unique(z_data),
-        pmf=_estimate_instrument_pdf(z_data),
-        pscores=_estimate_prop_z(z_data, d_data),
-    )
+    instrument = _estimate_instrument_characteristics(z_data, d_data)
 
     A_ub = _build_first_step_ub_matrix(
         basis_funcs=basis_funcs,
@@ -149,11 +142,7 @@ def test_first_step_linear_program_runs_and_non_zero():
 
     data = {"d": d_data, "z": z_data, "y": y_data}
 
-    instrument = Instrument(
-        support=np.unique(z_data),
-        pmf=_estimate_instrument_pdf(z_data),
-        pscores=_estimate_prop_z(z_data, d_data),
-    )
+    instrument = _estimate_instrument_characteristics(z_data, d_data)
 
     data["pscores"] = _generate_array_of_pscores(
         z_data, instrument.support, instrument.pscores
@@ -224,11 +213,7 @@ def test_second_step_linear_program_runs():
     d_data = np.array(data["d"].astype(float))
     z_data = np.array(data["z"].astype(float))
 
-    instrument = Instrument(
-        support=np.unique(z_data),
-        pmf=_estimate_instrument_pdf(z_data),
-        pscores=_estimate_prop_z(z_data, d_data),
-    )
+    instrument = _estimate_instrument_characteristics(z_data, d_data)
 
     data["pscores"] = _generate_array_of_pscores(
         z_data, instrument.support, instrument.pscores
