@@ -247,38 +247,31 @@ def simulate_data_from_paper_dgp(sample_size, rng):
     choices = np.hstack([support.reshape(-1, 1), pscores.reshape(-1, 1)])
 
     # Draw random ndices
-    idx = np.random.choice(len(support), size=sample_size, p=pmf)
+    idx = np.random.choice(support, size=sample_size, p=pmf)
 
     data = choices[idx]
 
     # Put data into df
-    data = pd.DataFrame(data, columns=["z", "pscores"])
+    z = np.array(data[:, 0], dtype=int)
+    pscores = data[:, 1]
 
-    data["u"] = rng.uniform(size=sample_size)
+    u = rng.uniform(size=sample_size)
+    d = u < pscores
 
-    data["d"] = data["u"] < data["pscores"]
+    y = np.empty(sample_size)
+    idx = d == 0
+    # TODO do this properly
+    y[idx] = (
+        +0.6 * (1 - u[idx]) ** 2 + 0.4 * 2 * u[idx] * (1 - u[idx]) + 0.3 * u[idx] ** 2
+    )
 
-    dgp = load_paper_dgp()
+    y[~idx] = (
+        +0.75 * (1 - u[~idx]) ** 2
+        + 0.5 * 2 * u[~idx] * (1 - u[~idx])
+        + 0.25 * u[~idx] ** 2
+    )
 
-    m0 = dgp["m0"]
-    m1 = dgp["m1"]
-
-    # FIXME 20% here
-    data["y"] = np.where(data["d"] == 0, m0(data["u"]), m1(data["u"]))
-
-    data["pscores"] = data["pscores"].astype(float)
-    data["z"] = data["z"].astype(int)
-    data["u"] = data["u"].astype(float)
-    data["d"] = data["d"].astype(int)
-    data["y"] = data["y"].astype(float)
-
-    # Only return basic data
-    data_dict = {}
-    data_dict["z"] = np.array(data["z"])
-    data_dict["d"] = np.array(data["d"])
-    data_dict["y"] = np.array(data["y"])
-
-    return data_dict
+    return {"z": z, "d": d, "y": y, "u": u}
 
 
 def _weight_late(u, u_lo, u_hi):
