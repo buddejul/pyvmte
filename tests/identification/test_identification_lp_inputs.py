@@ -1,17 +1,9 @@
-import numpy as np
-import pandas as pd  # type: ignore
 import pytest
-from pyvmte.config import TEST_DIR, SETUP_FIG3, Instrument
-
+from pyvmte.config import SETUP_FIG3, Instrument
 from pyvmte.identification.identification import (
     _compute_choice_weights,
 )
-
 from pyvmte.utilities import load_paper_dgp
-
-from pyvmte.utilities import bern_bas
-
-from itertools import product
 
 DGP = load_paper_dgp()
 
@@ -57,7 +49,7 @@ def test_lp_input_c_figure_3():
     assert expected == pytest.approx(actual)
 
 
-def test_lp_input_A_eq_figure_3():
+def test_lp_input_a_eq_figure_3():
     pass
 
 

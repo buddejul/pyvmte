@@ -1,21 +1,14 @@
-import numpy as np
-import pandas as pd  # type: ignore
 import pytest
 from pyvmte.config import (
-    TEST_DIR,
     SETUP_FIG2,
     SETUP_FIG3,
     SETUP_FIG5,
-    Setup,
     Estimand,
     Instrument,
+    Setup,
 )
 from pyvmte.identification.identification import _compute_estimand, identification
 from pyvmte.utilities import load_paper_dgp
-
-from pyvmte.utilities import bern_bas
-
-from itertools import product
 
 DGP = load_paper_dgp()
 
@@ -48,11 +41,11 @@ def test_paper_late_ols_iv():
             instrument=INSTRUMENT,
         )
 
-    estimand_late = Estimand(type="late", u_lo=0.35, u_hi=0.9)
+    estimand_late = Estimand(esttype="late", u_lo=0.35, u_hi=0.9)
 
-    estimand_ols = Estimand(type="ols_slope")
+    estimand_ols = Estimand(esttype="ols_slope")
 
-    estimand_iv = Estimand(type="iv_slope")
+    estimand_iv = Estimand(esttype="iv_slope")
 
     actual = [
         _compute(estimand) for estimand in [estimand_late, estimand_ols, estimand_iv]

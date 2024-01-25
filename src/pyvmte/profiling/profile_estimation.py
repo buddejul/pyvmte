@@ -1,9 +1,8 @@
+"""Setup for profiling estimation functions."""
 import numpy as np
 
 from pyvmte.config import SETUP_FIG3
 from pyvmte.utilities import simulate_data_from_paper_dgp
-
-from pyvmte.estimation import estimation
 
 setup = SETUP_FIG3
 

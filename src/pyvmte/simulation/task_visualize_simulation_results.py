@@ -1,14 +1,13 @@
-from pyvmte.config import BLD
-from pyvmte.simulation.simulation_plotting import plot_upper_and_lower_bounds
-from typing import Annotated, NamedTuple
+"""Tasks for visualizing data."""
 from pathlib import Path
-
-from pytask import Product
-from pytask import task
+from typing import Annotated, NamedTuple
 
 import pandas as pd  # type: ignore
-import numpy as np
 import plotly.io as pio  # type: ignore
+from pytask import Product, task
+
+from pyvmte.config import BLD
+from pyvmte.simulation.simulation_plotting import plot_upper_and_lower_bounds
 
 
 class _Arguments(NamedTuple):
@@ -53,8 +52,9 @@ for id_, kwargs in ID_TO_KWARGS_PLOT.items():
         path_to_data: Path,
         path_to_output: Annotated[Path, Product],
     ) -> None:
-        df = pd.read_pickle(path_to_data)
-        fig = plot_upper_and_lower_bounds(df)
+        """Plot monte carlo upper and lower bounds."""
+        data = pd.read_pickle(path_to_data)
+        fig = plot_upper_and_lower_bounds(data)
 
         pio.write_image(fig, path_to_output)
 
@@ -66,13 +66,14 @@ for id_, kwargs in ID_TO_KWARGS_TABLE.items():
         path_to_data: Path,
         path_to_output: Annotated[Path, Product],
     ) -> None:
-        df = pd.read_pickle(path_to_data)
+        """Create table with mean, std, min, max for each mode."""
+        data = pd.read_pickle(path_to_data)
 
         # .describe() and to_latex but only for mean, std, min, max
-        df = df.describe().T[["mean", "std", "min", "max"]]
-        df = df.round(3)
+        data = data.describe().T[["mean", "std", "min", "max"]]
+        data = data.round(3)
 
-        table = df.to_latex()
+        table = data.to_latex()
 
-        with open(path_to_output, "w") as f:
+        with Path(path_to_output).open("w") as f:
             f.write(table.replace("%", "\\%").replace("_", "\\_"))

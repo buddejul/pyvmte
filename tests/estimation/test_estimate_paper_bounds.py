@@ -1,12 +1,8 @@
 """Test we consistently estimate the bounds of the paper."""
 import numpy as np
-import pandas as pd  # type: ignore
-from pyvmte.estimation import estimation
-from pyvmte.simulation.simulation_funcs import monte_carlo_pyvmte
-
 import pytest
-
 from pyvmte.config import SETUP_FIG2, SETUP_FIG3, SETUP_FIG5, Setup
+from pyvmte.simulation.simulation_funcs import monte_carlo_pyvmte
 
 RNG = np.random.default_rng(495618721)
 

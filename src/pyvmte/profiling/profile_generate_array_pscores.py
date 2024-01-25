@@ -1,18 +1,19 @@
+"""Setup for profiling generate_array_of_pscores."""
 import numpy as np
 
 supp = np.array([0, 1, 2])
 pmf = np.array([0.5, 0.4, 0.1])
 pscores = np.array([0.3, 0.6, 0.7])
 
-z_data = np.random.choice(supp, size=100_000, p=pmf)
-d_data = np.random.choice([0, 1], size=100_000, p=[0.5, 0.5])
+rng = np.random.default_rng()
+
+z_data = rng.choice(supp, size=100_000, p=pmf)
+d_data = rng.choice([0, 1], size=100_000, p=[0.5, 0.5])
 
 
 # timeit benchmark: 3.9ms
 def _generate_array_of_pscores(z_data: np.ndarray, d_data: np.ndarray) -> np.ndarray:
-    """For input data on instrument and treatment generates array of same length with
-    estimated propensity scores for each corresponding entry of z."""
-
+    """Generate array of pscores corresponding to z array."""
     # Estimate propensity scores
     p = _estimate_prop_z(z_data, d_data)
 
@@ -24,7 +25,6 @@ def _generate_array_of_pscores(z_data: np.ndarray, d_data: np.ndarray) -> np.nda
 # timeit 1.99ms
 def _estimate_prop_z(z_data: np.ndarray, d_data: np.ndarray) -> np.ndarray:
     """Estimate propensity score of z given d."""
-
     supp_z = np.unique(z_data)
 
     pscore = []

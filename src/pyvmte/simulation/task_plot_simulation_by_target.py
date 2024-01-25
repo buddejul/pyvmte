@@ -1,17 +1,14 @@
-from typing import Annotated, NamedTuple
-from pathlib import Path
-
+"""Task for plotting simulation by target."""
 import os
+from pathlib import Path
+from typing import Annotated, NamedTuple
 
 import pandas as pd  # type: ignore
-import numpy as np
-
 import plotly.graph_objects as go  # type: ignore
 import plotly.io as pio  # type: ignore
-
 from pytask import Product
 
-from pyvmte.config import BLD, U_HI_RANGE, SIMULATION_RESULTS_DIR
+from pyvmte.config import BLD, SIMULATION_RESULTS_DIR, U_HI_RANGE
 
 
 class _Arguments(NamedTuple):
@@ -19,13 +16,13 @@ class _Arguments(NamedTuple):
 
 
 def task_plot_simulation_by_target(
-    # path_to_data: Path = SIMULATION_RESULTS_DIR / "by_target",
-    range=U_HI_RANGE,
+    u_hi_range=U_HI_RANGE,
     path_to_plot: Annotated[Path, Product] = BLD
     / "python"
     / "figures"
     / "simulation_results_by_target.png",
 ) -> None:
+    """Plot simulation by target."""
     files = [
         f
         for f in os.listdir(SIMULATION_RESULTS_DIR / "by_target")
@@ -33,9 +30,11 @@ def task_plot_simulation_by_target(
     ]
 
     dfs = [
-        pd.read_pickle(SIMULATION_RESULTS_DIR / "by_target" / f).assign(filename=f)
+        pd.read_pickle(SIMULATION_RESULTS_DIR / "by_target" / f).assign(
+            filename=f,
+        )
         for f in files
-    ]  # noqa: S301
+    ]
     df_estimates = pd.concat(dfs, ignore_index=True)
     df_estimates.head()
 
@@ -43,7 +42,7 @@ def task_plot_simulation_by_target(
     df_estimates["u_hi"] = df_estimates["filename"].str.extract(r"u_hi_(.*)\.pkl")
     df_estimates["u_hi"] = df_estimates["u_hi"].astype(float)
 
-    df_estimates = df_estimates[df_estimates["u_hi"].isin(range)]
+    df_estimates = df_estimates[df_estimates["u_hi"].isin(u_hi_range)]
 
     fig = go.Figure()
 
@@ -64,10 +63,7 @@ def task_plot_simulation_by_target(
         elif df is df_90:
             name = "90th Percentile"
 
-        if df is df_mean:
-            transp = 1.0
-        else:
-            transp = 0.5
+        transp = 1.0 if df is df_mean else 0.5
 
         fig.add_trace(
             go.Scatter(
@@ -96,7 +92,7 @@ def task_plot_simulation_by_target(
 
     # Update title
     fig.update_layout(
-        title_text="Sharp Non-Parametric Bound Estimates by Target Parameter"
+        title_text="Sharp Non-Parametric Bound Estimates by Target Parameter",
     )
     fig.update_xaxes(title_text="Upper Bound of Target Parameter")
     fig.update_yaxes(title_text="Bound Estimate")

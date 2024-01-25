@@ -1,15 +1,12 @@
 import numpy as np
-import pandas as pd  # type: ignore
 import pytest
-from pyvmte.config import TEST_DIR
+import statsmodels.api as sm  # type: ignore
 from pyvmte.utilities import (
+    _generate_partition_midpoints,
+    _generate_u_partition_from_basis_funcs,
     load_paper_dgp,
     simulate_data_from_paper_dgp,
-    _generate_u_partition_from_basis_funcs,
-    _generate_partition_midpoints,
 )
-
-import statsmodels.api as sm  # type: ignore
 from statsmodels.sandbox.regression.gmm import IV2SLS  # type: ignore
 
 DGP = load_paper_dgp()
@@ -24,10 +21,10 @@ def test_simulate_data_from_paper_dgp_ols():
 
     data = simulate_data_from_paper_dgp(sample_size, rng=RNG)
 
-    X = sm.add_constant(data["d"].astype(float))
+    x = sm.add_constant(data["d"].astype(float))
     y = data["y"].astype(float)
 
-    model = sm.OLS(y, X)
+    model = sm.OLS(y, x)
     results = model.fit()
     actual = results.params["d"]
 
@@ -44,9 +41,9 @@ def test_simulate_data_from_paper_dgp_iv():
 
     data = simulate_data_from_paper_dgp(sample_size, rng=RNG)
 
-    X = sm.add_constant(data["d"].astype(float))
+    x = sm.add_constant(data["d"].astype(float))
     instruments = sm.add_constant(data["z"].astype(float))
-    model = IV2SLS(data["y"].astype(float), X, instruments)
+    model = IV2SLS(data["y"].astype(float), x, instruments)
     results = model.fit()
     actual = results.params[1]
 

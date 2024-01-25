@@ -1,26 +1,28 @@
 """Utilities used in various parts of the project."""
 
 import math
+from collections.abc import Callable
+
 import numpy as np
 import pandas as pd  # type: ignore
 from scipy import integrate  # type: ignore
-from typing import Callable, Dict
 
 from pyvmte.config import Estimand, Instrument
 
 
+# TODO(@buddejul):  remove most of this/make simpler; only used in identification
 def gamma_star(
     md: Callable,
     d: int,
     estimand: Estimand,
     instrument: Instrument | None = None,
     dz_cross: tuple | None = None,
-    analyt_int: bool = False,
     u_part: np.ndarray | None = None,
     u_part_lo: float | None = None,
     u_part_hi: float | None = None,
 ):
-    """Compute gamma* for a given MTR function and estimand
+    """Compute gamma* for a given MTR function and estimand.
+
     Args:
         md (function): MTR function
         d (np.int): value of the treatment
@@ -31,9 +33,14 @@ def gamma_star(
         pscore_z (np.array): propensity given the instrument
         pdf_z (np.array): probability mass function of the instrument
         dz_cross (list): list of tuples of the form (d_spec, z_spec) for cross-moment
-        analyt_int (Boolean): Whether to integrate manually or use analytic results
-    """
+        analyt_int (Boolean): Whether to integrate manually or use analytic results.
+        instrument (Instrument): Instrument object containing all information about the
+            instrument.
+        u_part (np.ndarray): partition of u
+        u_part_lo (float): lower bound of u
+        u_part_hi (float): upper bound of u
 
+    """
     u_lo = estimand.u_lo
     u_hi = estimand.u_hi
     dz_cross = estimand.dz_cross
@@ -43,101 +50,95 @@ def gamma_star(
         pscore_z = instrument.pscores
         support_z = instrument.support
 
-    if estimand.type == "late":
+    if estimand.esttype == "late":
         return integrate.quad(lambda u: md(u) * s_late(d, u, u_lo, u_hi), 0, 1)[0]
 
     # Do integration manually via scipy integrate
-    if analyt_int == False:
-        if estimand.type == "iv_slope":
-            ez, ed, edz, cov_dz = compute_moments(support_z, pdf_z, pscore_z)
+    if estimand.esttype == "iv_slope":
+        ez, ed, edz, cov_dz = compute_moments(support_z, pdf_z, pscore_z)
 
-            if d == 0:
+        if d == 0:
 
-                def func(u, z):
-                    if pscore_z[np.where(support_z == z)[0][0]] < u:
-                        return md(u) * s_iv_slope(z, ez, cov_dz)
-                    else:
-                        return 0
+            def func(u, z):
+                if pscore_z[np.where(support_z == z)[0][0]] < u:
+                    return md(u) * s_iv_slope(z, ez, cov_dz)
+                return 0
 
-            if d == 1:
+        if d == 1:
 
-                def func(u, z):
-                    if pscore_z[np.where(support_z == z)[0][0]] > u:
-                        return md(u) * s_iv_slope(z, ez, cov_dz)
-                    else:
-                        return 0
+            def func(u, z):
+                if pscore_z[np.where(support_z == z)[0][0]] > u:
+                    return md(u) * s_iv_slope(z, ez, cov_dz)
+                return 0
 
-            # Integrate func over u in [0,1] for every z in support_z
-            return np.sum(
-                [
-                    integrate.quad(func, 0, 1, args=(z,))[0] * pdf_z[i]  # type: ignore
-                    for i, z in enumerate(support_z)  # type: ignore
-                ]
-            )
+        # Integrate func over u in [0,1] for every z in support_z
+        return np.sum(
+            [
+                integrate.quad(func, 0, 1, args=(z,))[0] * pdf_z[i]  # type: ignore
+                for i, z in enumerate(support_z)  # type: ignore
+            ],
+        )
 
-        if estimand.type == "ols_slope":
-            ez, ed, edz, cov_dz = compute_moments(support_z, pdf_z, pscore_z)
-            var_d = ed * (1 - ed)
+    if estimand.esttype == "ols_slope":
+        ez, ed, edz, cov_dz = compute_moments(support_z, pdf_z, pscore_z)
+        var_d = ed * (1 - ed)
 
-            if d == 0:
-                # need to condition on z
-                def func(u, z):
-                    if pscore_z[np.where(support_z == z)[0][0]] < u:
-                        return md(u) * s_ols_slope(d, ed, var_d)
-                    else:
-                        return 0
+        if d == 0:
+            # need to condition on z
+            def func(u, z):
+                if pscore_z[np.where(support_z == z)[0][0]] < u:
+                    return md(u) * s_ols_slope(d, ed, var_d)
+                return 0
 
-            if d == 1:
+        if d == 1:
 
-                def func(u, z):
-                    if pscore_z[np.where(support_z == z)[0][0]] > u:
-                        return md(u) * s_ols_slope(d, ed, var_d)
-                    else:
-                        return 0
+            def func(u, z):
+                if pscore_z[np.where(support_z == z)[0][0]] > u:
+                    return md(u) * s_ols_slope(d, ed, var_d)
+                return 0
 
-            # Integrate func over u in [0,1] for every z in support_z
-            return np.sum(
-                [
-                    integrate.quad(func, 0, 1, args=(z,))[0] * pdf_z[i]  # type: ignore
-                    for i, z in enumerate(support_z)  # type: ignore
-                ]
-            )
+        # Integrate func over u in [0,1] for every z in support_z
+        return np.sum(
+            [
+                integrate.quad(func, 0, 1, args=(z,))[0] * pdf_z[i]  # type: ignore
+                for i, z in enumerate(support_z)  # type: ignore
+            ],
+        )
 
-        if estimand.type == "cross":
-            if d == 0:
+    if estimand.esttype == "cross":
+        if d == 0:
 
-                def func(u, z):
-                    if pscore_z[np.where(support_z == z)[0][0]] < u:
-                        return md(u) * s_cross(d, z, dz_cross)
-                    else:
-                        return 0
+            def func(u, z):
+                if pscore_z[np.where(support_z == z)[0][0]] < u:
+                    return md(u) * s_cross(d, z, dz_cross)
+                return 0
 
-            if d == 1:
+        if d == 1:
 
-                def func(u, z):
-                    if pscore_z[np.where(support_z == z)[0][0]] >= u:
-                        return md(u) * s_cross(d, z, dz_cross)
-                    else:
-                        return 0
+            def func(u, z):
+                if pscore_z[np.where(support_z == z)[0][0]] >= u:
+                    return md(u) * s_cross(d, z, dz_cross)
+                return 0
 
-            # Integrate func over u in [0,1] for every z in support_z
-            return np.sum(
-                [
-                    integrate.quad(func, 0, 1, args=(z,))[0] * pdf_z[i]  # type: ignore
-                    for i, z in enumerate(support_z)  # type: ignore
-                ]
-            )
+        # Integrate func over u in [0,1] for every z in support_z
+        return np.sum(
+            [
+                integrate.quad(func, 0, 1, args=(z,))[0] * pdf_z[i]  # type: ignore
+                for i, z in enumerate(support_z)  # type: ignore
+            ],
+        )
+    return None
 
 
 def compute_moments(supp_z, f_z, prop_z):
-    """Calculate E[z], E[d], E[dz], Cov[d,z] for a discrete instrument z
-    and binary d
+    """Calculate E[z], E[d], E[dz], Cov[d,z] for a discrete instrument z and binary d.
+
     Args:
         supp_z (np.array): support of the instrument
         f_z (np.array): probability mass function of the instrument
-        prop_z (np.array): propensity score of the instrument
-    """
+        prop_z (np.array): propensity score of the instrument.
 
+    """
     ez = np.sum(supp_z * f_z)
     ed = np.sum(prop_z * f_z)
     edz = np.sum(supp_z * prop_z * f_z)
@@ -147,21 +148,25 @@ def compute_moments(supp_z, f_z, prop_z):
 
 
 def s_iv_slope(z, ez, cov_dz):
-    """IV-like specification s(d,z): IV slope
+    """IV-like specification s(d,z): IV slope.
+
     Args:
         z (np.int): value of the instrument
         ez (np.float): expected value of the instrument
-        cov_dz (np.float): covariance between treatment and instrument
+        cov_dz (np.float): covariance between treatment and instrument.
+
     """
     return (z - ez) / cov_dz
 
 
 def s_ols_slope(d, ed, var_d):
-    """OLS-like specification s(d,z): OLS slope
+    """OLS-like specification s(d,z): OLS slope.
+
     Args:
         d (np.int): value of the treatment
         ed (np.float): expected value of the treatment
-        var_d (np.float): variance of the treatment
+        var_d (np.float): variance of the treatment.
+
     """
     return (d - ed) / var_d
 
@@ -169,23 +174,18 @@ def s_ols_slope(d, ed, var_d):
 def s_late(d, u, u_lo, u_hi):
     """IV-like specification s(d,z): late."""
     # Return 1 divided by u_hi - u_lo if u_lo < u < u_hi, 0 otherwise
-    if u_lo < u < u_hi:
-        w = 1 / (u_hi - u_lo)
-    else:
-        w = 0
+    w = 1 / (u_hi - u_lo) if u_lo < u < u_hi else 0
 
     if d == 1:
         return w
-    else:
-        return -w
+    return -w
 
 
 def s_cross(d, z, dz_cross):
     """IV_like specification s(d,z): Cross-moment d_spec * z_spec."""
     if (isinstance(d, np.ndarray) or d in [0, 1]) and isinstance(z, np.ndarray):
         return np.logical_and(d == dz_cross[0], z == dz_cross[1]).astype(int)
-    else:
-        return 1 if d == dz_cross[0] and z == dz_cross[1] else 0
+    return 1 if d == dz_cross[0] and z == dz_cross[1] else 0
 
 
 def bern_bas(n, v, x):
@@ -230,7 +230,7 @@ def load_paper_dgp():
             * (z - out["expectation_z"])
             for d in [0, 1]
             for z in [0, 1, 2]
-        ]
+        ],
     )
 
     return out
@@ -247,7 +247,7 @@ def simulate_data_from_paper_dgp(sample_size, rng):
     choices = np.hstack([support.reshape(-1, 1), pscores.reshape(-1, 1)])
 
     # Draw random ndices
-    idx = np.random.choice(support, size=sample_size, p=pmf)
+    idx = rng.choice(support, size=sample_size, p=pmf)
 
     data = choices[idx]
 
@@ -260,7 +260,7 @@ def simulate_data_from_paper_dgp(sample_size, rng):
 
     y = np.empty(sample_size)
     idx = d == 0
-    # TODO do this properly
+    # TODO (@buddejul):  do this properly
     y[idx] = (
         +0.6 * (1 - u[idx]) ** 2 + 0.4 * 2 * u[idx] * (1 - u[idx]) + 0.3 * u[idx] ** 2
     )
@@ -278,8 +278,7 @@ def _weight_late(u, u_lo, u_hi):
     """Weight function for late target."""
     if u_lo < u < u_hi:
         return 1 / (u_hi - u_lo)
-    else:
-        return 0
+    return 0
 
 
 def _weight_ols(u, d, pz, ed, var_d, d_data=None):
@@ -289,8 +288,7 @@ def _weight_ols(u, d, pz, ed, var_d, d_data=None):
         d_data = d
     if d == 0:
         return s_ols_slope(d_data, ed, var_d) if u > pz else 0
-    else:
-        return s_ols_slope(d_data, ed, var_d) if u <= pz else 0
+    return s_ols_slope(d_data, ed, var_d) if u <= pz else 0
 
 
 def _weight_iv_slope(u, d, z, pz, ez, cov_dz):
@@ -298,8 +296,7 @@ def _weight_iv_slope(u, d, z, pz, ez, cov_dz):
     """Weight function for IV slope target."""
     if d == 0:
         return s_iv_slope(z, ez, cov_dz) if u > pz else 0
-    else:
-        return s_iv_slope(z, ez, cov_dz) if u <= pz else 0
+    return s_iv_slope(z, ez, cov_dz) if u <= pz else 0
 
 
 def _weight_cross(u, d, z, pz, dz_cross, d_data=None):
@@ -309,10 +306,10 @@ def _weight_cross(u, d, z, pz, dz_cross, d_data=None):
         d_data = d
     if d == 0:
         return s_cross(d_data, z, dz_cross) if u > pz else 0
-    else:
-        return s_cross(d_data, z, dz_cross) if u <= pz else 0
+    return s_cross(d_data, z, dz_cross) if u <= pz else 0
 
 
+# TODO(@buddejul):  remove the data part have separate function for this
 def _compute_constant_spline_weights(
     estimand: Estimand,
     d: int,
@@ -321,43 +318,56 @@ def _compute_constant_spline_weights(
     moments: dict | None = None,
     data: dict | None = None,
 ):
-    """Compute weights for constant spline basis. We use that for a constant spline
-    basis with the right partition the weights are constant on each interval of the
-    partition.
+    """Compute weights for constant spline basis.
+
+    We use that for a constant spline basis with the right partition the weights are
+    constant on each interval of the partition.
 
     We condition on z and compute the weights for each interval of the partition using
     the law of iterated expectations.
 
     """
-    # TODO change this, do not actually need u here I think
+    # TODO (@buddejul):  change this, do not actually need u here I think
     u = (basis_function["u_lo"] + basis_function["u_hi"]) / 2
 
     # Put data into a dataframe if not already
-    if data is not None:
-        if not isinstance(data, pd.DataFrame):
-            df = pd.DataFrame(data)
+    if data is not None and not isinstance(data, pd.DataFrame):
+        data = pd.DataFrame(data)
 
-    if estimand.type == "ols_slope":
+    if estimand.esttype == "ols_slope":
         if data is None:
             out = _compute_ols_weight_for_identification(
-                u=u, d=d, instrument=instrument, moments=moments
+                u=u,
+                d=d,
+                instrument=instrument,
+                moments=moments,
             )
         else:
             out = _estimate_ols_weight_for_estimation(
-                u=u, d=d, data=df, instrument=instrument, moments=moments
+                u=u,
+                d=d,
+                data=data,
+                instrument=instrument,
+                moments=moments,
             )
 
-    if estimand.type == "iv_slope":
+    if estimand.esttype == "iv_slope":
         if data is None:
             out = _compute_iv_slope_weight_for_identification(
-                u=u, d=d, instrument=instrument, moments=moments
+                u=u,
+                d=d,
+                instrument=instrument,
+                moments=moments,
             )
         else:
             out = _estimate_iv_slope_weight_for_estimation(
-                u=u, d=d, moments=moments, data=df
+                u=u,
+                d=d,
+                moments=moments,
+                data=data,
             )
 
-    if estimand.type == "late":
+    if estimand.esttype == "late":
         if d == 1:
             weights_by_z = _weight_late(u, u_lo=estimand.u_lo, u_hi=estimand.u_hi)
         else:
@@ -365,25 +375,28 @@ def _compute_constant_spline_weights(
 
         out = weights_by_z
 
-    if estimand.type == "cross":
+    if estimand.esttype == "cross":
         if data is None:
             out = _compute_cross_weight_for_identification(
-                u=u, d=d, instrument=instrument, dz_cross=estimand.dz_cross
+                u=u,
+                d=d,
+                instrument=instrument,
+                dz_cross=estimand.dz_cross,
             )
         else:
             out = _estimate_cross_weight_for_estimation(
-                u=u, d=d, data=df, dz_cross=estimand.dz_cross
+                u=u,
+                d=d,
+                data=data,
+                dz_cross=estimand.dz_cross,
             )
 
     # Scale by length of interval
-    out = out * (basis_function["u_hi"] - basis_function["u_lo"])
-
-    return out
+    return out * (basis_function["u_hi"] - basis_function["u_lo"])
 
 
 def _generate_u_partition_from_basis_funcs(basis_funcs):
     """Generate u_partition from basis_funcs dictionaries."""
-
     u_partition = [0]
 
     for basis_func in basis_funcs:
@@ -395,7 +408,7 @@ def _generate_u_partition_from_basis_funcs(basis_funcs):
 def _generate_partition_midpoints(partition):
     """Generate midpoints of partition."""
     return np.array(
-        [(partition[i] + partition[i + 1]) / 2 for i in range(len(partition) - 1)]
+        [(partition[i] + partition[i + 1]) / 2 for i in range(len(partition) - 1)],
     )
 
 
@@ -403,13 +416,9 @@ def _compute_ols_weight_for_identification(u, d, instrument: Instrument, moments
     expectation_d = moments["expectation_d"]
     variance_d = moments["variance_d"]
 
-    _weight = lambda u, d, pz: _weight_ols(
-        u,
-        d,
-        pz,
-        ed=expectation_d,
-        var_d=variance_d,
-    )
+    def _weight(u, d, pz):
+        return _weight_ols(u, d, pz, ed=expectation_d, var_d=variance_d)
+
     pdf_z = instrument.pmf
     pscore_z = instrument.pscores
 
@@ -421,47 +430,51 @@ def _estimate_ols_weight_for_estimation(u, d, data, instrument: Instrument, mome
     expectation_d = moments["expectation_d"]
     variance_d = moments["variance_d"]
 
-    coef = (d - expectation_d) / variance_d
+    (d - expectation_d) / variance_d
 
 
 def _compute_iv_slope_weight_for_identification(u, d, instrument: Instrument, moments):
     expectation_z = moments["expectation_z"]
     covariance_dz = moments["covariance_dz"]
-    _weight = lambda u, d, z, pz: _weight_iv_slope(
-        u, d, z, pz, ez=expectation_z, cov_dz=covariance_dz
-    )
+
+    def _weight(u, d, z, pz):
+        return _weight_iv_slope(u, d, z, pz, ez=expectation_z, cov_dz=covariance_dz)
+
     pdf_z = instrument.pmf
     pscore_z = instrument.pscores
     support_z = instrument.support
 
     weights_by_z = [
         _weight(u, d, z, pz) * pdf_z[i]
-        for i, (z, pz) in enumerate(zip(support_z, pscore_z))
+        for i, (z, pz) in enumerate(zip(support_z, pscore_z, strict=True))
     ]
     return np.sum(weights_by_z)
 
 
 def _estimate_iv_slope_weight_for_estimation(u, d, moments, data):
-    _weight = lambda u, z_data, pz_data: _weight_iv_slope(
-        u=u,
-        pz=pz_data,
-        z=z_data,
-        d=d,
-        ez=moments["expectation_z"],
-        cov_dz=moments["covariance_dz"],
-    )
+    def _weight(u, z_data, pz_data):
+        return _weight_iv_slope(
+            u=u,
+            pz=pz_data,
+            z=z_data,
+            d=d,
+            ez=moments["expectation_z"],
+            cov_dz=moments["covariance_dz"],
+        )
 
-    # TODO rewrite this as vectorized numpy statements
+    # TODO (@buddejul):  rewrite this as vectorized numpy statements
     # Apply function _weight to each row of data
     individual_weights = data.apply(
-        lambda row: _weight(u, row["z"], row["pscores"]), axis=1
+        lambda row: _weight(u, row["z"], row["pscores"]),
+        axis=1,
     )
 
     return np.mean(individual_weights)
 
 
 def _compute_cross_weight_for_identification(u, d, instrument: Instrument, dz_cross):
-    _weight = lambda u, d, z, pz: _weight_cross(u, d, z, pz, dz_cross=dz_cross)
+    def _weight(u, d, z, pz):
+        return _weight_cross(u, d, z, pz, dz_cross=dz_cross)
 
     pdf_z = instrument.pmf
     pscore_z = instrument.pscores
@@ -469,22 +482,31 @@ def _compute_cross_weight_for_identification(u, d, instrument: Instrument, dz_cr
 
     weights_by_z = [
         _weight(u, d, z, pz) * pdf_z[i]
-        for i, (z, pz) in enumerate(zip(support_z, pscore_z))
+        for i, (z, pz) in enumerate(zip(support_z, pscore_z, strict=True))
     ]
 
     return np.sum(weights_by_z)
 
 
 def _estimate_cross_weight_for_estimation(u, d, data, dz_cross):
-    _weight = lambda u, z_data, pz_data, d_data: _weight_cross(
-        u=u, pz=pz_data, z=z_data, d=d, dz_cross=dz_cross, d_data=d_data
-    )
+    def _weight(u, z_data, pz_data, d_data):
+        return _weight_cross(
+            u=u,
+            pz=pz_data,
+            z=z_data,
+            d=d,
+            dz_cross=dz_cross,
+            d_data=d_data,
+        )
 
-    # TODO rewrite this as vectorized numpy statements
+    # TODO (@buddejul):  rewrite this as vectorized numpy statements
     # Apply function _weight to each row of data
     individual_weights = data.apply(
         lambda row: _weight(
-            u=u, z_data=row["z"], pz_data=row["pscores"], d_data=row["d"]
+            u=u,
+            z_data=row["z"],
+            pz_data=row["pscores"],
+            d_data=row["d"],
         ),
         axis=1,
     )
@@ -508,7 +530,6 @@ def _check_estimation_arguments(
     If there are errors, returns a comprehensive error report for all arguments.
 
     """
-
     error_report = ""
 
     data_dict = {
@@ -528,5 +549,3 @@ def _check_estimation_arguments(
 
 class EstimationArgumentError(Exception):
     """Raised when arguments to estimation function are not valid."""
-
-    pass

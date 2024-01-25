@@ -13,7 +13,6 @@ def pyvmte(
     m1_dgp,
     instrument,
     u_partition,
-    analytical_integration=False,
 ):
     """Main interface of the pyvmte package.
 
@@ -22,16 +21,21 @@ def pyvmte(
         target (dict): Dictionary with target estimand and relevant parameters.
         identified_estimands (dict or list of dicts): Dictionary with identified
             estimand and relevant parameters. List of dicts if multiple estimands.
+        basis_funcs (dict or list of dicts): Dictionary with basis functions and
+            relevant parameters. List of dicts if multiple basis functions.
+        m0_dgp (function): The MTR function for d=0 of the DGP.
+        m1_dgp (function): The MTR function for d=1 of the DGP.
+        instrument (Instrument): Dictionary with instrument and relevant parameters.
+        u_partition (list or np.array, optional): Partition of u for basis_funcs.
+            Defaults to None.
+
 
     Returns:
         dict: Dictionary with results.
 
     """
-    # processed_arguments = process_pyvmte_inputs()
-
     # for argname in pyvmte.__code__.co_varnames:
     #     if argname in processed_arguments:
-    #         argname = processed_arguments[argname]
 
     if mode == "identification":
         results = identification(
@@ -42,7 +46,6 @@ def pyvmte(
             m1_dgp,
             instrument,
             u_partition=u_partition,
-            analytical_integration=analytical_integration,
         )
     elif mode == "estimation":
         results = estimation()

@@ -14,7 +14,20 @@ select = ["ALL"]
 fix = true
 extend-ignore = [
     "S101",  # Use of `assert` detected.
-    "ANN",  # Missing type annotations
+    "PGH003", # PGH003 Use specific rule codes when ignoring type issues
+    "ANN", # type annotations
+    "PLR0913", # PLR0913 Too many arguments to function call
+    "PERF401", # PERF401 Use a list comprehension to create a transformed list
+    "TD001", # TODO stuff
+    "TD002", # TODO stuff
+    "TD003", # TODO stuff
+    "TD004", # TODO stuff
+    "FIX001", # not sure what this means
+    "FIX002", # not sure what this means
+    "ARG001", # ARG001 Unused function argument
+    "PLR0912", # too many branches (todo: fix this)
+    "C901", # too complex (todo: fix this)
+    "S301", # repo is not using outside data so ignore security issues
 ]
 
 [tool.ruff.per-file-ignores]

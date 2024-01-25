@@ -2,10 +2,9 @@
 
 import numpy as np
 
-from pyvmte.estimation.estimation import estimation
-from pyvmte.utilities import simulate_data_from_paper_dgp
-from pyvmte.estimation.estimation import _estimate_prop_z
 from pyvmte.config import Estimand
+from pyvmte.estimation.estimation import _estimate_prop_z, estimation
+from pyvmte.utilities import simulate_data_from_paper_dgp
 
 
 def monte_carlo_pyvmte(
@@ -16,10 +15,9 @@ def monte_carlo_pyvmte(
     basis_func_type: str,
     rng: np.random.Generator,
     tolerance: float | None = None,
-    lp_outputs: bool = False,
+    lp_outputs: bool = False,  # noqa: FBT001, FBT002
 ) -> dict:
     """Run monte carlo simulation using pyvmte module."""
-
     upper_bounds = np.zeros(repetitions)
     lower_bounds = np.zeros(repetitions)
     if lp_outputs is True:

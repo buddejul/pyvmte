@@ -1,29 +1,25 @@
 import numpy as np
-import pandas as pd  # type: ignore
 import pytest
-from pyvmte.config import Estimand, Instrument
-
+from pyvmte.config import Estimand
 from pyvmte.estimation.estimation import (
-    _generate_basis_funcs,
-    _estimate_prop_z,
-    _generate_array_of_pscores,
     _build_first_step_ub_matrix,
     _compute_first_step_bounds,
-    _first_step_linear_program,
-    _compute_second_step_bounds,
     _compute_first_step_upper_bounds,
-    _second_step_linear_program,
+    _compute_second_step_bounds,
     _compute_second_step_upper_bounds,
-    _estimate_identified_estimands,
     _compute_u_partition,
-    _estimate_weights_estimand,
-    _estimate_instrument_pdf,
+    _estimate_identified_estimands,
     _estimate_instrument_characteristics,
+    _estimate_prop_z,
+    _estimate_weights_estimand,
+    _first_step_linear_program,
+    _generate_array_of_pscores,
+    _generate_basis_funcs,
+    _second_step_linear_program,
 )
-
 from pyvmte.utilities import simulate_data_from_paper_dgp
 
-RNG = np.random.default_rng(9156781)
+RNG = np.random.default_rng(91567281)
 
 
 def test_generate_basis_funcs():
@@ -69,9 +65,9 @@ def test_build_first_step_ub_matrix():
     u_partition = [0, 0.35, 0.65, 0.7, 1]
     basis_funcs = _generate_basis_funcs("constant", u_partition)
 
-    iv_estimand = Estimand(type="iv_slope")
+    iv_estimand = Estimand(esttype="iv_slope")
 
-    ols_estimand = Estimand(type="ols_slope")
+    ols_estimand = Estimand(esttype="ols_slope")
 
     identified_estimands = [iv_estimand, ols_estimand]
 
@@ -83,12 +79,14 @@ def test_build_first_step_ub_matrix():
     instrument = _estimate_instrument_characteristics(z_data, d_data)
 
     data["pscores"] = _generate_array_of_pscores(
-        z_data, instrument.support, instrument.pscores
+        z_data,
+        instrument.support,
+        instrument.pscores,
     )
 
     instrument = _estimate_instrument_characteristics(z_data, d_data)
 
-    A_ub = _build_first_step_ub_matrix(
+    a_ub = _build_first_step_ub_matrix(
         basis_funcs=basis_funcs,
         identified_estimands=identified_estimands,
         data=data,
@@ -96,15 +94,15 @@ def test_build_first_step_ub_matrix():
     )
 
     expected = (2 * 2, 4 * 2 + 2)
-    actual = A_ub.shape
+    actual = a_ub.shape
 
     assert actual == expected
 
 
 def test_compute_first_step_bounds():
     identified_estimands = [
-        Estimand(type="iv_slope"),
-        Estimand(type="ols_slope"),
+        Estimand(esttype="iv_slope"),
+        Estimand(esttype="ols_slope"),
     ]
 
     u_partition = [0, 0.35, 0.65, 0.7, 1]
@@ -129,8 +127,8 @@ def test_compute_first_step_bounds():
 
 def test_first_step_linear_program_runs_and_non_zero():
     identified_estimands = [
-        Estimand(type="iv_slope"),
-        Estimand(type="ols_slope"),
+        Estimand(esttype="iv_slope"),
+        Estimand(esttype="ols_slope"),
     ]
 
     u_partition = [0, 0.35, 0.65, 0.7, 1]
@@ -145,7 +143,9 @@ def test_first_step_linear_program_runs_and_non_zero():
     instrument = _estimate_instrument_characteristics(z_data, d_data)
 
     data["pscores"] = _generate_array_of_pscores(
-        z_data, instrument.support, instrument.pscores
+        z_data,
+        instrument.support,
+        instrument.pscores,
     )
 
     beta_hat = RNG.normal(size=len(identified_estimands))
@@ -196,14 +196,11 @@ def test_estimate_identified_estimands():
 
 
 def test_second_step_linear_program_runs():
-    target = Estimand(type="late", u_lo=0.35, u_hi=0.9)
+    target = Estimand(esttype="late", u_lo=0.35, u_hi=0.9)
     identified_estimands = [
-        Estimand(type="iv_slope"),
-        Estimand(type="ols_slope"),
+        Estimand(esttype="iv_slope"),
+        Estimand(esttype="ols_slope"),
     ]
-
-    u_partition = [0, 0.35, 0.65, 0.7, 0.9, 1]
-    basis_funcs = _generate_basis_funcs("constant", u_partition)
 
     sample_size = 100_000
 
@@ -215,8 +212,13 @@ def test_second_step_linear_program_runs():
 
     instrument = _estimate_instrument_characteristics(z_data, d_data)
 
+    u_partition = _compute_u_partition(target, instrument.pscores)
+    basis_funcs = _generate_basis_funcs("constant", u_partition)
+
     data["pscores"] = _generate_array_of_pscores(
-        z_data, instrument.support, instrument.pscores
+        z_data,
+        instrument.support,
+        instrument.pscores,
     )
 
     beta_hat = _estimate_identified_estimands(
@@ -254,14 +256,16 @@ def test_compute_second_step_upper_bounds():
     expected = np.array([tolerance + minimal_deviations, 1, 2, 3, -1, -2, -3])
 
     actual = _compute_second_step_upper_bounds(
-        minimal_deviations=minimal_deviations, tolerance=tolerance, beta_hat=beta_hat
+        minimal_deviations=minimal_deviations,
+        tolerance=tolerance,
+        beta_hat=beta_hat,
     )
 
     assert actual == pytest.approx(expected)
 
 
 def test_compute_u_partition():
-    target = Estimand(type="late", u_lo=0.35, u_hi=0.9)
+    target = Estimand(esttype="late", u_lo=0.35, u_hi=0.9)
     pscore_z = [0.1, 0.2, 0.64, 0.83]
 
     expected = [0, 0.1, 0.2, 0.35, 0.64, 0.83, 0.9, 1]
@@ -277,7 +281,7 @@ def test_estimate_weights_estimand_symmetry():
     basis_funcs = _generate_basis_funcs("constant", u_partitition)
 
     actual = _estimate_weights_estimand(
-        estimand=Estimand(type="iv_slope"),
+        estimand=Estimand(esttype="iv_slope"),
         basis_funcs=basis_funcs,
         z_data=RNG.normal(size=100),
         d_data=RNG.normal(size=100),
@@ -294,9 +298,9 @@ def test_build_first_step_ub_matrix_symmetry():
     u_partition = [0, 0.35, 0.65, 0.7, 1]
     basis_funcs = _generate_basis_funcs("constant", u_partition)
 
-    iv_estimand = Estimand(type="iv_slope")
+    iv_estimand = Estimand(esttype="iv_slope")
 
-    ols_estimand = Estimand(type="ols_slope")
+    ols_estimand = Estimand(esttype="ols_slope")
 
     identified_estimands = [iv_estimand, ols_estimand]
 
@@ -305,7 +309,7 @@ def test_build_first_step_ub_matrix_symmetry():
 
     data = {"d": d_data, "z": z_data}
 
-    A_ub = _build_first_step_ub_matrix(
+    a_ub = _build_first_step_ub_matrix(
         basis_funcs=basis_funcs,
         identified_estimands=identified_estimands,
         data=data,
@@ -313,7 +317,7 @@ def test_build_first_step_ub_matrix_symmetry():
 
     num_bfuncs = len(basis_funcs) * 2
     # Take first row and first len(basis_funcs)*2 columns
-    weights = A_ub[0, :num_bfuncs]
+    weights = a_ub[0, :num_bfuncs]
 
     # Check first len(basis_funcs) weights are the same as -1 the ret
     assert weights[: num_bfuncs // 2] == pytest.approx(-1 * weights[num_bfuncs // 2 :])

@@ -1,17 +1,18 @@
-from typing import Annotated
+"""Task for plotting bounds by target."""
 from pathlib import Path
-from pytask import Product
-import pytask
+from typing import Annotated
 
+import pandas as pd  # type: ignore
+import plotly.io as pio  # type: ignore
+import pytask
+from pytask import Product
+
+from pyvmte.config import BLD, SETUP_FIG5, Instrument
 from pyvmte.replication.plot_bounds_by_target import (
     create_bounds_by_target_df,
     plot_bounds_by_target,
 )
 from pyvmte.utilities import load_paper_dgp
-from pyvmte.config import SETUP_FIG5, BLD, Instrument
-
-import plotly.io as pio  # type: ignore
-import pandas as pd  # type: ignore
 
 DGP = load_paper_dgp()
 
@@ -26,8 +27,9 @@ def task_create_bounds_by_target_df(
     path_to_data: Annotated[Path, Product] = BLD
     / "python"
     / "data"
-    / "bounds_by_target.pickle"
+    / "bounds_by_target.pickle",
 ):
+    """Create dataframe of bounds by target."""
     bounds_by_target = create_bounds_by_target_df(
         setup=SETUP_FIG5,
         instrument=INSTRUMENT,
@@ -46,6 +48,7 @@ def task_plot_bounds_by_target(
     / "figures"
     / "bounds_by_target.png",
 ):
+    """Plot bounds by target."""
     bounds_by_target = pd.read_pickle(path_to_data)
     fig = plot_bounds_by_target(bounds_by_target)
     pio.write_image(fig, path_to_plot)

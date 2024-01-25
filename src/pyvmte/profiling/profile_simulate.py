@@ -1,10 +1,6 @@
+"""Setup for profiling simulation functions."""
 import numpy as np
 import pandas as pd  # type: ignore
-import math
-
-from numba import njit
-
-from pyvmte.utilities import load_paper_dgp
 
 rng = np.random.default_rng()
 
@@ -20,7 +16,7 @@ def simulate_data_from_paper_dgp(sample_size, rng):
     choices = np.hstack([support.reshape(-1, 1), pscores.reshape(-1, 1)])
 
     # Draw random ndices
-    idx = np.random.choice(support, size=sample_size, p=pmf)
+    idx = rng.choice(support, size=sample_size, p=pmf)
 
     data = choices[idx]
 
@@ -33,7 +29,7 @@ def simulate_data_from_paper_dgp(sample_size, rng):
 
     y = np.empty(sample_size)
     idx = d == 0
-    # TODO do this properly
+    # TODO (@buddejul):  do this properly
     y[idx] = (
         +0.6 * (1 - u[idx]) ** 2 + 0.4 * 2 * u[idx] * (1 - u[idx]) + 0.3 * u[idx] ** 2
     )
@@ -50,4 +46,3 @@ def simulate_data_from_paper_dgp(sample_size, rng):
 # @njit
 # def bern_bas(n, v, x):
 #     """Bernstein polynomial basis of degree n and index v at point x."""
-#     return math.comb(n, v) * x**v * (1 - x) ** (n - v)

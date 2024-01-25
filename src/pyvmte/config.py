@@ -1,21 +1,18 @@
 """All the general configuration of the project."""
-from pathlib import Path
-import numpy as np
-from itertools import product
-
-from collections import namedtuple
-
 from dataclasses import dataclass
+from itertools import product
+from pathlib import Path
+from typing import NamedTuple
 
-from typing import Optional, NamedTuple
+import numpy as np
 
 
 @dataclass
 class Estimand:
-    type: str
-    u_lo: Optional[float] = None
-    u_hi: Optional[float] = None
-    dz_cross: Optional[tuple[int, int]] = None
+    esttype: str
+    u_lo: float | None = None
+    u_hi: float | None = None
+    dz_cross: tuple[int, int] | None = None
 
 
 @dataclass
@@ -42,20 +39,20 @@ SIMULATION_RESULTS_DIR = BLD.joinpath("python", "data").resolve()
 
 RNG = np.random.default_rng()
 
-__all__ = ["BLD", "SRC", "TEST_DIR", "GROUPS"]
+__all__ = ["BLD", "SRC", "TEST_DIR"]
 
 SETUP_FIG2 = Setup(
-    target=Estimand(type="late", u_lo=0.35, u_hi=0.9),
-    identified_estimands=[Estimand(type="iv_slope")],
+    target=Estimand(esttype="late", u_lo=0.35, u_hi=0.9),
+    identified_estimands=[Estimand(esttype="iv_slope")],
     lower_bound=-0.421,
     upper_bound=0.500,
 )
 
 SETUP_FIG3 = Setup(
-    target=Estimand(type="late", u_lo=0.35, u_hi=0.9),
+    target=Estimand(esttype="late", u_lo=0.35, u_hi=0.9),
     identified_estimands=[
-        Estimand(type="iv_slope"),
-        Estimand(type="ols_slope"),
+        Estimand(esttype="iv_slope"),
+        Estimand(esttype="ols_slope"),
     ],
     lower_bound=-0.411,
     upper_bound=0.500,
@@ -64,11 +61,11 @@ SETUP_FIG3 = Setup(
 combinations = product([0, 1], [0, 1, 2])
 
 cross_estimands = [
-    Estimand(type="cross", dz_cross=tuple(comb)) for comb in combinations
+    Estimand(esttype="cross", dz_cross=tuple(comb)) for comb in combinations
 ]
 
 SETUP_FIG5 = Setup(
-    target=Estimand(type="late", u_lo=0.35, u_hi=0.9),
+    target=Estimand(esttype="late", u_lo=0.35, u_hi=0.9),
     identified_estimands=cross_estimands,
     lower_bound=-0.138,
     upper_bound=0.407,

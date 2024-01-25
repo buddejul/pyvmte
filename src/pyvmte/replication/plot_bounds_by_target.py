@@ -1,21 +1,22 @@
-import numpy as np
-import pandas as pd  # type: ignore
-
-from pyvmte.config import SETUP_FIG5, BLD, Setup, Instrument
-from pyvmte.identification import identification
-from pyvmte.estimation.estimation import _generate_basis_funcs, _compute_u_partition
-
+"""Plot bounds by arget functions."""
+from collections.abc import Callable
 from dataclasses import replace
 
-from typing import Callable
-
+import numpy as np
+import pandas as pd  # type: ignore
 import plotly.graph_objects as go  # type: ignore
+
+from pyvmte.config import Instrument, Setup
+from pyvmte.estimation.estimation import _compute_u_partition, _generate_basis_funcs
+from pyvmte.identification import identification
+
+MIN_X_AXIS = 0.45
 
 
 def plot_bounds_by_target(data: pd.DataFrame) -> go.Figure:
     """Plot bounds by target based on dataframe."""
     # Plot lines for lower and upper bounds from data_bounds
-    data_plot = data[data["u_hi"] > 0.45]
+    data_plot = data[data["u_hi"] > MIN_X_AXIS]
 
     fig = go.Figure()
 
@@ -48,10 +49,13 @@ def plot_bounds_by_target(data: pd.DataFrame) -> go.Figure:
 
 
 def create_bounds_by_target_df(
-    setup: Setup, instrument: Instrument, m0: Callable, m1: Callable, n_gridpoints: int
+    setup: Setup,
+    instrument: Instrument,
+    m0: Callable,
+    m1: Callable,
+    n_gridpoints: int,
 ) -> pd.DataFrame:
     """Returns dataframe of bounds for different targets."""
-
     range_of_targets = np.linspace(0.35, 1, n_gridpoints)
     upper_bounds = np.zeros(len(range_of_targets))
     lower_bounds = np.zeros(len(range_of_targets))
@@ -74,13 +78,11 @@ def create_bounds_by_target_df(
         upper_bounds[i] = bounds["upper_bound"]
         lower_bounds[i] = bounds["lower_bound"]
 
-    bounds_by_target = pd.DataFrame(
+    return pd.DataFrame(
         {
             "u_hi": range_of_targets,
             "upper_bound": upper_bounds,
             "lower_bound": lower_bounds,
             "target": "late",
-        }
+        },
     )
-
-    return bounds_by_target

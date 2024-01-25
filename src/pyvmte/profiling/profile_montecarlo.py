@@ -1,6 +1,5 @@
+"""Setup for profiling monte carlo functions."""
 import numpy as np
-
-from pyvmte.simulation import monte_carlo_pyvmte
 
 from pyvmte.config import SETUP_FIG5
 
