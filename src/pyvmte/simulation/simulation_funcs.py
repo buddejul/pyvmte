@@ -57,7 +57,7 @@ def monte_carlo_pyvmte(
             second_step_lp_inputs.append(results["inputs_second_step"])
             u_partitions.append(results["u_partition"])
             scipy_return_first_step.append(results["scipy_return_first_step"])
-            pscores.append(_estimate_prop_z(z_data, d_data))
+            pscores.append(_estimate_prop_z(z_data, d_data, np.unique(z_data)))
 
     if lp_outputs is True:
         out = {

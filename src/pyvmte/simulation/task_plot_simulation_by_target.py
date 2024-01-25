@@ -7,7 +7,7 @@ import pandas as pd  # type: ignore
 import numpy as np
 
 import plotly.graph_objects as go  # type: ignore
-import plotly.io as pio
+import plotly.io as pio  # type: ignore
 
 from pytask import Product
 
