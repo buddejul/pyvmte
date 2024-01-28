@@ -4,7 +4,6 @@ from typing import Annotated
 
 import pandas as pd  # type: ignore
 import plotly.io as pio  # type: ignore
-import pytask
 from pytask import Product
 
 from pyvmte.config import BLD, SETUP_FIG5, Instrument
@@ -40,13 +39,12 @@ def task_create_bounds_by_target_df(
     bounds_by_target.to_pickle(path_to_data)
 
 
-@pytask.mark.skip()
 def task_plot_bounds_by_target(
     path_to_data: Path = BLD / "python" / "data" / "bounds_by_target.pickle",
     path_to_plot: Annotated[Path, Product] = BLD
     / "python"
     / "figures"
-    / "bounds_by_target.png",
+    / "bounds_by_target_identification_only.png",
 ):
     """Plot bounds by target."""
     bounds_by_target = pd.read_pickle(path_to_data)

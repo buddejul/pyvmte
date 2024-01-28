@@ -10,6 +10,7 @@ from pyvmte.config import (
     RNG,
     SETUP_FIG5,
     SETUP_MONTE_CARLO_BY_TARGET,
+    SRC,
     U_HI_RANGE,
     Estimand,
     Setup,
@@ -28,6 +29,7 @@ for u_hi_target in U_HI_RANGE:
         / Path(f"sim_results_figure5_u_hi_{u_hi_target}.pkl"),
         setup_mc: dict = SETUP_MONTE_CARLO_BY_TARGET,
         u_hi_target: float = u_hi_target,
+        config: Path = SRC / "config.py",
     ) -> None:
         """Run simulation by target parameter."""
         tolerance = 1 / setup_mc["sample_size"]

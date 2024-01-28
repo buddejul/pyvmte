@@ -8,11 +8,16 @@ import plotly.graph_objects as go  # type: ignore
 import plotly.io as pio  # type: ignore
 from pytask import Product
 
-from pyvmte.config import BLD, SIMULATION_RESULTS_DIR, U_HI_RANGE
+from pyvmte.config import BLD, IV_PAPER, SETUP_FIG5, SIMULATION_RESULTS_DIR, U_HI_RANGE
+from pyvmte.replication.plot_bounds_by_target import create_bounds_by_target_df
+from pyvmte.utilities import load_paper_dgp
 
 
 class _Arguments(NamedTuple):
     path_to_plot: Path
+
+
+DGP = load_paper_dgp()
 
 
 def task_plot_simulation_by_target(
@@ -55,6 +60,15 @@ def task_plot_simulation_by_target(
     df_90 = df_estimates.groupby("u_hi")[["lower_bound", "upper_bound"]].quantile(0.9)
     df_90 = df_90.reset_index()
 
+    df_identified = create_bounds_by_target_df(
+        setup=SETUP_FIG5,
+        instrument=IV_PAPER,
+        m0=DGP["m0"],
+        m1=DGP["m1"],
+        n_gridpoints=100,
+    )
+
+    # Simulation results
     for df in [df_mean, df_10, df_90]:
         if df is df_mean:
             name = "Mean"
@@ -86,6 +100,29 @@ def task_plot_simulation_by_target(
                 opacity=transp,
             ),
         )
+
+    # (True) Identified bounds
+    fig.add_trace(
+        go.Scatter(
+            x=df_identified["u_hi"],
+            y=df_identified["upper_bound"],
+            name=name,
+            mode="lines",
+            line={"color": "green", "dash": "dot"},
+            opacity=transp,
+        ),
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=df_identified["u_hi"],
+            y=df_identified["lower_bound"],
+            name=name,
+            mode="lines",
+            line={"color": "blue", "dash": "dot"},
+            opacity=transp,
+        ),
+    )
 
     # Remove legend
     fig.update_layout(showlegend=False)

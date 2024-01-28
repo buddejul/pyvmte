@@ -82,4 +82,10 @@ SETUP_MONTE_CARLO_BY_TARGET = {
     "repetitions": 1_000,
 }
 
-U_HI_RANGE = np.arange(0.35, 0.9, 0.05)
+U_HI_RANGE = np.arange(0.35, 1, 0.05)
+
+IV_PAPER = Instrument(
+    support=np.array([0, 1, 2]),
+    pmf=np.array([0.5, 0.4, 0.1]),
+    pscores=np.array([0.35, 0.6, 0.7]),
+)
