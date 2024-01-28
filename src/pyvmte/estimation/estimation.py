@@ -2,7 +2,7 @@
 from itertools import pairwise
 
 import numpy as np
-from scipy.optimize import (
+from scipy.optimize import (  # type: ignore
     OptimizeResult,  # type: ignore
     linprog,  # type: ignore
 )
@@ -27,6 +27,7 @@ def estimation(
     tolerance: float | None = None,
     x_data: np.ndarray | None = None,
     u_partition: np.ndarray | None = None,
+    method: str = "highs",
 ):
     """Estimate bounds given target, identified estimands, and data (estimation).
 
@@ -44,6 +45,7 @@ def estimation(
         x_data (np.array, optional): Array containing the covariate data.
         u_partition (list or np.array, optional): Partition of u for basis_funcs.
         Defaults to None.
+        method (str, optional): Method for scipy linprog solver. Default highs.
 
     Returns:
         dict: A dictionary containing the estimated upper and lower bound of the target
@@ -97,6 +99,7 @@ def estimation(
         data=data,
         beta_hat=beta_hat,
         instrument=instrument,
+        method=method,
     )
 
     minimal_deviations = results_first_step["minimal_deviations"]
@@ -111,6 +114,7 @@ def estimation(
         tolerance=tolerance,
         beta_hat=beta_hat,
         instrument=instrument,
+        method=method,
     )
 
     ############################### Output #############################################
@@ -134,6 +138,7 @@ def _first_step_linear_program(
     data: dict[str, np.ndarray],
     beta_hat: np.ndarray,
     instrument: Instrument,
+    method: str,
 ) -> dict:
     """First step linear program to get minimal deviations in constraint."""
     num_bfuncs = len(basis_funcs) * 2
@@ -153,7 +158,7 @@ def _first_step_linear_program(
         basis_funcs,  # type: ignore
     )
 
-    first_step_solution = _solve_first_step_lp_estimation(lp_first_inputs)
+    first_step_solution = _solve_first_step_lp_estimation(lp_first_inputs, method)
 
     minimal_deviations = first_step_solution.fun
 
@@ -164,19 +169,24 @@ def _first_step_linear_program(
     }
 
 
-def _solve_first_step_lp_estimation(lp_first_inputs: dict) -> OptimizeResult:
+def _solve_first_step_lp_estimation(
+    lp_first_inputs: dict,
+    method: str,
+) -> OptimizeResult:
     """Solve first-step linear program."""
     return linprog(
         c=lp_first_inputs["c"],
         A_ub=lp_first_inputs["a_ub"],
         b_ub=lp_first_inputs["b_ub"],
         bounds=lp_first_inputs["bounds"],
+        method=method,
     )
 
 
 def _solve_second_step_lp_estimation(
     lp_second_inputs: dict,
     min_or_max: str,
+    method: str,
 ) -> OptimizeResult:
     """Solve for upper/lower bound given minimal deviations from first step."""
     c = lp_second_inputs["c"] if min_or_max == "min" else -lp_second_inputs["c"]
@@ -186,6 +196,7 @@ def _solve_second_step_lp_estimation(
         A_ub=lp_second_inputs["a_ub"],
         b_ub=lp_second_inputs["b_ub"],
         bounds=lp_second_inputs["bounds"],
+        method=method,
     )
 
 
@@ -372,6 +383,7 @@ def _second_step_linear_program(
     tolerance: float,
     beta_hat: np.ndarray,
     instrument: Instrument,
+    method: str,
 ) -> dict:
     """Second step linear program to estimate upper and lower bounds."""
     lp_second_inputs = {}
@@ -396,8 +408,8 @@ def _second_step_linear_program(
         identified_estimands,  # type: ignore
     )
 
-    result_upper = _solve_second_step_lp_estimation(lp_second_inputs, "max")
-    result_lower = _solve_second_step_lp_estimation(lp_second_inputs, "min")
+    result_upper = _solve_second_step_lp_estimation(lp_second_inputs, "max", method)
+    result_lower = _solve_second_step_lp_estimation(lp_second_inputs, "min", method)
 
     return {
         "upper_bound": -1 * result_upper.fun,

@@ -155,6 +155,7 @@ def test_first_step_linear_program_runs_and_non_zero():
         data=data,
         beta_hat=beta_hat,
         instrument=instrument,
+        method="highs",
     )
 
     assert result["minimal_deviations"] != 0
@@ -243,6 +244,7 @@ def test_second_step_linear_program_runs():
         tolerance=tolerance,
         beta_hat=beta_hat,
         instrument=instrument,
+        method="highs",
     )
 
     assert result is not None
