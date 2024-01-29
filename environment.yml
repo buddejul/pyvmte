@@ -26,4 +26,4 @@ dependencies:
   - snakeviz
   - statsmodels
   - toml
-  - pip: [-e ., kaleido==0.1.0.post1, pdbp]
+  - pip: [-e ., kaleido==0.1.0.post1, pdbp, coptpy]
