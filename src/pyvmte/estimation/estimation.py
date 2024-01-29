@@ -1,7 +1,9 @@
 """Function for estimation."""
 from itertools import pairwise
 
+import coptpy as cp  # type: ignore
 import numpy as np
+from coptpy import COPT
 from scipy.optimize import (  # type: ignore
     OptimizeResult,  # type: ignore
     linprog,  # type: ignore
@@ -64,7 +66,9 @@ def estimation(
         u_partition,
     )
 
-    ########################### Preliminary Computations ###############################
+    # ==================================================================================
+    # Preliminary Computations (Partitions, Basis Functions, Instrument, Estimates)
+    # ==================================================================================
     if tolerance is None:
         tolerance = 1 / len(y_data)
 
@@ -92,7 +96,9 @@ def estimation(
         pscores=instrument.pscores,
     )
 
-    ############################ First Step Linear Program #############################
+    # ==================================================================================
+    # First Step Linear Program (Compute Minimal Deviations)
+    # ==================================================================================
     results_first_step = _first_step_linear_program(
         identified_estimands=identified_estimands,
         basis_funcs=basis_funcs,
@@ -104,7 +110,9 @@ def estimation(
 
     minimal_deviations = results_first_step["minimal_deviations"]
 
-    ############################ Second Step Linear Program ############################
+    # ==================================================================================
+    # Second Step Linear Program (Compute Upper and Lower Bounds)
+    # ==================================================================================
     results_second_step = _second_step_linear_program(
         target=target,
         identified_estimands=identified_estimands,
@@ -117,7 +125,15 @@ def estimation(
         method=method,
     )
 
-    ############################### Output #############################################
+    # ==================================================================================
+    # Return Results
+    # ==================================================================================
+    if method == "copt":
+        return {
+            "upper_bound": results_second_step["upper_bound"],
+            "lower_bound": results_second_step["lower_bound"],
+        }
+
     return {
         "upper_bound": results_second_step["upper_bound"],
         "lower_bound": results_second_step["lower_bound"],
@@ -158,9 +174,12 @@ def _first_step_linear_program(
         basis_funcs,  # type: ignore
     )
 
-    first_step_solution = _solve_first_step_lp_estimation(lp_first_inputs, method)
-
-    minimal_deviations = first_step_solution.fun
+    if method == "copt":
+        minimal_deviations = _solve_lp_estimation_copt(lp_first_inputs, "min")
+        first_step_solution = None
+    else:
+        first_step_solution = _solve_first_step_lp_estimation(lp_first_inputs, method)
+        minimal_deviations = first_step_solution.fun
 
     return {
         "minimal_deviations": minimal_deviations,
@@ -408,6 +427,15 @@ def _second_step_linear_program(
         identified_estimands,  # type: ignore
     )
 
+    if method == "copt":
+        result_upper = _solve_lp_estimation_copt(lp_second_inputs, "max")
+        result_lower = _solve_lp_estimation_copt(lp_second_inputs, "min")
+
+        return {
+            "upper_bound": -1 * result_upper,
+            "lower_bound": result_lower,
+        }
+
     result_upper = _solve_second_step_lp_estimation(lp_second_inputs, "max", method)
     result_lower = _solve_second_step_lp_estimation(lp_second_inputs, "min", method)
 
@@ -578,3 +606,30 @@ def _estimate_gamma_for_basis_funcs(
         return length * coef * share
 
     return length * np.mean(coef * indicators)
+
+
+def _solve_lp_estimation_copt(lp_second_inputs: dict, min_or_max: str):
+    """Wrapper for solving LP using copt algorithm."""
+    c = lp_second_inputs["c"] if min_or_max == "min" else -lp_second_inputs["c"]
+    a_ub = lp_second_inputs["a_ub"]
+    b_ub = lp_second_inputs["b_ub"]
+    bounds = lp_second_inputs["bounds"]
+
+    lb = np.array([x[0] for x in bounds])
+    ub = np.array([x[1] for x in bounds])
+
+    # Replace instances of None with COPT.INFINITY
+    lb[lb is None] = (-1) * COPT.INFINITY
+    ub[ub is None] = COPT.INFINITY
+
+    env = cp.Envr()
+    model = env.createModel("estimation")
+    x = model.addMVar(len(c), nameprefix="x", lb=lb, ub=ub)
+    model.setObjective(c @ x, COPT.MINIMIZE)
+    model.addMConstr(a_ub, x, "L", b_ub, nameprefix="c")
+    model.solveLP()
+
+    if model.status != COPT.OPTIMAL:
+        msg = "LP not solved to optimality by copt."
+        raise ValueError(msg)
+    return model.objval

@@ -12,11 +12,25 @@ NUM_SIMULATIONS = 250
 
 
 @pytest.mark.parametrize(
-    "setup",
-    [(SETUP_FIG2), (SETUP_FIG3), (SETUP_FIG5)],
-    ids=["fig2", "fig3", "fig5"],
+    ("setup", "method"),
+    [
+        (SETUP_FIG2, "highs"),
+        (SETUP_FIG3, "highs"),
+        (SETUP_FIG5, "highs"),
+        (SETUP_FIG2, "copt"),
+        (SETUP_FIG3, "copt"),
+        (SETUP_FIG5, "copt"),
+    ],
+    ids=[
+        "fig2_highs",
+        "fig3_highs",
+        "fig5_highs",
+        "fig2_copt",
+        "fig3_copt",
+        "fig5_copt",
+    ],
 )
-def test_consistently_estimate_figure_bounds(setup: Setup):
+def test_consistently_estimate_figure_bounds(setup: Setup, method: str):
     expected = [setup.lower_bound, setup.upper_bound]
 
     results = monte_carlo_pyvmte(
@@ -27,6 +41,7 @@ def test_consistently_estimate_figure_bounds(setup: Setup):
         basis_func_type="constant",
         tolerance=1 / SAMPLE_SIZE,
         rng=RNG,
+        method=method,
     )
 
     mean_upper_bound = np.mean(results["upper_bounds"])

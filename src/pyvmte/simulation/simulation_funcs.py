@@ -16,6 +16,7 @@ def monte_carlo_pyvmte(
     rng: np.random.Generator,
     tolerance: float | None = None,
     lp_outputs: bool = False,  # noqa: FBT001, FBT002
+    method: str = "highs",
 ) -> dict:
     """Run monte carlo simulation using pyvmte module."""
     upper_bounds = np.zeros(repetitions)
@@ -45,6 +46,7 @@ def monte_carlo_pyvmte(
             tolerance,
             x_data=None,
             u_partition=None,
+            method=method,
         )
 
         upper_bounds[rep] = results["upper_bound"]

@@ -187,7 +187,7 @@ def _solve_lp(lp_inputs: dict, max_or_min: str, method: str) -> float:
     a_eq = lp_inputs["a_eq"]
 
     if method == "copt":
-        return _solve_lp_copt(c, a_eq, b_eq, max_or_min)
+        return _solve_lp_copt(c, a_eq, b_eq)
 
     return linprog(c, A_eq=a_eq, b_eq=b_eq, bounds=(0, 1)).fun
 
@@ -248,7 +248,6 @@ def _solve_lp_copt(
     c: np.ndarray,
     a_eq: np.ndarray,
     b_eq: np.ndarray,
-    max_or_min: str,
 ) -> float:
     """Wrapper for solving LP using copt algorithm."""
     env = cp.Envr()
