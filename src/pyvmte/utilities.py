@@ -1,6 +1,7 @@
 """Utilities used in various parts of the project."""
-
+import contextlib
 import math
+import os
 from collections.abc import Callable
 
 import numpy as np
@@ -549,3 +550,10 @@ def _check_estimation_arguments(
 
 class EstimationArgumentError(Exception):
     """Raised when arguments to estimation function are not valid."""
+
+
+@contextlib.contextmanager
+def suppress_print():
+    """Suppress print statements in context."""
+    with open(os.devnull, "w") as f, contextlib.redirect_stdout(f):  # noqa: PTH123
+        yield

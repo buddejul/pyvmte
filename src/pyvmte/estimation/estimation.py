@@ -16,6 +16,7 @@ from pyvmte.utilities import (
     s_cross,
     s_iv_slope,
     s_ols_slope,
+    suppress_print,
 )
 
 
@@ -173,7 +174,6 @@ def _first_step_linear_program(
         identified_estimands,
         basis_funcs,  # type: ignore
     )
-
     if method == "copt":
         minimal_deviations = _solve_lp_estimation_copt(lp_first_inputs, "min")
         first_step_solution = None
@@ -608,26 +608,24 @@ def _estimate_gamma_for_basis_funcs(
     return length * np.mean(coef * indicators)
 
 
-def _solve_lp_estimation_copt(lp_second_inputs: dict, min_or_max: str):
+def _solve_lp_estimation_copt(lp_second_inputs: dict, min_or_max: str) -> float:
     """Wrapper for solving LP using copt algorithm."""
     c = lp_second_inputs["c"] if min_or_max == "min" else -lp_second_inputs["c"]
     a_ub = lp_second_inputs["a_ub"]
     b_ub = lp_second_inputs["b_ub"]
     bounds = lp_second_inputs["bounds"]
 
-    lb = np.array([x[0] for x in bounds])
-    ub = np.array([x[1] for x in bounds])
-
-    # Replace instances of None with COPT.INFINITY
-    lb[lb is None] = (-1) * COPT.INFINITY
-    ub[ub is None] = COPT.INFINITY
+    lb = np.array([x[0] if x[0] is not None else (-1) * COPT.INFINITY for x in bounds])
+    ub = np.array([x[1] if x[1] is not None else COPT.INFINITY for x in bounds])
 
     env = cp.Envr()
     model = env.createModel("estimation")
     x = model.addMVar(len(c), nameprefix="x", lb=lb, ub=ub)
     model.setObjective(c @ x, COPT.MINIMIZE)
     model.addMConstr(a_ub, x, "L", b_ub, nameprefix="c")
-    model.solveLP()
+
+    with suppress_print():
+        model.solveLP()
 
     if model.status != COPT.OPTIMAL:
         msg = "LP not solved to optimality by copt."
