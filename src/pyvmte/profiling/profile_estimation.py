@@ -18,3 +18,5 @@ z_data = np.array(data["z"])
 
 target = setup.target
 identified_estimands = setup.identified_estimands
+
+basis_func_type = "constant"

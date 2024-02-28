@@ -1,8 +1,10 @@
 """Function for estimation."""
 from itertools import pairwise
 
+import coptpy as cp  # type: ignore
 import numpy as np
-from scipy.optimize import (
+from coptpy import COPT
+from scipy.optimize import (  # type: ignore
     OptimizeResult,  # type: ignore
     linprog,  # type: ignore
 )
@@ -14,6 +16,7 @@ from pyvmte.utilities import (
     s_cross,
     s_iv_slope,
     s_ols_slope,
+    suppress_print,
 )
 
 
@@ -27,6 +30,7 @@ def estimation(
     tolerance: float | None = None,
     x_data: np.ndarray | None = None,
     u_partition: np.ndarray | None = None,
+    method: str = "highs",
 ):
     """Estimate bounds given target, identified estimands, and data (estimation).
 
@@ -44,6 +48,7 @@ def estimation(
         x_data (np.array, optional): Array containing the covariate data.
         u_partition (list or np.array, optional): Partition of u for basis_funcs.
         Defaults to None.
+        method (str, optional): Method for scipy linprog solver. Default highs.
 
     Returns:
         dict: A dictionary containing the estimated upper and lower bound of the target
@@ -62,7 +67,9 @@ def estimation(
         u_partition,
     )
 
-    ########################### Preliminary Computations ###############################
+    # ==================================================================================
+    # Preliminary Computations (Partitions, Basis Functions, Instrument, Estimates)
+    # ==================================================================================
     if tolerance is None:
         tolerance = 1 / len(y_data)
 
@@ -90,18 +97,23 @@ def estimation(
         pscores=instrument.pscores,
     )
 
-    ############################ First Step Linear Program #############################
+    # ==================================================================================
+    # First Step Linear Program (Compute Minimal Deviations)
+    # ==================================================================================
     results_first_step = _first_step_linear_program(
         identified_estimands=identified_estimands,
         basis_funcs=basis_funcs,
         data=data,
         beta_hat=beta_hat,
         instrument=instrument,
+        method=method,
     )
 
     minimal_deviations = results_first_step["minimal_deviations"]
 
-    ############################ Second Step Linear Program ############################
+    # ==================================================================================
+    # Second Step Linear Program (Compute Upper and Lower Bounds)
+    # ==================================================================================
     results_second_step = _second_step_linear_program(
         target=target,
         identified_estimands=identified_estimands,
@@ -111,9 +123,18 @@ def estimation(
         tolerance=tolerance,
         beta_hat=beta_hat,
         instrument=instrument,
+        method=method,
     )
 
-    ############################### Output #############################################
+    # ==================================================================================
+    # Return Results
+    # ==================================================================================
+    if method == "copt":
+        return {
+            "upper_bound": results_second_step["upper_bound"],
+            "lower_bound": results_second_step["lower_bound"],
+        }
+
     return {
         "upper_bound": results_second_step["upper_bound"],
         "lower_bound": results_second_step["lower_bound"],
@@ -134,6 +155,7 @@ def _first_step_linear_program(
     data: dict[str, np.ndarray],
     beta_hat: np.ndarray,
     instrument: Instrument,
+    method: str,
 ) -> dict:
     """First step linear program to get minimal deviations in constraint."""
     num_bfuncs = len(basis_funcs) * 2
@@ -152,10 +174,12 @@ def _first_step_linear_program(
         identified_estimands,
         basis_funcs,  # type: ignore
     )
-
-    first_step_solution = _solve_first_step_lp_estimation(lp_first_inputs)
-
-    minimal_deviations = first_step_solution.fun
+    if method == "copt":
+        minimal_deviations = _solve_lp_estimation_copt(lp_first_inputs, "min")
+        first_step_solution = None
+    else:
+        first_step_solution = _solve_first_step_lp_estimation(lp_first_inputs, method)
+        minimal_deviations = first_step_solution.fun
 
     return {
         "minimal_deviations": minimal_deviations,
@@ -164,19 +188,24 @@ def _first_step_linear_program(
     }
 
 
-def _solve_first_step_lp_estimation(lp_first_inputs: dict) -> OptimizeResult:
+def _solve_first_step_lp_estimation(
+    lp_first_inputs: dict,
+    method: str,
+) -> OptimizeResult:
     """Solve first-step linear program."""
     return linprog(
         c=lp_first_inputs["c"],
         A_ub=lp_first_inputs["a_ub"],
         b_ub=lp_first_inputs["b_ub"],
         bounds=lp_first_inputs["bounds"],
+        method=method,
     )
 
 
 def _solve_second_step_lp_estimation(
     lp_second_inputs: dict,
     min_or_max: str,
+    method: str,
 ) -> OptimizeResult:
     """Solve for upper/lower bound given minimal deviations from first step."""
     c = lp_second_inputs["c"] if min_or_max == "min" else -lp_second_inputs["c"]
@@ -186,6 +215,7 @@ def _solve_second_step_lp_estimation(
         A_ub=lp_second_inputs["a_ub"],
         b_ub=lp_second_inputs["b_ub"],
         bounds=lp_second_inputs["bounds"],
+        method=method,
     )
 
 
@@ -372,6 +402,7 @@ def _second_step_linear_program(
     tolerance: float,
     beta_hat: np.ndarray,
     instrument: Instrument,
+    method: str,
 ) -> dict:
     """Second step linear program to estimate upper and lower bounds."""
     lp_second_inputs = {}
@@ -396,8 +427,17 @@ def _second_step_linear_program(
         identified_estimands,  # type: ignore
     )
 
-    result_upper = _solve_second_step_lp_estimation(lp_second_inputs, "max")
-    result_lower = _solve_second_step_lp_estimation(lp_second_inputs, "min")
+    if method == "copt":
+        result_upper = _solve_lp_estimation_copt(lp_second_inputs, "max")
+        result_lower = _solve_lp_estimation_copt(lp_second_inputs, "min")
+
+        return {
+            "upper_bound": -1 * result_upper,
+            "lower_bound": result_lower,
+        }
+
+    result_upper = _solve_second_step_lp_estimation(lp_second_inputs, "max", method)
+    result_lower = _solve_second_step_lp_estimation(lp_second_inputs, "min", method)
 
     return {
         "upper_bound": -1 * result_upper.fun,
@@ -566,3 +606,28 @@ def _estimate_gamma_for_basis_funcs(
         return length * coef * share
 
     return length * np.mean(coef * indicators)
+
+
+def _solve_lp_estimation_copt(lp_second_inputs: dict, min_or_max: str) -> float:
+    """Wrapper for solving LP using copt algorithm."""
+    c = lp_second_inputs["c"] if min_or_max == "min" else -lp_second_inputs["c"]
+    a_ub = lp_second_inputs["a_ub"]
+    b_ub = lp_second_inputs["b_ub"]
+    bounds = lp_second_inputs["bounds"]
+
+    lb = np.array([x[0] if x[0] is not None else (-1) * COPT.INFINITY for x in bounds])
+    ub = np.array([x[1] if x[1] is not None else COPT.INFINITY for x in bounds])
+
+    env = cp.Envr()
+    model = env.createModel("estimation")
+    x = model.addMVar(len(c), nameprefix="x", lb=lb, ub=ub)
+    model.setObjective(c @ x, COPT.MINIMIZE)
+    model.addMConstr(a_ub, x, "L", b_ub, nameprefix="c")
+
+    with suppress_print():
+        model.solveLP()
+
+    if model.status != COPT.OPTIMAL:
+        msg = "LP not solved to optimality by copt."
+        raise ValueError(msg)
+    return model.objval

@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 from pyvmte.config import (
     SETUP_FIG2,
@@ -18,7 +19,7 @@ INSTRUMENT = Instrument(
     pscores=DGP["pscores"],
 )
 
-U_PART = [0, 0.35, 0.6, 0.7, 0.9, 1]
+U_PART = np.array([0, 0.35, 0.6, 0.7, 0.9, 1])
 
 BFUNC1 = {"type": "constant", "u_lo": 0.0, "u_hi": 0.35}
 BFUNC2 = {"type": "constant", "u_lo": 0.35, "u_hi": 0.6}
@@ -55,11 +56,25 @@ def test_paper_late_ols_iv():
 
 
 @pytest.mark.parametrize(
-    "setup",
-    [(SETUP_FIG2), (SETUP_FIG3), (SETUP_FIG5)],
-    ids=["fig2", "fig3", "fig5"],
+    ("setup", "method"),
+    [
+        (SETUP_FIG2, "highs"),
+        (SETUP_FIG3, "highs"),
+        (SETUP_FIG5, "highs"),
+        (SETUP_FIG2, "copt"),
+        (SETUP_FIG3, "copt"),
+        (SETUP_FIG5, "copt"),
+    ],
+    ids=[
+        "fig2_highs",
+        "fig3_highs",
+        "fig5_highs",
+        "fig2_copt",
+        "fig3_copt",
+        "fig5_copt",
+    ],
 )
-def test_identification_paper_bounds(setup: Setup):
+def test_identification_paper_bounds(setup: Setup, method: str):
     expected = [setup.lower_bound, setup.upper_bound]
 
     target_estimand = setup.target
@@ -73,6 +88,7 @@ def test_identification_paper_bounds(setup: Setup):
         m1_dgp=DGP["m1"],
         u_partition=U_PART,
         instrument=INSTRUMENT,
+        method=method,
     )
 
     actual = [result["lower_bound"], result["upper_bound"]]

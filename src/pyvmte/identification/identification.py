@@ -1,10 +1,11 @@
 """Function for identification."""
 from collections.abc import Callable
 
+import coptpy as cp  # type: ignore
 import numpy as np
 import pandas as pd  # type: ignore
-from scipy.optimize import (
-    OptimizeResult,  # type: ignore
+from coptpy import COPT
+from scipy.optimize import (  # type: ignore
     linprog,  # type: ignore
 )
 
@@ -23,6 +24,7 @@ def identification(
     m1_dgp: Callable,
     instrument: Instrument,
     u_partition: np.ndarray,
+    method: str = "highs",
 ):
     """Compute bounds on target estimand given identified estimands and DGP.
 
@@ -38,13 +40,23 @@ def identification(
         instrument (dict): Dictionary containing all information about the instrument.
         u_partition (list or np.array, optional): Partition of u for basis_funcs.
             Defaults to None.
+        method (str, optional): Method for solving the linear program.
+            Implemented are: all methods supported by scipy.linprog as well as copt.
+            Defaults to "highs" using scipy.linprog.
 
     Returns:
         dict: A dictionary containing the upper and lower bound of the target estimand.
 
     """
+    # ==================================================================================
+    # Perform some additional checks on arguments
+    # ==================================================================================
     if isinstance(identified_estimands, dict):
         identified_estimands = [identified_estimands]
+
+    # ==================================================================================
+    # Generate linear program inputs
+    # ==================================================================================
 
     lp_inputs = {}
 
@@ -62,8 +74,12 @@ def identification(
         instrument=instrument,
     )
 
-    upper_bound = (-1) * _solve_lp(lp_inputs, "max").fun
-    lower_bound = _solve_lp(lp_inputs, "min").fun
+    # ==================================================================================
+    # Solve linear program
+    # ==================================================================================
+
+    upper_bound = (-1) * _solve_lp(lp_inputs, "max", method=method)
+    lower_bound = _solve_lp(lp_inputs, "min", method=method)
 
     return {"upper_bound": upper_bound, "lower_bound": lower_bound}
 
@@ -163,14 +179,17 @@ def _compute_equality_constraint_matrix(
     return np.array(c_matrix)
 
 
-def _solve_lp(lp_inputs: dict, max_or_min: str) -> OptimizeResult:
-    """Solve the linear program."""
+def _solve_lp(lp_inputs: dict, max_or_min: str, method: str) -> float:
+    """Wrapper for solving the linear program."""
     c = np.array(lp_inputs["c"]) if max_or_min == "min" else -np.array(lp_inputs["c"])
 
     b_eq = lp_inputs["b_eq"]
     a_eq = lp_inputs["a_eq"]
 
-    return linprog(c, A_eq=a_eq, b_eq=b_eq, bounds=(0, 1))
+    if method == "copt":
+        return _solve_lp_copt(c, a_eq, b_eq)
+
+    return linprog(c, A_eq=a_eq, b_eq=b_eq, bounds=(0, 1)).fun
 
 
 def _compute_moments_for_weights(target: Estimand, instrument: Instrument) -> dict:
@@ -223,3 +242,22 @@ def _compute_covariance_dz(
     ed = pscore_z @ pdf_z
     edz = np.sum(support_z * pscore_z * pdf_z)
     return edz - ed * ez
+
+
+def _solve_lp_copt(
+    c: np.ndarray,
+    a_eq: np.ndarray,
+    b_eq: np.ndarray,
+) -> float:
+    """Wrapper for solving LP using copt algorithm."""
+    env = cp.Envr()
+    model = env.createModel("identification")
+    x = model.addMVar(len(c), nameprefix="x", lb=0, ub=1)
+    model.setObjective(c @ x, COPT.MINIMIZE)
+    model.addMConstr(a_eq, x, "E", b_eq, nameprefix="c")
+    model.solveLP()
+
+    if model.status != COPT.OPTIMAL:
+        msg = "LP not solved to optimality by copt."
+        raise ValueError(msg)
+    return model.objval
