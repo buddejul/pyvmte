@@ -29,6 +29,8 @@ BFUNCS = [BFUNC1, BFUNC2, BFUNC3, BFUNC4, BFUNC5]
 
 BFUNC_LENS = np.array([bfunc["u_hi"] - bfunc["u_lo"] for bfunc in BFUNCS])  # type: ignore
 
+# TODO all of these tests have the same structure so can probably be parametrized
+
 
 def test_compute_choice_weights_late():
     target = Estimand(esttype="late", u_lo=0.35, u_hi=0.9)
@@ -72,6 +74,7 @@ def test_compute_constant_spline_weights_ols_slope_d0():
     assert actual == pytest.approx(expected)
 
 
+# TODO what is this?
 expected = [2.061855670103093, 1.0309278350515467, 0.20618556701030932, 0.0]
 
 

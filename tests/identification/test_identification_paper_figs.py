@@ -19,8 +19,10 @@ INSTRUMENT = Instrument(
     pscores=DGP["pscores"],
 )
 
+# TODO move this to config
 U_PART = np.array([0, 0.35, 0.6, 0.7, 0.9, 1])
 
+# TODO move this to config
 BFUNC1 = {"type": "constant", "u_lo": 0.0, "u_hi": 0.35}
 BFUNC2 = {"type": "constant", "u_lo": 0.35, "u_hi": 0.6}
 BFUNC3 = {"type": "constant", "u_lo": 0.6, "u_hi": 0.7}
@@ -30,6 +32,7 @@ BFUNC5 = {"type": "constant", "u_lo": 0.9, "u_hi": 1.0}
 BASIS_FUNCS = [BFUNC1, BFUNC2, BFUNC3, BFUNC4, BFUNC5]
 
 
+# TODO could use parametrize here
 def test_paper_late_ols_iv():
     expected = [DGP["late_35_90"], DGP["ols_slope"], DGP["iv_slope"]]
 

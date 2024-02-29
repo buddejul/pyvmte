@@ -49,9 +49,11 @@ def test_lp_input_c_figure_3():
     assert expected == pytest.approx(actual)
 
 
+# TODO write these tests?
 def test_lp_input_a_eq_figure_3():
     pass
 
 
+# TODO write these tests?
 def test_lp_input_b_eq_figure_3():
     pass

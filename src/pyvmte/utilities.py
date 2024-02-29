@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd  # type: ignore
 from scipy import integrate  # type: ignore
 
-from pyvmte.config import Estimand, Instrument
+from pyvmte.classes import Estimand, Instrument
 
 
 # TODO(@buddejul):  remove most of this/make simpler; only used in identification
@@ -192,49 +192,6 @@ def s_cross(d, z, dz_cross):
 def bern_bas(n, v, x):
     """Bernstein polynomial basis of degree n and index v at point x."""
     return math.comb(n, v) * x**v * (1 - x) ** (n - v)
-
-
-def load_paper_dgp():
-    """Load the dgp from MST 2018 ECMA."""
-    out = {}
-    out["m0"] = (
-        lambda u: 0.6 * bern_bas(2, 0, u)
-        + 0.4 * bern_bas(2, 1, u)
-        + 0.3 * bern_bas(2, 2, u)
-    )
-    out["m1"] = (
-        lambda u: 0.75 * bern_bas(2, 0, u)
-        + 0.5 * bern_bas(2, 1, u)
-        + 0.25 * bern_bas(2, 2, u)
-    )
-    out["support_z"] = np.array([0, 1, 2])
-    out["pscores"] = np.array([0.35, 0.6, 0.7])
-    out["pdf_z"] = np.array([0.5, 0.4, 0.1])
-    out["ols_slope"] = 0.253
-    out["late_35_90"] = 0.046
-    out["iv_slope"] = 0.074
-    out["u_partition"] = [0, 0.35, 0.6, 0.7, 0.9, 1]
-
-    out["joint_pmf_dz"] = {
-        1: {0: 0.175, 1: 0.24, 2: 0.07},
-        0: {0: 0.325, 1: 0.16, 2: 0.03},
-    }
-
-    out["expectation_d"] = np.sum(out["pscores"] * out["pdf_z"])
-    out["variance_d"] = out["expectation_d"] * (1 - out["expectation_d"])
-    out["expectation_z"] = np.sum(out["support_z"] * out["pdf_z"])
-
-    out["covariance_dz"] = np.sum(
-        [
-            out["joint_pmf_dz"][d][z]
-            * (d - out["expectation_d"])
-            * (z - out["expectation_z"])
-            for d in [0, 1]
-            for z in [0, 1, 2]
-        ],
-    )
-
-    return out
 
 
 def simulate_data_from_paper_dgp(sample_size, rng):
@@ -557,3 +514,46 @@ def suppress_print():
     """Suppress print statements in context."""
     with open(os.devnull, "w") as f, contextlib.redirect_stdout(f):  # noqa: PTH123
         yield
+
+
+def load_paper_dgp():
+    """Load the dgp from MST 2018 ECMA."""
+    out = {}
+    out["m0"] = (
+        lambda u: 0.6 * bern_bas(2, 0, u)
+        + 0.4 * bern_bas(2, 1, u)
+        + 0.3 * bern_bas(2, 2, u)
+    )
+    out["m1"] = (
+        lambda u: 0.75 * bern_bas(2, 0, u)
+        + 0.5 * bern_bas(2, 1, u)
+        + 0.25 * bern_bas(2, 2, u)
+    )
+    out["support_z"] = np.array([0, 1, 2])
+    out["pscores"] = np.array([0.35, 0.6, 0.7])
+    out["pdf_z"] = np.array([0.5, 0.4, 0.1])
+    out["ols_slope"] = 0.253
+    out["late_35_90"] = 0.046
+    out["iv_slope"] = 0.074
+    out["u_partition"] = [0, 0.35, 0.6, 0.7, 0.9, 1]
+
+    out["joint_pmf_dz"] = {
+        1: {0: 0.175, 1: 0.24, 2: 0.07},
+        0: {0: 0.325, 1: 0.16, 2: 0.03},
+    }
+
+    out["expectation_d"] = np.sum(out["pscores"] * out["pdf_z"])
+    out["variance_d"] = out["expectation_d"] * (1 - out["expectation_d"])
+    out["expectation_z"] = np.sum(out["support_z"] * out["pdf_z"])
+
+    out["covariance_dz"] = np.sum(
+        [
+            out["joint_pmf_dz"][d][z]
+            * (d - out["expectation_d"])
+            * (z - out["expectation_z"])
+            for d in [0, 1]
+            for z in [0, 1, 2]
+        ],
+    )
+
+    return out
