@@ -68,13 +68,13 @@ IV_MST = Instrument(
     pscores=np.array([0.35, 0.6, 0.7]),
 )
 
-BFUNC1 = {"type": "constant", "u_lo": 0.0, "u_hi": 0.35}
-BFUNC2 = {"type": "constant", "u_lo": 0.35, "u_hi": 0.6}
-BFUNC3 = {"type": "constant", "u_lo": 0.6, "u_hi": 0.7}
-BFUNC4 = {"type": "constant", "u_lo": 0.7, "u_hi": 0.9}
-BFUNC5 = {"type": "constant", "u_lo": 0.9, "u_hi": 1.0}
+bfunc_1 = {"type": "constant", "u_lo": 0.0, "u_hi": 0.35}
+bfunc_2 = {"type": "constant", "u_lo": 0.35, "u_hi": 0.6}
+bfunc_3 = {"type": "constant", "u_lo": 0.6, "u_hi": 0.7}
+bfunc_4 = {"type": "constant", "u_lo": 0.7, "u_hi": 0.9}
+bfunc_5 = {"type": "constant", "u_lo": 0.9, "u_hi": 1.0}
 
-BFUNCS_MST = [BFUNC1, BFUNC2, BFUNC3, BFUNC4, BFUNC5]
+BFUNCS_MST = [bfunc_1, bfunc_2, bfunc_3, bfunc_4, bfunc_5]
 
 BFUNC_LENS_MST = np.array([bfunc["u_hi"] - bfunc["u_lo"] for bfunc in BFUNCS_MST])  # type: ignore
 
@@ -141,3 +141,12 @@ def load_paper_dgp():
     )
 
     return out
+
+
+U_PART_MST = np.array([0, 0.35, 0.6, 0.7, 0.9, 1])
+
+PARAMS_MST = {
+    "ols_slope": 0.253,
+    "late": 0.046,
+    "iv_slope": 0.074,
+}

@@ -1,15 +1,9 @@
+"""Tests for the computation of choice weights (identification part)."""
 import numpy as np
 import pytest
 from pyvmte.classes import Estimand
-from pyvmte.config import BFUNC_LENS_MST, BFUNCS_MST, DGP_MST, IV_MST
+from pyvmte.config import BFUNC_LENS_MST, BFUNCS_MST, IV_MST
 from pyvmte.identification.identification import _compute_choice_weights
-
-MOMENTS = {
-    "expectation_d": DGP_MST.expectation_d,
-    "variance_d": DGP_MST.variance_d,
-    "expectation_z": DGP_MST.expectation_z,
-    "covariance_dz": DGP_MST.covariance_dz,
-}
 
 late_weight = 1 / (0.9 - 0.35)
 late_expected = np.array(
@@ -29,19 +23,13 @@ late_expected = np.array(
 
 # Note: I calculated the following weights myself but they seem to coincide with what
 # is plotted in the paper figures.
-ols_weights_d0 = [
-    0.0,
-    -0.970873786407767,
-    -1.7475728155339807,
-    -1.94174757281553,
-    -1.94174757281553,
-]
+ols_weights_d0 = [0.0, -0.97087378640, -1.747572815533, -1.9417475728, -1.9417475728]
 
-ols_weights_d1 = [2.061855670103093, 1.0309278350515467, 0.20618556701030932, 0, 0]
+ols_weights_d1 = [2.06185567010, 1.030927835051, 0.2061855670103, 0, 0]
 ols_expected = np.array(ols_weights_d0 + ols_weights_d1) * np.tile(BFUNC_LENS_MST, 2)
 
-weights_iv_d0 = [0.0, -3.3707865168539333, -1.5730337078651693, 0, 0]
-weights_iv_d1 = [0, 3.370786516853933, 1.5730337078651686, 0, 0.0]
+weights_iv_d0 = [0.0, -3.370786516853, -1.573033707865, 0, 0]
+weights_iv_d1 = [0, 3.37078651685, 1.573033707865, 0, 0.0]
 
 iv_expected = np.array(weights_iv_d0 + weights_iv_d1) * np.tile(BFUNC_LENS_MST, 2)
 
