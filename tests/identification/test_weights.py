@@ -1,180 +1,66 @@
 import numpy as np
 import pytest
-from pyvmte.config import Estimand, Instrument
+from pyvmte.classes import Estimand
+from pyvmte.config import BFUNC_LENS_MST, BFUNCS_MST, DGP_MST, IV_MST
 from pyvmte.identification.identification import _compute_choice_weights
-from pyvmte.utilities import _compute_constant_spline_weights, load_paper_dgp
-
-DGP = load_paper_dgp()
-
-INSTRUMENT = Instrument(
-    support=DGP["support_z"],
-    pmf=DGP["pdf_z"],
-    pscores=DGP["pscores"],
-)
 
 MOMENTS = {
-    "expectation_d": DGP["expectation_d"],
-    "variance_d": DGP["variance_d"],
-    "expectation_z": DGP["expectation_z"],
-    "covariance_dz": DGP["covariance_dz"],
+    "expectation_d": DGP_MST.expectation_d,
+    "variance_d": DGP_MST.variance_d,
+    "expectation_z": DGP_MST.expectation_z,
+    "covariance_dz": DGP_MST.covariance_dz,
 }
 
-BFUNC1 = {"type": "constant", "u_lo": 0.0, "u_hi": 0.35}
-BFUNC2 = {"type": "constant", "u_lo": 0.35, "u_hi": 0.6}
-BFUNC3 = {"type": "constant", "u_lo": 0.6, "u_hi": 0.7}
-BFUNC4 = {"type": "constant", "u_lo": 0.7, "u_hi": 0.9}
-BFUNC5 = {"type": "constant", "u_lo": 0.9, "u_hi": 1.0}
+late_weight = 1 / (0.9 - 0.35)
+late_expected = np.array(
+    [
+        0,
+        -late_weight,
+        -late_weight,
+        -late_weight,
+        0,
+        0,
+        late_weight,
+        late_weight,
+        late_weight,
+        0,
+    ],
+) * np.tile(BFUNC_LENS_MST, 2)
 
-BFUNCS = [BFUNC1, BFUNC2, BFUNC3, BFUNC4, BFUNC5]
+# Note: I calculated the following weights myself but they seem to coincide with what
+# is plotted in the paper figures.
+ols_weights_d0 = [
+    0.0,
+    -0.970873786407767,
+    -1.7475728155339807,
+    -1.94174757281553,
+    -1.94174757281553,
+]
 
-BFUNC_LENS = np.array([bfunc["u_hi"] - bfunc["u_lo"] for bfunc in BFUNCS])  # type: ignore
+ols_weights_d1 = [2.061855670103093, 1.0309278350515467, 0.20618556701030932, 0, 0]
+ols_expected = np.array(ols_weights_d0 + ols_weights_d1) * np.tile(BFUNC_LENS_MST, 2)
 
-# TODO all of these tests have the same structure so can probably be parametrized
+weights_iv_d0 = [0.0, -3.3707865168539333, -1.5730337078651693, 0, 0]
+weights_iv_d1 = [0, 3.370786516853933, 1.5730337078651686, 0, 0.0]
+
+iv_expected = np.array(weights_iv_d0 + weights_iv_d1) * np.tile(BFUNC_LENS_MST, 2)
 
 
-def test_compute_choice_weights_late():
-    target = Estimand(esttype="late", u_lo=0.35, u_hi=0.9)
-
-    weight = 1 / (target.u_hi - target.u_lo)
-    expected = np.array(
-        [0, -weight, -weight, -weight, 0, 0, weight, weight, weight, 0],
-    ) * np.tile(BFUNC_LENS, 2)
+@pytest.mark.parametrize(
+    ("esttype", "kwargs", "expected"),
+    [
+        ("ols_slope", {}, ols_expected),
+        ("iv_slope", {}, iv_expected),
+        ("late", {"u_lo": 0.35, "u_hi": 0.9}, late_expected),
+    ],
+)
+def test_compute_choice_weights(esttype, kwargs, expected):
+    target = Estimand(esttype=esttype, **kwargs)
 
     actual = _compute_choice_weights(
         target=target,
-        basis_funcs=BFUNCS,
-        instrument=INSTRUMENT,
+        basis_funcs=BFUNCS_MST,
+        instrument=IV_MST,
     )
-
-    assert actual == pytest.approx(expected)
-
-
-def test_compute_constant_spline_weights_ols_slope_d0():
-    # Calculated myself but looks very close to weights plotted in MST 2018 ECMA Fig 3
-    weights = [
-        0.0,
-        -0.970873786407767,
-        -1.7475728155339807,
-        -1.94174757281553,
-        -1.94174757281553,
-    ]
-    expected = np.array(weights) * BFUNC_LENS
-    actual = []
-
-    for bfunc in BFUNCS:
-        result = _compute_constant_spline_weights(
-            estimand=Estimand(esttype="ols_slope"),
-            basis_function=bfunc,
-            d=0,
-            moments=MOMENTS,
-            instrument=INSTRUMENT,
-        )
-        actual.append(result)
-
-    assert actual == pytest.approx(expected)
-
-
-# TODO what is this?
-expected = [2.061855670103093, 1.0309278350515467, 0.20618556701030932, 0.0]
-
-
-def test_compute_constant_spline_weights_ols_slope_d1():
-    # Calculated myself but looks very close to weights plotted in MST 2018 ECMA Fig 3
-    weights = [2.061855670103093, 1.0309278350515467, 0.20618556701030932, 0, 0]
-    expected = np.array(weights) * BFUNC_LENS
-
-    actual = []
-
-    for bfunc in BFUNCS:
-        result = _compute_constant_spline_weights(
-            estimand=Estimand(esttype="ols_slope"),
-            basis_function=bfunc,
-            d=1,
-            moments=MOMENTS,
-            instrument=INSTRUMENT,
-        )
-        actual.append(result)
-
-    assert actual == pytest.approx(expected)
-
-
-def test_compute_constant_spline_weights_iv_slope_d0():
-    # Calculated myself but looks very close to weights plotted in MST 2018 ECMA Fig 3
-    weights = [0.0, -3.3707865168539333, -1.5730337078651693, 0, 0]
-    expected = np.array(weights) * BFUNC_LENS
-
-    actual = []
-
-    for bfunc in BFUNCS:
-        result = _compute_constant_spline_weights(
-            estimand=Estimand(esttype="iv_slope"),
-            basis_function=bfunc,
-            d=0,
-            moments=MOMENTS,
-            instrument=INSTRUMENT,
-        )
-        actual.append(result)
-
-    assert actual == pytest.approx(expected)
-
-
-def test_compute_constant_spline_weights_iv_slope_d1():
-    # Calculated myself but looks very close to weights plotted in MST 2018 ECMA Fig 3
-    weights = [0, 3.370786516853933, 1.5730337078651686, 0, 0.0]
-    expected = np.array(weights) * BFUNC_LENS
-
-    actual = []
-
-    for bfunc in BFUNCS:
-        result = _compute_constant_spline_weights(
-            estimand=Estimand(esttype="iv_slope"),
-            basis_function=bfunc,
-            d=1,
-            moments=MOMENTS,
-            instrument=INSTRUMENT,
-        )
-        actual.append(result)
-
-    assert actual == pytest.approx(expected)
-
-
-def test_compute_constant_spline_weights_late_d0():
-    u_lo = 0.35
-    u_hi = 0.9
-
-    weight = 1 / (u_hi - u_lo)
-
-    expected = np.array([0, -weight, -weight, -weight, 0]) * BFUNC_LENS
-
-    actual = []
-
-    for bfunc in BFUNCS:
-        result = _compute_constant_spline_weights(
-            estimand=Estimand(esttype="late", u_lo=u_lo, u_hi=u_hi),
-            basis_function=bfunc,
-            d=0,
-        )
-        actual.append(result)
-
-    assert actual == pytest.approx(expected)
-
-
-def test_compute_constant_spline_weights_late_d1():
-    u_lo = 0.35
-    u_hi = 0.9
-
-    weight = 1 / (u_hi - u_lo)
-
-    expected = np.array([0, weight, weight, weight, 0]) * BFUNC_LENS
-
-    actual = []
-
-    for bfunc in BFUNCS:
-        result = _compute_constant_spline_weights(
-            estimand=Estimand(esttype="late", u_lo=u_lo, u_hi=u_hi),
-            basis_function=bfunc,
-            d=1,
-        )
-        actual.append(result)
 
     assert actual == pytest.approx(expected)

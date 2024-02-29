@@ -62,11 +62,21 @@ SETUP_MONTE_CARLO_BY_TARGET = {
 
 U_HI_RANGE = np.arange(0.35, 1, 0.05)
 
-IV_PAPER = Instrument(
+IV_MST = Instrument(
     support=np.array([0, 1, 2]),
     pmf=np.array([0.5, 0.4, 0.1]),
     pscores=np.array([0.35, 0.6, 0.7]),
 )
+
+BFUNC1 = {"type": "constant", "u_lo": 0.0, "u_hi": 0.35}
+BFUNC2 = {"type": "constant", "u_lo": 0.35, "u_hi": 0.6}
+BFUNC3 = {"type": "constant", "u_lo": 0.6, "u_hi": 0.7}
+BFUNC4 = {"type": "constant", "u_lo": 0.7, "u_hi": 0.9}
+BFUNC5 = {"type": "constant", "u_lo": 0.9, "u_hi": 1.0}
+
+BFUNCS_MST = [BFUNC1, BFUNC2, BFUNC3, BFUNC4, BFUNC5]
+
+BFUNC_LENS_MST = np.array([bfunc["u_hi"] - bfunc["u_lo"] for bfunc in BFUNCS_MST])  # type: ignore
 
 
 def _m0_paper(u: float) -> float:
@@ -77,7 +87,7 @@ def _m1_paper(u: float) -> float:
     return 0.75 * bern_bas(2, 0, u) + 0.5 * bern_bas(2, 1, u) + 0.25 * bern_bas(2, 2, u)
 
 
-PAPER_DGP = DGP(
+DGP_MST = DGP(
     m0=_m0_paper,
     m1=_m1_paper,
     support_z=np.array([0, 1, 2]),
