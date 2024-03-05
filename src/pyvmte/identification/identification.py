@@ -3,7 +3,6 @@ from collections.abc import Callable
 
 import coptpy as cp  # type: ignore
 import numpy as np
-import pandas as pd  # type: ignore
 from coptpy import COPT
 from scipy import integrate  # type: ignore
 from scipy.optimize import (  # type: ignore
@@ -127,9 +126,8 @@ def _compute_estimand(
 def _compute_choice_weights(
     target: Estimand,
     basis_funcs: list[dict],
-    instrument: Instrument | None = None,
+    instrument: Instrument,
     moments: dict | None = None,
-    data: pd.DataFrame | None = None,
 ) -> np.ndarray:
     """Compute weights on the choice variables."""
     bfunc_type = basis_funcs[0]["type"]
