@@ -1,14 +1,14 @@
 """Setup for profiling iv estimation functions."""
 import numpy as np
 
+from pyvmte.config import RNG
+
 sample_size = 100_000
 
 support = np.array([0, 1, 2])
 
-rng = np.random.default_rng()
-
-z = rng.choice(support, size=sample_size, p=[0.5, 0.4, 0.1])
-d = rng.choice([0, 1], size=sample_size, p=[0.65, 0.35])
+z = RNG.choice(support, size=sample_size, p=[0.5, 0.4, 0.1])
+d = RNG.choice([0, 1], size=sample_size, p=[0.65, 0.35])
 
 
 def _estimate_prop_z(

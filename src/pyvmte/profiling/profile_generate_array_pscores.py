@@ -1,14 +1,14 @@
 """Setup for profiling generate_array_of_pscores."""
 import numpy as np
 
+from pyvmte.config import RNG
+
 supp = np.array([0, 1, 2])
 pmf = np.array([0.5, 0.4, 0.1])
 pscores = np.array([0.3, 0.6, 0.7])
 
-rng = np.random.default_rng()
-
-z_data = rng.choice(supp, size=100_000, p=pmf)
-d_data = rng.choice([0, 1], size=100_000, p=[0.5, 0.5])
+z_data = RNG.choice(supp, size=100_000, p=pmf)
+d_data = RNG.choice([0, 1], size=100_000, p=[0.5, 0.5])
 
 
 # timeit benchmark: 3.9ms

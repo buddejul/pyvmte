@@ -1,6 +1,8 @@
 """Setup for profiling pscore functions."""
 import numpy as np
 
+from pyvmte.config import RNG
+
 supp = np.array([0, 1, 2])
 pmf = np.array([0.5, 0.4, 0.1])
 pscores = np.array([0.3, 0.6, 0.7])
@@ -9,9 +11,7 @@ z_dict = dict(zip(supp, pscores, strict=True))
 
 size = 100_000
 
-rng = np.random.default_rng()
-
-z = rng.choice(supp, size=size, p=pmf)
+z = RNG.choice(supp, size=size, p=pmf)
 
 
 def slow_func(z, z_dict):
