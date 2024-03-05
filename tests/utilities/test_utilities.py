@@ -1,7 +1,8 @@
 import numpy as np
+import pandas as pd  # type: ignore
 import pytest
 import statsmodels.api as sm  # type: ignore
-from pyvmte.config import PARAMS_MST, RNG
+from pyvmte.config import BFUNCS_MST, DGP_MST, PARAMS_MST, RNG, U_PART_MST
 from pyvmte.utilities import (
     _generate_partition_midpoints,
     _generate_u_partition_from_basis_funcs,
@@ -10,11 +11,10 @@ from pyvmte.utilities import (
 from statsmodels.sandbox.regression.gmm import IV2SLS  # type: ignore
 
 
-@pytest.mark.skip(reason="Not implemented yet")
 def test_simulate_data_from_paper_dgp_ols():
     expected = PARAMS_MST["ols_slope"]
 
-    sample_size = 100_000
+    sample_size = 250_000
 
     data = simulate_data_from_paper_dgp(sample_size, rng=RNG)
 
@@ -23,9 +23,9 @@ def test_simulate_data_from_paper_dgp_ols():
 
     model = sm.OLS(y, x)
     results = model.fit()
-    actual = results.params["d"]
+    actual = results.params[1]
 
-    standard_error = results.bse["d"]
+    standard_error = results.bse[1]
 
     # Paper only reports rounded numbers so more lenient here
     assert actual == pytest.approx(expected, abs=0.001 + 3 * standard_error)
@@ -49,61 +49,30 @@ def test_simulate_data_from_paper_dgp_iv():
     assert actual == pytest.approx(expected, abs=0.01 + 5 * standard_error)
 
 
-# TODO implement or delete
-@pytest.mark.skip(reason="Not implemented yet")
 def test_simulate_data_from_paper_dgp_pscores():
-    expected = PARAMS_MST["pscores"]
+    expected = DGP_MST.pscores
 
     sample_size = 250_000
 
     data = simulate_data_from_paper_dgp(sample_size, rng=RNG)
 
-    actual = data.groupby("z")["d"].mean().values
+    df_data = pd.DataFrame(data)
+
+    actual = df_data.groupby("z")["d"].mean().values
 
     assert actual == pytest.approx(expected, abs=5 / np.sqrt(sample_size))
 
 
 def test_generate_u_partition_from_basis_funcs():
-    expected = [0, 0.35, 0.6, 0.7, 0.9, 1]
+    expected = U_PART_MST
 
-    bfunc1 = {
-        "type": "constant",
-        "u_lo": 0,
-        "u_hi": 0.35,
-    }
-    bfunc2 = {
-        "type": "constant",
-        "u_lo": 0.35,
-        "u_hi": 0.6,
-    }
-    bfunc3 = {
-        "type": "constant",
-        "u_lo": 0.6,
-        "u_hi": 0.7,
-    }
-    bfunc4 = {
-        "type": "constant",
-        "u_lo": 0.7,
-        "u_hi": 0.9,
-    }
-    bfunc5 = {
-        "type": "constant",
-        "u_lo": 0.9,
-        "u_hi": 1,
-    }
-
-    basis_funcs = [bfunc1, bfunc2, bfunc3, bfunc4, bfunc5]
-
-    actual = _generate_u_partition_from_basis_funcs(basis_funcs)
+    actual = _generate_u_partition_from_basis_funcs(BFUNCS_MST)
 
     assert actual == pytest.approx(expected)
 
 
 def test_generate_partition_midpoints():
-    partition = [0, 0.2, 0.3, 0.5, 0.7, 1]
-
-    expected = [0.1, 0.25, 0.4, 0.6, 0.85]
-
-    actual = _generate_partition_midpoints(partition)
+    expected = [0.175, 0.475, 0.65, 0.8, 0.95]
+    actual = _generate_partition_midpoints(U_PART_MST)
 
     assert actual == pytest.approx(expected)
