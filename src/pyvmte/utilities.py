@@ -194,32 +194,25 @@ def _weight_late(u, u_lo, u_hi):
     return 0
 
 
-def _weight_ols(u, d, pz, ed, var_d, d_data=None):
+def _weight_ols(u, d, pz, ed, var_d):
     """Weight function for OLS target."""
-    # FIXME difference between d to indicate type of weight function and data d
-    if d_data is None:
-        d_data = d
     if d == 0:
-        return s_ols_slope(d_data, ed, var_d) if u > pz else 0
-    return s_ols_slope(d_data, ed, var_d) if u <= pz else 0
+        return s_ols_slope(d, ed, var_d) if u > pz else 0
+    return s_ols_slope(d, ed, var_d) if u <= pz else 0
 
 
 def _weight_iv_slope(u, d, z, pz, ez, cov_dz):
-    # FIXME difference between d to indicate type of weight function and data d
     """Weight function for IV slope target."""
     if d == 0:
         return s_iv_slope(z, ez, cov_dz) if u > pz else 0
     return s_iv_slope(z, ez, cov_dz) if u <= pz else 0
 
 
-def _weight_cross(u, d, z, pz, dz_cross, d_data=None):
+def _weight_cross(u, d, z, pz, dz_cross):
     """Weight function for unconditional cross-moments E[D=d, Z=z]."""
-    # FIXME difference between d to indicate type of weight function and data d
-    if d_data is None:
-        d_data = d
     if d == 0:
-        return s_cross(d_data, z, dz_cross) if u > pz else 0
-    return s_cross(d_data, z, dz_cross) if u <= pz else 0
+        return s_cross(d, z, dz_cross) if u > pz else 0
+    return s_cross(d, z, dz_cross) if u <= pz else 0
 
 
 # TODO(@buddejul):  remove the data part have separate function for this
