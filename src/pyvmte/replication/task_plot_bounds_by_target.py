@@ -6,19 +6,16 @@ import pandas as pd  # type: ignore
 import plotly.io as pio  # type: ignore
 from pytask import Product
 
-from pyvmte.config import BLD, SETUP_FIG5, Instrument
+from pyvmte.config import BLD, DGP_MST, SETUP_FIG5, Instrument
 from pyvmte.replication.plot_bounds_by_target import (
     create_bounds_by_target_df,
     plot_bounds_by_target,
 )
-from pyvmte.utilities import load_paper_dgp
-
-DGP = load_paper_dgp()
 
 INSTRUMENT = Instrument(
-    support=DGP["support_z"],
-    pmf=DGP["pdf_z"],
-    pscores=DGP["pscores"],
+    support=DGP_MST.support_z,
+    pmf=DGP_MST.pmf_z,
+    pscores=DGP_MST.pscores,
 )
 
 
@@ -32,8 +29,8 @@ def task_create_bounds_by_target_df(
     bounds_by_target = create_bounds_by_target_df(
         setup=SETUP_FIG5,
         instrument=INSTRUMENT,
-        m0=DGP["m0"],
-        m1=DGP["m1"],
+        m0=DGP_MST.m0,
+        m1=DGP_MST.m1,
         n_gridpoints=100,
     )
     bounds_by_target.to_pickle(path_to_data)

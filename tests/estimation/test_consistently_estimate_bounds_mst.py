@@ -1,11 +1,8 @@
-"""Test we consistently estimate the bounds of the paper."""
+"""Test we consistently estimate the bounds reported in MST."""
 import numpy as np
 import pytest
-from pyvmte.config import SETUP_FIG2, SETUP_FIG3, SETUP_FIG5, Setup
+from pyvmte.config import RNG, SETUP_FIG2, SETUP_FIG3, SETUP_FIG5, Setup
 from pyvmte.simulation.simulation_funcs import monte_carlo_pyvmte
-
-RNG = np.random.default_rng(495618721)
-
 
 SAMPLE_SIZE = 1_000
 NUM_SIMULATIONS = 250
@@ -30,7 +27,7 @@ NUM_SIMULATIONS = 250
         "fig5_copt",
     ],
 )
-def test_consistently_estimate_figure_bounds(setup: Setup, method: str):
+def test_consistently_estimate_bounds_mst(setup: Setup, method: str):
     expected = [setup.lower_bound, setup.upper_bound]
 
     results = monte_carlo_pyvmte(

@@ -2,7 +2,7 @@
 import numpy as np
 from numba import njit  # type: ignore
 
-from pyvmte.config import Estimand, Instrument
+from pyvmte.config import RNG, Estimand, Instrument
 from pyvmte.estimation.estimation import (
     _compute_u_partition,
     _estimate_instrument_characteristics,
@@ -26,9 +26,7 @@ bfunc = {
     "type": "constant",
 }
 
-rng = np.random.default_rng()
-
-data = simulate_data_from_paper_dgp(sample_size=sample_size, rng=rng)
+data = simulate_data_from_paper_dgp(sample_size=sample_size, rng=RNG)
 
 instrument = _estimate_instrument_characteristics(z_data=data["z"], d_data=data["d"])
 data["pscores"] = _generate_array_of_pscores(

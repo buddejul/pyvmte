@@ -1,12 +1,10 @@
 """Setup for profiling estimation functions."""
 import numpy as np
 
-from pyvmte.config import SETUP_FIG3
+from pyvmte.config import RNG, SETUP_FIG3
 from pyvmte.utilities import simulate_data_from_paper_dgp
 
 setup = SETUP_FIG3
-
-RNG = np.random.default_rng()
 
 SAMPLE_SIZE = 100_000
 

@@ -2,8 +2,6 @@
 import numpy as np
 import pandas as pd  # type: ignore
 
-rng = np.random.default_rng()
-
 
 def simulate_data_from_paper_dgp(sample_size, rng):
     """Simulate data using the dgp from MST 2018 ECMA."""
