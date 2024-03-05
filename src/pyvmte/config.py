@@ -39,7 +39,7 @@ SETUP_FIG3 = Setup(
 combinations = product([0, 1], [0, 1, 2])
 
 cross_estimands = [
-    Estimand(esttype="cross", dz_cross=tuple(comb)) for comb in combinations
+    Estimand(esttype="cross", dz_cross=tuple(comb)) for comb in combinations  # type: ignore
 ]
 
 SETUP_FIG5 = Setup(
