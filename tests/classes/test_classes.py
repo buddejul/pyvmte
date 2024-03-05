@@ -22,21 +22,14 @@ def example_dgp():
     )
 
 
-def test_dgp_expectation_d(example_dgp):
-    expected = 0.5
-    assert example_dgp.expectation_d == expected
-
-
-def test_dgp_expectation_z(example_dgp):
-    expected = 0.5
-    assert example_dgp.expectation_z == expected
-
-
-def test_dgp_variance_d(example_dgp):
-    expected = 0.5 * (1 - 0.5)
-    assert example_dgp.variance_d == expected
-
-
-def test_dgp_covariance_dz(example_dgp):
-    expected = 0
-    assert example_dgp.covariance_dz == expected
+@pytest.mark.parametrize(
+    ("method", "expected"),
+    [
+        ("expectation_d", 0.5),
+        ("expectation_z", 0.5),
+        ("variance_d", 0.25),
+        ("covariance_dz", 0.0),
+    ],
+)
+def test_dgp_methods(example_dgp, method, expected):
+    assert getattr(example_dgp, method) == pytest.approx(expected)
