@@ -10,13 +10,19 @@ from pyvmte.utilities import (
 )
 from statsmodels.sandbox.regression.gmm import IV2SLS  # type: ignore
 
+SAMPLE_SIZE = 100_000
 
-def test_simulate_data_from_paper_dgp_ols():
+
+@pytest.fixture()
+def data():
+    return simulate_data_from_paper_dgp(
+        SAMPLE_SIZE,
+        rng=RNG,
+    )
+
+
+def test_simulate_data_from_paper_dgp_ols(data):
     expected = PARAMS_MST["ols_slope"]
-
-    sample_size = 250_000
-
-    data = simulate_data_from_paper_dgp(sample_size, rng=RNG)
 
     x = sm.add_constant(data["d"].astype(float))
     y = data["y"].astype(float)
@@ -31,12 +37,8 @@ def test_simulate_data_from_paper_dgp_ols():
     assert actual == pytest.approx(expected, abs=0.001 + 3 * standard_error)
 
 
-def test_simulate_data_from_paper_dgp_iv():
+def test_simulate_data_from_paper_dgp_iv(data):
     expected = PARAMS_MST["iv_slope"]
-
-    sample_size = 250_000
-
-    data = simulate_data_from_paper_dgp(sample_size, rng=RNG)
 
     x = sm.add_constant(data["d"].astype(float))
     instruments = sm.add_constant(data["z"].astype(float))
@@ -49,18 +51,14 @@ def test_simulate_data_from_paper_dgp_iv():
     assert actual == pytest.approx(expected, abs=0.01 + 5 * standard_error)
 
 
-def test_simulate_data_from_paper_dgp_pscores():
+def test_simulate_data_from_paper_dgp_pscores(data):
     expected = DGP_MST.pscores
-
-    sample_size = 250_000
-
-    data = simulate_data_from_paper_dgp(sample_size, rng=RNG)
 
     df_data = pd.DataFrame(data)
 
     actual = df_data.groupby("z")["d"].mean().values
 
-    assert actual == pytest.approx(expected, abs=5 / np.sqrt(sample_size))
+    assert actual == pytest.approx(expected, abs=5 / np.sqrt(len(data["z"])))
 
 
 def test_generate_u_partition_from_basis_funcs():
