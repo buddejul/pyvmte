@@ -4,11 +4,9 @@ import numpy as np
 import pandas as pd  # type: ignore
 import pytest
 import statsmodels.api as sm  # type: ignore
-from pyvmte.config import Estimand
+from pyvmte.config import RNG, Estimand
 from pyvmte.estimation.estimation import _estimate_estimand
 from statsmodels.sandbox.regression.gmm import IV2SLS  # type: ignore
-
-RNG = np.random.default_rng(158192581)
 
 Z_SUPPORT = [1, 2, 3]
 Z_PDF = [0.2, 0.3, 0.5]

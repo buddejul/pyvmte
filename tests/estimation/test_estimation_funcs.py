@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from pyvmte.config import Estimand
+from pyvmte.config import RNG, Estimand
 from pyvmte.estimation.estimation import (
     _build_first_step_ub_matrix,
     _compute_first_step_bounds,
@@ -18,8 +18,6 @@ from pyvmte.estimation.estimation import (
     _second_step_linear_program,
 )
 from pyvmte.utilities import simulate_data_from_paper_dgp
-
-RNG = np.random.default_rng(91567281)
 
 
 def test_generate_basis_funcs():

@@ -4,6 +4,7 @@ from dataclasses import replace
 import numpy as np
 import pytest
 from pyvmte.config import (
+    RNG,
     SETUP_FIG2,
     SETUP_FIG3,
     SETUP_FIG5,
@@ -26,8 +27,6 @@ from pyvmte.identification.identification import (
     _compute_equality_constraint_matrix,
 )
 from pyvmte.utilities import load_paper_dgp, simulate_data_from_paper_dgp
-
-RNG = np.random.default_rng(9156781)
 
 U_PARTITION = np.array([0.0, 0.35, 0.6, 0.7, 0.9, 1.0])
 

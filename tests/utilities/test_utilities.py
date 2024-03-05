@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 import statsmodels.api as sm  # type: ignore
+from pyvmte.config import RNG
 from pyvmte.utilities import (
     _generate_partition_midpoints,
     _generate_u_partition_from_basis_funcs,
@@ -10,7 +11,6 @@ from pyvmte.utilities import (
 from statsmodels.sandbox.regression.gmm import IV2SLS  # type: ignore
 
 DGP = load_paper_dgp()
-RNG = np.random.default_rng(9156781)
 
 
 @pytest.mark.skip(reason="Not implemented yet")
