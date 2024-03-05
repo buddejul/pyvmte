@@ -1,15 +1,14 @@
-"""Test consistent estimation of linear map weights."""
+"""Test consistent estimation of linear map weights (inputs to estimation LP)."""
 from dataclasses import replace
 
 import numpy as np
 import pytest
 from pyvmte.config import (
+    BFUNCS_MST,
     RNG,
     SETUP_FIG2,
     SETUP_FIG3,
     SETUP_FIG5,
-    Estimand,
-    Instrument,
     Setup,
 )
 from pyvmte.estimation.estimation import (
@@ -26,41 +25,7 @@ from pyvmte.identification.identification import (
     _compute_choice_weights,
     _compute_equality_constraint_matrix,
 )
-from pyvmte.utilities import load_paper_dgp, simulate_data_from_paper_dgp
-
-U_PARTITION = np.array([0.0, 0.35, 0.6, 0.7, 0.9, 1.0])
-
-BFUNCS = _generate_basis_funcs("constant", U_PARTITION)
-
-DGP = load_paper_dgp()
-
-INSTRUMENT = Instrument(
-    support=DGP["support_z"],
-    pmf=DGP["pdf_z"],
-    pscores=DGP["pscores"],
-)
-
-OLS_SLOPE_WEIGHTS = _compute_equality_constraint_matrix(
-    identified_estimands=[Estimand(esttype="ols_slope")],
-    basis_funcs=BFUNCS,
-    instrument=INSTRUMENT,
-)
-
-IV_SLOPE_WEIGHTS = _compute_equality_constraint_matrix(
-    identified_estimands=[Estimand(esttype="iv_slope")],
-    basis_funcs=BFUNCS,
-    instrument=INSTRUMENT,
-)
-
-CROSS_WEIGHTS = _compute_equality_constraint_matrix(
-    identified_estimands=[Estimand(esttype="cross", dz_cross=(0, 1))],
-    basis_funcs=BFUNCS,
-    instrument=INSTRUMENT,
-)
-
-# get vector of bfunc lengths, i.e. "u_hi" - "u_lo"
-BFUNC_LENGTHS = np.diff(U_PARTITION)
-BFUNC_LENGTHS = np.tile(BFUNC_LENGTHS, 2)
+from pyvmte.utilities import simulate_data_from_paper_dgp
 
 SAMPLE_SIZE = 1_000
 REPETITIONS = 250
@@ -94,55 +59,34 @@ def test_first_step_lp_a_ub_matrix_paper_figures(setup: Setup, u_hi_target: floa
     actual = np.zeros(
         (
             2 * len(identified_estimands),
-            2 * (len(BFUNCS) + 1) + len(identified_estimands),
+            2 * (len(BFUNCS_MST) + 1) + len(identified_estimands),
         ),
     )
     expected = np.zeros(
         (
             2 * len(identified_estimands),
-            2 * (len(BFUNCS) + 1) + len(identified_estimands),
+            2 * (len(BFUNCS_MST) + 1) + len(identified_estimands),
         ),
     )
 
     number_iter_diff_shape = 0
 
     for _ in range(REPETITIONS):
-        data = simulate_data_from_paper_dgp(sample_size=SAMPLE_SIZE, rng=RNG)
+        simulated = _simulate_and_compute(target=target)
 
-        pscore_z = _estimate_prop_z(
-            z_data=data["z"],
-            d_data=data["d"],
-            support=np.unique(data["z"]),
-        )
-        u_partition = _compute_u_partition(
-            target=target,
-            pscore_z=pscore_z,
-        )
-        basis_funcs = _generate_basis_funcs("constant", u_partition)
-
-        instrument = _estimate_instrument_characteristics(
-            z_data=data["z"],
-            d_data=data["d"],
-        )
-
-        data["pscores"] = _generate_array_of_pscores(
-            z_data=data["z"],
-            support=instrument.support,
-            pscores=instrument.pscores,
-        )
         a_ub = _build_first_step_ub_matrix(
-            basis_funcs=basis_funcs,
+            basis_funcs=simulated["basis_funcs"],
             identified_estimands=identified_estimands,
-            data=data,
-            instrument=instrument,
+            data=simulated["data"],
+            instrument=simulated["instrument"],
         )
         # Sometimes we exactly estimate the pscore and then we have fewer bfuncs
         # Require shape of actual and a_ub coincides for update
 
         weights = _compute_equality_constraint_matrix(
             identified_estimands=identified_estimands,
-            basis_funcs=basis_funcs,
-            instrument=instrument,
+            basis_funcs=simulated["basis_funcs"],
+            instrument=simulated["instrument"],
         )
 
         expected_upper = np.hstack((weights, -np.eye(len(identified_estimands))))
@@ -182,41 +126,25 @@ def test_second_step_lp_c_vector_paper_figures(setup: Setup, u_hi_target: float)
     target = replace(setup.target, u_hi=u_hi_target)
     identified_estimands = setup.identified_estimands
 
-    actual = np.zeros((len(BFUNCS) + 1) * 2 + len(identified_estimands))
-    expected = np.zeros((len(BFUNCS) + 1) * 2 + len(identified_estimands))
+    actual = np.zeros((len(BFUNCS_MST) + 1) * 2 + len(identified_estimands))
+    expected = np.zeros((len(BFUNCS_MST) + 1) * 2 + len(identified_estimands))
 
     number_iter_diff_shape = 0
 
     for _ in range(REPETITIONS):
-        data = simulate_data_from_paper_dgp(sample_size=SAMPLE_SIZE, rng=RNG)
-
-        pscore_z = _estimate_prop_z(
-            z_data=data["z"],
-            d_data=data["d"],
-            support=np.unique(data["z"]),
-        )
-        u_partition = _compute_u_partition(
-            target=target,
-            pscore_z=pscore_z,
-        )
-        basis_funcs = _generate_basis_funcs("constant", u_partition)
-
-        instrument = _estimate_instrument_characteristics(
-            z_data=data["z"],
-            d_data=data["d"],
-        )
+        simulated = _simulate_and_compute(target=target)
 
         expected_weight = _compute_choice_weights(
             target=target,
-            basis_funcs=basis_funcs,
-            instrument=instrument,
+            basis_funcs=simulated["basis_funcs"],
+            instrument=simulated["instrument"],
         )
 
         expected_c = np.hstack((expected_weight, np.zeros(len(identified_estimands))))
 
         actual_c = _compute_choice_weights_second_step(
             target=target,
-            basis_funcs=basis_funcs,
+            basis_funcs=simulated["basis_funcs"],
             identified_estimands=identified_estimands,
         )
 
@@ -259,7 +187,7 @@ def test_second_step_lp_a_ub_matrix_paper_figures(setup: Setup, u_hi_target: flo
     target = replace(setup.target, u_hi=u_hi_target)
     identified_estimands = setup.identified_estimands
 
-    number_bfuncs = (len(BFUNCS) + 1) * 2
+    number_bfuncs = (len(BFUNCS_MST) + 1) * 2
     number_identif_estimands = len(identified_estimands)
 
     actual = np.zeros(
@@ -279,28 +207,12 @@ def test_second_step_lp_a_ub_matrix_paper_figures(setup: Setup, u_hi_target: flo
     number_iter_diff_shape = 0
 
     for _ in range(REPETITIONS):
-        data = simulate_data_from_paper_dgp(sample_size=SAMPLE_SIZE, rng=RNG)
-
-        pscore_z = _estimate_prop_z(
-            z_data=data["z"],
-            d_data=data["d"],
-            support=np.unique(data["z"]),
-        )
-        u_partition = _compute_u_partition(
-            target=target,
-            pscore_z=pscore_z,
-        )
-        basis_funcs = _generate_basis_funcs("constant", u_partition)
-
-        instrument = _estimate_instrument_characteristics(
-            z_data=data["z"],
-            d_data=data["d"],
-        )
+        simulated = _simulate_and_compute(target=target)
 
         expected_weight = _compute_equality_constraint_matrix(
             identified_estimands=identified_estimands,
-            basis_funcs=basis_funcs,
-            instrument=instrument,
+            basis_funcs=simulated["basis_funcs"],
+            instrument=simulated["instrument"],
         )
 
         expected_second_row_block = np.hstack(
@@ -312,17 +224,11 @@ def test_second_step_lp_a_ub_matrix_paper_figures(setup: Setup, u_hi_target: flo
 
         expected_add = np.vstack((expected_second_row_block, expected_third_row_block))
 
-        data["pscores"] = _generate_array_of_pscores(
-            z_data=data["z"],
-            support=instrument.support,
-            pscores=instrument.pscores,
-        )
-
         actual_a_ub = _build_second_step_ub_matrix(
-            basis_funcs=basis_funcs,
+            basis_funcs=simulated["basis_funcs"],
             identified_estimands=identified_estimands,
-            data=data,
-            instrument=instrument,
+            data=simulated["data"],
+            instrument=simulated["instrument"],
         )
 
         if actual.shape == actual_a_ub.shape:
@@ -342,3 +248,35 @@ def test_second_step_lp_a_ub_matrix_paper_figures(setup: Setup, u_hi_target: flo
     expected = np.vstack((first_row, expected_without_first_row))
 
     assert actual == pytest.approx(expected, abs=3 / np.sqrt(SAMPLE_SIZE))
+
+
+def _simulate_and_compute(target):
+    data = simulate_data_from_paper_dgp(sample_size=SAMPLE_SIZE, rng=RNG)
+
+    pscore_z = _estimate_prop_z(
+        z_data=data["z"],
+        d_data=data["d"],
+        support=np.unique(data["z"]),
+    )
+    u_partition = _compute_u_partition(
+        target=target,
+        pscore_z=pscore_z,
+    )
+    basis_funcs = _generate_basis_funcs("constant", u_partition)
+
+    instrument = _estimate_instrument_characteristics(
+        z_data=data["z"],
+        d_data=data["d"],
+    )
+
+    data["pscores"] = _generate_array_of_pscores(
+        z_data=data["z"],
+        support=instrument.support,
+        pscores=instrument.pscores,
+    )
+
+    return {
+        "data": data,
+        "instrument": instrument,
+        "basis_funcs": basis_funcs,
+    }
