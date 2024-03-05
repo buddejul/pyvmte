@@ -14,19 +14,17 @@ from pyvmte.classes import Estimand, Instrument
 # TODO(@buddejul):  remove most of this/make simpler; only used in identification
 def gamma_star(
     md: Callable,
-    d: int,
+    d_value: int,
     estimand: Estimand,
     instrument: Instrument | None = None,
     dz_cross: tuple | None = None,
     u_part: np.ndarray | None = None,
-    u_part_lo: float | None = None,
-    u_part_hi: float | None = None,
 ):
     """Compute gamma* for a given MTR function and estimand.
 
     Args:
         md (function): MTR function
-        d (np.int): value of the treatment
+        d_value (np.int): value of the treatment
         estimand (str): the estimand to compute
         u_lo (float): lower bound of late target
         u_hi (float): upper bound of late target
@@ -38,8 +36,6 @@ def gamma_star(
         instrument (Instrument): Instrument object containing all information about the
             instrument.
         u_part (np.ndarray): partition of u
-        u_part_lo (float): lower bound of u
-        u_part_hi (float): upper bound of u
 
     """
     u_lo = estimand.u_lo
@@ -52,83 +48,42 @@ def gamma_star(
         support_z = instrument.support
 
     if estimand.esttype == "late":
-        return integrate.quad(lambda u: md(u) * s_late(d, u, u_lo, u_hi), 0, 1)[0]
+        return integrate.quad(lambda u: md(u) * s_late(d_value, u, u_lo, u_hi), 0, 1)[0]
 
-    # Do integration manually via scipy integrate
+    ez, ed, edz, cov_dz = compute_moments(support_z, pdf_z, pscore_z)
+    var_d = ed * (1 - ed)
+
     if estimand.esttype == "iv_slope":
-        ez, ed, edz, cov_dz = compute_moments(support_z, pdf_z, pscore_z)
 
-        if d == 0:
-
-            def func(u, z):
-                if pscore_z[np.where(support_z == z)[0][0]] < u:
-                    return md(u) * s_iv_slope(z, ez, cov_dz)
-                return 0
-
-        if d == 1:
-
-            def func(u, z):
-                if pscore_z[np.where(support_z == z)[0][0]] > u:
-                    return md(u) * s_iv_slope(z, ez, cov_dz)
-                return 0
-
-        # Integrate func over u in [0,1] for every z in support_z
-        return np.sum(
-            [
-                integrate.quad(func, 0, 1, args=(z,))[0] * pdf_z[i]  # type: ignore
-                for i, z in enumerate(support_z)  # type: ignore
-            ],
-        )
+        def inner_func(u, z):
+            return md(u) * s_iv_slope(z, ez, cov_dz)
 
     if estimand.esttype == "ols_slope":
-        ez, ed, edz, cov_dz = compute_moments(support_z, pdf_z, pscore_z)
-        var_d = ed * (1 - ed)
 
-        if d == 0:
-            # need to condition on z
-            def func(u, z):
-                if pscore_z[np.where(support_z == z)[0][0]] < u:
-                    return md(u) * s_ols_slope(d, ed, var_d)
-                return 0
-
-        if d == 1:
-
-            def func(u, z):
-                if pscore_z[np.where(support_z == z)[0][0]] > u:
-                    return md(u) * s_ols_slope(d, ed, var_d)
-                return 0
-
-        # Integrate func over u in [0,1] for every z in support_z
-        return np.sum(
-            [
-                integrate.quad(func, 0, 1, args=(z,))[0] * pdf_z[i]  # type: ignore
-                for i, z in enumerate(support_z)  # type: ignore
-            ],
-        )
+        def inner_func(u, z):
+            return md(u) * s_ols_slope(d_value, ed, var_d)
 
     if estimand.esttype == "cross":
-        if d == 0:
 
-            def func(u, z):
-                if pscore_z[np.where(support_z == z)[0][0]] < u:
-                    return md(u) * s_cross(d, z, dz_cross)
-                return 0
+        def inner_func(u, z):
+            return md(u) * s_cross(d_value, z, dz_cross)
 
-        if d == 1:
+    if d_value == 0:
 
-            def func(u, z):
-                if pscore_z[np.where(support_z == z)[0][0]] >= u:
-                    return md(u) * s_cross(d, z, dz_cross)
-                return 0
+        def func(u, z):
+            return inner_func(u, z) if pscore_z[np.where(support_z == z)] < u else 0
 
-        # Integrate func over u in [0,1] for every z in support_z
-        return np.sum(
-            [
-                integrate.quad(func, 0, 1, args=(z,))[0] * pdf_z[i]  # type: ignore
-                for i, z in enumerate(support_z)  # type: ignore
-            ],
-        )
-    return None
+    if d_value == 1:
+
+        def func(u, z):
+            return inner_func(u, z) if pscore_z[np.where(support_z == z)] > u else 0
+
+    return np.sum(
+        [
+            integrate.quad(func, 0, 1, args=(supp,))[0] * pdf  # type: ignore
+            for pdf, supp in zip(pdf_z, support_z, strict=True)  # type: ignore
+        ],
+    )
 
 
 def compute_moments(supp_z, f_z, prop_z):

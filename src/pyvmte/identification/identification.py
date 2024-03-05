@@ -110,14 +110,14 @@ def _compute_estimand(
     """Compute single identified estimand."""
     a = gamma_star(
         md=m0,
-        d=0,
+        d_value=0,
         estimand=estimand,
         instrument=instrument,
         u_part=u_part,
     )
     b = gamma_star(
         md=m1,
-        d=1,
+        d_value=1,
         estimand=estimand,
         instrument=instrument,
         u_part=u_part,
