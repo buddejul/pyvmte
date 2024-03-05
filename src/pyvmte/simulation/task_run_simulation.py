@@ -19,7 +19,7 @@ from pyvmte.simulation.simulation_funcs import monte_carlo_pyvmte
 
 
 class _Arguments(NamedTuple):
-    setup: Annotated[dict, "Setup for simulation DGP."]
+    setup: Setup
     path_to_data: Path
 
 

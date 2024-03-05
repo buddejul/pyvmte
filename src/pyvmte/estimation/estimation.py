@@ -410,6 +410,7 @@ def _second_step_linear_program(
         target,
         basis_funcs,
         identified_estimands,
+        instrument=instrument,
     )
     lp_second_inputs["b_ub"] = _compute_second_step_upper_bounds(
         minimal_deviations=minimal_deviations,
@@ -452,9 +453,14 @@ def _compute_choice_weights_second_step(
     target: Estimand,
     basis_funcs: list[dict],
     identified_estimands: list,
+    instrument: Instrument,
 ) -> np.ndarray:
     """Compute choice weight vector c for second step linear program."""
-    upper_part = _compute_choice_weights(target, basis_funcs=basis_funcs)
+    upper_part = _compute_choice_weights(
+        target,
+        basis_funcs=basis_funcs,
+        instrument=instrument,
+    )
 
     lower_part = np.zeros(len(identified_estimands))
     return np.append(upper_part, lower_part)
