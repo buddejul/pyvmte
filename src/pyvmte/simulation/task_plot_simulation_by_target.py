@@ -11,7 +11,7 @@ from pytask import Product
 from pyvmte.config import (
     BLD,
     DGP_MST,
-    IV_PAPER,
+    IV_MST,
     SETUP_FIG5,
     SIMULATION_RESULTS_DIR,
     U_HI_RANGE,
@@ -65,7 +65,7 @@ def task_plot_simulation_by_target(
 
     df_identified = create_bounds_by_target_df(
         setup=SETUP_FIG5,
-        instrument=IV_PAPER,
+        instrument=IV_MST,
         m0=DGP_MST.m0,
         m1=DGP_MST.m1,
         n_gridpoints=100,
