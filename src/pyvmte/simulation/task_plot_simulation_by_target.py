@@ -8,16 +8,19 @@ import plotly.graph_objects as go  # type: ignore
 import plotly.io as pio  # type: ignore
 from pytask import Product
 
-from pyvmte.config import BLD, IV_PAPER, SETUP_FIG5, SIMULATION_RESULTS_DIR, U_HI_RANGE
+from pyvmte.config import (
+    BLD,
+    DGP_MST,
+    IV_PAPER,
+    SETUP_FIG5,
+    SIMULATION_RESULTS_DIR,
+    U_HI_RANGE,
+)
 from pyvmte.replication.plot_bounds_by_target import create_bounds_by_target_df
-from pyvmte.utilities import load_paper_dgp
 
 
 class _Arguments(NamedTuple):
     path_to_plot: Path
-
-
-DGP = load_paper_dgp()
 
 
 def task_plot_simulation_by_target(
@@ -63,8 +66,8 @@ def task_plot_simulation_by_target(
     df_identified = create_bounds_by_target_df(
         setup=SETUP_FIG5,
         instrument=IV_PAPER,
-        m0=DGP["m0"],
-        m1=DGP["m1"],
+        m0=DGP_MST.m0,
+        m1=DGP_MST.m1,
         n_gridpoints=100,
     )
 

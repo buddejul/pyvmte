@@ -1,21 +1,18 @@
 import numpy as np
 import pytest
 import statsmodels.api as sm  # type: ignore
-from pyvmte.config import RNG
+from pyvmte.config import PARAMS_MST, RNG
 from pyvmte.utilities import (
     _generate_partition_midpoints,
     _generate_u_partition_from_basis_funcs,
-    load_paper_dgp,
     simulate_data_from_paper_dgp,
 )
 from statsmodels.sandbox.regression.gmm import IV2SLS  # type: ignore
 
-DGP = load_paper_dgp()
-
 
 @pytest.mark.skip(reason="Not implemented yet")
 def test_simulate_data_from_paper_dgp_ols():
-    expected = DGP["ols_slope"]
+    expected = PARAMS_MST["ols_slope"]
 
     sample_size = 100_000
 
@@ -35,7 +32,7 @@ def test_simulate_data_from_paper_dgp_ols():
 
 
 def test_simulate_data_from_paper_dgp_iv():
-    expected = DGP["iv_slope"]
+    expected = PARAMS_MST["iv_slope"]
 
     sample_size = 250_000
 
@@ -52,9 +49,10 @@ def test_simulate_data_from_paper_dgp_iv():
     assert actual == pytest.approx(expected, abs=0.01 + 5 * standard_error)
 
 
+# TODO implement or delete
 @pytest.mark.skip(reason="Not implemented yet")
 def test_simulate_data_from_paper_dgp_pscores():
-    expected = DGP["pscores"]
+    expected = PARAMS_MST["pscores"]
 
     sample_size = 250_000
 
