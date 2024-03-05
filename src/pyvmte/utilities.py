@@ -223,13 +223,12 @@ def _weight_cross(u, d, z, pz, dz_cross, d_data=None):
 
 
 # TODO(@buddejul):  remove the data part have separate function for this
-def _compute_constant_spline_weights(
+def compute_constant_spline_weights(
     estimand: Estimand,
     d: int,
     basis_function: dict,
-    instrument: Instrument | None = None,
+    instrument: Instrument,
     moments: dict | None = None,
-    data: dict | None = None,
 ):
     """Compute weights for constant spline basis.
 
@@ -243,42 +242,21 @@ def _compute_constant_spline_weights(
     # TODO (@buddejul):  change this, do not actually need u here I think
     u = (basis_function["u_lo"] + basis_function["u_hi"]) / 2
 
-    # Put data into a dataframe if not already
-    if data is not None and not isinstance(data, pd.DataFrame):
-        data = pd.DataFrame(data)
-
     if estimand.esttype == "ols_slope":
-        if data is None:
-            out = _compute_ols_weight_for_identification(
-                u=u,
-                d=d,
-                instrument=instrument,
-                moments=moments,
-            )
-        else:
-            out = _estimate_ols_weight_for_estimation(
-                u=u,
-                d=d,
-                data=data,
-                instrument=instrument,
-                moments=moments,
-            )
+        out = _compute_ols_weight_for_identification(
+            u=u,
+            d=d,
+            instrument=instrument,
+            moments=moments,
+        )
 
     if estimand.esttype == "iv_slope":
-        if data is None:
-            out = _compute_iv_slope_weight_for_identification(
-                u=u,
-                d=d,
-                instrument=instrument,
-                moments=moments,
-            )
-        else:
-            out = _estimate_iv_slope_weight_for_estimation(
-                u=u,
-                d=d,
-                moments=moments,
-                data=data,
-            )
+        out = _compute_iv_slope_weight_for_identification(
+            u=u,
+            d=d,
+            instrument=instrument,
+            moments=moments,
+        )
 
     if estimand.esttype == "late":
         if d == 1:
@@ -289,40 +267,14 @@ def _compute_constant_spline_weights(
         out = weights_by_z
 
     if estimand.esttype == "cross":
-        if data is None:
-            out = _compute_cross_weight_for_identification(
-                u=u,
-                d=d,
-                instrument=instrument,
-                dz_cross=estimand.dz_cross,
-            )
-        else:
-            out = _estimate_cross_weight_for_estimation(
-                u=u,
-                d=d,
-                data=data,
-                dz_cross=estimand.dz_cross,
-            )
+        out = _compute_cross_weight_for_identification(
+            u=u,
+            d=d,
+            instrument=instrument,
+            dz_cross=estimand.dz_cross,
+        )
 
-    # Scale by length of interval
     return out * (basis_function["u_hi"] - basis_function["u_lo"])
-
-
-def _generate_u_partition_from_basis_funcs(basis_funcs):
-    """Generate u_partition from basis_funcs dictionaries."""
-    u_partition = [0]
-
-    for basis_func in basis_funcs:
-        u_partition.append(basis_func["u_hi"])
-
-    return u_partition
-
-
-def _generate_partition_midpoints(partition):
-    """Generate midpoints of partition."""
-    return np.array(
-        [(partition[i] + partition[i + 1]) / 2 for i in range(len(partition) - 1)],
-    )
 
 
 def _compute_ols_weight_for_identification(u, d, instrument: Instrument, moments):
@@ -337,13 +289,6 @@ def _compute_ols_weight_for_identification(u, d, instrument: Instrument, moments
 
     weights_by_z = [_weight(u, d, pz) * pdf_z[i] for i, pz in enumerate(pscore_z)]
     return np.sum(weights_by_z)
-
-
-def _estimate_ols_weight_for_estimation(u, d, data, instrument: Instrument, moments):
-    expectation_d = moments["expectation_d"]
-    variance_d = moments["variance_d"]
-
-    (d - expectation_d) / variance_d
 
 
 def _compute_iv_slope_weight_for_identification(u, d, instrument: Instrument, moments):
@@ -364,27 +309,6 @@ def _compute_iv_slope_weight_for_identification(u, d, instrument: Instrument, mo
     return np.sum(weights_by_z)
 
 
-def _estimate_iv_slope_weight_for_estimation(u, d, moments, data):
-    def _weight(u, z_data, pz_data):
-        return _weight_iv_slope(
-            u=u,
-            pz=pz_data,
-            z=z_data,
-            d=d,
-            ez=moments["expectation_z"],
-            cov_dz=moments["covariance_dz"],
-        )
-
-    # TODO (@buddejul):  rewrite this as vectorized numpy statements
-    # Apply function _weight to each row of data
-    individual_weights = data.apply(
-        lambda row: _weight(u, row["z"], row["pscores"]),
-        axis=1,
-    )
-
-    return np.mean(individual_weights)
-
-
 def _compute_cross_weight_for_identification(u, d, instrument: Instrument, dz_cross):
     def _weight(u, d, z, pz):
         return _weight_cross(u, d, z, pz, dz_cross=dz_cross)
@@ -399,32 +323,6 @@ def _compute_cross_weight_for_identification(u, d, instrument: Instrument, dz_cr
     ]
 
     return np.sum(weights_by_z)
-
-
-def _estimate_cross_weight_for_estimation(u, d, data, dz_cross):
-    def _weight(u, z_data, pz_data, d_data):
-        return _weight_cross(
-            u=u,
-            pz=pz_data,
-            z=z_data,
-            d=d,
-            dz_cross=dz_cross,
-            d_data=d_data,
-        )
-
-    # TODO (@buddejul):  rewrite this as vectorized numpy statements
-    # Apply function _weight to each row of data
-    individual_weights = data.apply(
-        lambda row: _weight(
-            u=u,
-            z_data=row["z"],
-            pz_data=row["pscores"],
-            d_data=row["d"],
-        ),
-        axis=1,
-    )
-
-    return np.mean(individual_weights)
 
 
 def _check_estimation_arguments(

@@ -11,7 +11,7 @@ from scipy.optimize import (  # type: ignore
 
 from pyvmte.config import Estimand, Instrument
 from pyvmte.utilities import (
-    _compute_constant_spline_weights,
+    compute_constant_spline_weights,
     gamma_star,
 )
 
@@ -144,13 +144,12 @@ def _compute_choice_weights(
         c = []
         for d in [0, 1]:
             for bfunc in basis_funcs:
-                weight = _compute_constant_spline_weights(
+                weight = compute_constant_spline_weights(
                     estimand=target,
                     basis_function=bfunc,
                     d=d,
                     instrument=instrument,
                     moments=moments,
-                    data=data,
                 )
                 c.append(weight)
 

@@ -2,10 +2,8 @@ import numpy as np
 import pandas as pd  # type: ignore
 import pytest
 import statsmodels.api as sm  # type: ignore
-from pyvmte.config import BFUNCS_MST, DGP_MST, PARAMS_MST, RNG, U_PART_MST
+from pyvmte.config import DGP_MST, PARAMS_MST, RNG
 from pyvmte.utilities import (
-    _generate_partition_midpoints,
-    _generate_u_partition_from_basis_funcs,
     simulate_data_from_paper_dgp,
 )
 from statsmodels.sandbox.regression.gmm import IV2SLS  # type: ignore
@@ -59,18 +57,3 @@ def test_simulate_data_from_paper_dgp_pscores(data):
     actual = df_data.groupby("z")["d"].mean().values
 
     assert actual == pytest.approx(expected, abs=5 / np.sqrt(len(data["z"])))
-
-
-def test_generate_u_partition_from_basis_funcs():
-    expected = U_PART_MST
-
-    actual = _generate_u_partition_from_basis_funcs(BFUNCS_MST)
-
-    assert actual == pytest.approx(expected)
-
-
-def test_generate_partition_midpoints():
-    expected = [0.175, 0.475, 0.65, 0.8, 0.95]
-    actual = _generate_partition_midpoints(U_PART_MST)
-
-    assert actual == pytest.approx(expected)
