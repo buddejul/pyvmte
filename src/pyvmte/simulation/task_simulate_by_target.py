@@ -50,6 +50,4 @@ for u_hi_target in MONTE_CARLO_BY_TARGET.u_hi_range:  # type: ignore
         }
         data = pd.DataFrame(bounds)
 
-        # TODO (@buddejul):   Store simulation setting alongside?
-
         data.to_pickle(path_to_data)

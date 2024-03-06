@@ -21,20 +21,28 @@ from pyvmte.simulation.simulation_funcs import monte_carlo_pyvmte
 class _Arguments(NamedTuple):
     setup: Setup
     path_to_data: Path
+    monte_carlo_setup: MonteCarloSetup
 
+
+MONTE_CARLO_SMALL = MONTE_CARLO_SIMPLE._replace(sample_size=1_000)
+MONTE_CARLO_MID = MONTE_CARLO_SIMPLE._replace(sample_size=10_000)
+MONTE_CARLO_LARGE = MONTE_CARLO_SIMPLE._replace(sample_size=100_000)
 
 ID_TO_KWARGS = {
     "figure2": _Arguments(
         setup=SETUP_FIG2,
         path_to_data=BLD / "python" / "data" / Path("sim_results_figure2.pkl"),
+        monte_carlo_setup=MONTE_CARLO_SMALL,
     ),
     "figure3": _Arguments(
         setup=SETUP_FIG3,
         path_to_data=BLD / "python" / "data" / Path("sim_results_figure3.pkl"),
+        monte_carlo_setup=MONTE_CARLO_SMALL,
     ),
     "figure5": _Arguments(
         setup=SETUP_FIG5,
         path_to_data=BLD / "python" / "data" / Path("sim_results_figure5.pkl"),
+        monte_carlo_setup=MONTE_CARLO_SMALL,
     ),
 }
 
@@ -44,14 +52,14 @@ for id_, kwargs in ID_TO_KWARGS.items():
     def task_run_monte_carlo_simulation(
         setup: Setup,
         path_to_data: Annotated[Path, Product],
-        setup_mc: MonteCarloSetup = MONTE_CARLO_SIMPLE,
+        monte_carlo_setup: MonteCarloSetup,
     ) -> None:
         """Run simulation for different figures in the paper."""
-        tolerance = 1 / setup_mc.sample_size
+        tolerance = 1 / monte_carlo_setup.sample_size
 
         result = monte_carlo_pyvmte(
-            sample_size=setup_mc.sample_size,
-            repetitions=setup_mc.repetitions,
+            sample_size=monte_carlo_setup.sample_size,
+            repetitions=monte_carlo_setup.repetitions,
             target=setup.target,
             identified_estimands=setup.identified_estimands,
             basis_func_type="constant",

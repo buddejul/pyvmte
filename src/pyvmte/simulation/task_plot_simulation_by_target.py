@@ -1,8 +1,8 @@
 """Task for plotting simulation by target."""
-import os
 from pathlib import Path
 from typing import Annotated, NamedTuple
 
+import numpy as np
 import pandas as pd  # type: ignore
 import plotly.graph_objects as go  # type: ignore
 import plotly.io as pio  # type: ignore
@@ -23,19 +23,26 @@ class _Arguments(NamedTuple):
     path_to_plot: Path
 
 
+_DEPENDENCIES = {
+    u_hi: BLD
+    / "python"
+    / "data"
+    / "by_target"
+    / Path(f"sim_results_figure5_u_hi_{u_hi}.pkl")
+    for u_hi in MONTE_CARLO_BY_TARGET.u_hi_range
+}  # type: ignore
+
+
 def task_plot_simulation_by_target(
-    u_hi_range=MONTE_CARLO_BY_TARGET.u_hi_range,
+    u_hi_range: np.ndarray = MONTE_CARLO_BY_TARGET.u_hi_range,  # type: ignore
+    path_to_data: dict[str, Path] = _DEPENDENCIES,
     path_to_plot: Annotated[Path, Product] = BLD
     / "python"
     / "figures"
     / "simulation_results_by_target.png",
 ) -> None:
     """Plot simulation by target."""
-    files = [
-        f
-        for f in os.listdir(SIMULATION_RESULTS_DIR / "by_target")
-        if Path.is_file(SIMULATION_RESULTS_DIR / "by_target" / f)
-    ]
+    files = list(_DEPENDENCIES.values())
 
     dfs = [
         pd.read_pickle(SIMULATION_RESULTS_DIR / "by_target" / f).assign(
@@ -47,7 +54,9 @@ def task_plot_simulation_by_target(
     df_estimates.head()
 
     # From the filename column extract the string between "u_hi" and ".pkl"
-    df_estimates["u_hi"] = df_estimates["filename"].str.extract(r"u_hi_(.*)\.pkl")
+    df_estimates["u_hi"] = (
+        df_estimates["filename"].astype(str).str.extract(r"u_hi_(.*)\.pkl")
+    )
     df_estimates["u_hi"] = df_estimates["u_hi"].astype(float)
 
     df_estimates = df_estimates[df_estimates["u_hi"].isin(u_hi_range)]
