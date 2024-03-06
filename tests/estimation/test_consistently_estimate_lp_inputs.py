@@ -146,6 +146,7 @@ def test_second_step_lp_c_vector_paper_figures(setup: Setup, u_hi_target: float)
             target=target,
             basis_funcs=simulated["basis_funcs"],
             identified_estimands=identified_estimands,
+            instrument=simulated["instrument"],
         )
 
         if actual.shape == actual_c.shape:

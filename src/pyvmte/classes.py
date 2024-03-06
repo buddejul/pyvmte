@@ -73,3 +73,11 @@ class Setup(NamedTuple):
     identified_estimands: list[Estimand]
     lower_bound: float
     upper_bound: float
+
+
+class MonteCarloSetup(NamedTuple):
+    """Setup for Monte Carlo simulations."""
+
+    sample_size: int
+    repetitions: int
+    u_hi_range: np.ndarray | None = None

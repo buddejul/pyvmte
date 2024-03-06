@@ -5,7 +5,7 @@ import coptpy as cp  # type: ignore
 import numpy as np
 from coptpy import COPT
 from scipy.optimize import (  # type: ignore
-    OptimizeResult,  # type: ignore
+    OptimizeResult,
     linprog,  # type: ignore
 )
 
@@ -410,6 +410,7 @@ def _second_step_linear_program(
         target,
         basis_funcs,
         identified_estimands,
+        instrument=instrument,
     )
     lp_second_inputs["b_ub"] = _compute_second_step_upper_bounds(
         minimal_deviations=minimal_deviations,
@@ -440,8 +441,8 @@ def _second_step_linear_program(
     result_lower = _solve_second_step_lp_estimation(lp_second_inputs, "min", method)
 
     return {
-        "upper_bound": -1 * result_upper.fun,
-        "lower_bound": result_lower.fun,
+        "upper_bound": -1 * result_upper.fun,  # type: ignore
+        "lower_bound": result_lower.fun,  # type: ignore
         "inputs": lp_second_inputs,
         "scipy_return_upper": result_upper,
         "scipy_return_lower": result_lower,
@@ -452,9 +453,14 @@ def _compute_choice_weights_second_step(
     target: Estimand,
     basis_funcs: list[dict],
     identified_estimands: list,
+    instrument: Instrument,
 ) -> np.ndarray:
     """Compute choice weight vector c for second step linear program."""
-    upper_part = _compute_choice_weights(target, basis_funcs=basis_funcs)
+    upper_part = _compute_choice_weights(
+        target,
+        basis_funcs=basis_funcs,
+        instrument=instrument,
+    )
 
     lower_part = np.zeros(len(identified_estimands))
     return np.append(upper_part, lower_part)
