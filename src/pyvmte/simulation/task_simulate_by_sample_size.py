@@ -1,4 +1,5 @@
 """Task for running simulation."""
+from itertools import product
 from pathlib import Path
 from typing import Annotated, NamedTuple
 
@@ -11,6 +12,7 @@ from pyvmte.config import (
     BLD,
     MONTE_CARLO_SIMPLE,
     RNG,
+    SAMPLE_SIZES,
     SETUP_FIG2,
     SETUP_FIG3,
     SETUP_FIG5,
@@ -24,27 +26,20 @@ class _Arguments(NamedTuple):
     monte_carlo_setup: MonteCarloSetup
 
 
-MONTE_CARLO_SMALL = MONTE_CARLO_SIMPLE._replace(sample_size=1_000)
-MONTE_CARLO_MID = MONTE_CARLO_SIMPLE._replace(sample_size=10_000)
-MONTE_CARLO_LARGE = MONTE_CARLO_SIMPLE._replace(sample_size=100_000)
+figures = [SETUP_FIG2, SETUP_FIG3, SETUP_FIG5]
 
 ID_TO_KWARGS = {
-    "figure2": _Arguments(
-        setup=SETUP_FIG2,
-        path_to_data=BLD / "python" / "data" / Path("sim_results_figure2.pkl"),
-        monte_carlo_setup=MONTE_CARLO_SMALL,
-    ),
-    "figure3": _Arguments(
-        setup=SETUP_FIG3,
-        path_to_data=BLD / "python" / "data" / Path("sim_results_figure3.pkl"),
-        monte_carlo_setup=MONTE_CARLO_SMALL,
-    ),
-    "figure5": _Arguments(
-        setup=SETUP_FIG5,
-        path_to_data=BLD / "python" / "data" / Path("sim_results_figure5.pkl"),
-        monte_carlo_setup=MONTE_CARLO_SMALL,
-    ),
+    f"{figure}_{sample_size}": _Arguments(
+        setup=figure,
+        path_to_data=BLD
+        / "python"
+        / "data"
+        / Path(f"sim_results_{figure}_{sample_size}.pkl"),
+        monte_carlo_setup=MONTE_CARLO_SIMPLE._replace(sample_size=sample_size),
+    )
+    for sample_size, figure in product(SAMPLE_SIZES, figures)
 }
+
 
 for id_, kwargs in ID_TO_KWARGS.items():
 

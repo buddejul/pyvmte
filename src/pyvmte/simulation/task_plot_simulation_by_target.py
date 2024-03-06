@@ -29,8 +29,8 @@ _DEPENDENCIES = {
     / "data"
     / "by_target"
     / Path(f"sim_results_figure5_u_hi_{u_hi}.pkl")
-    for u_hi in MONTE_CARLO_BY_TARGET.u_hi_range
-}  # type: ignore
+    for u_hi in MONTE_CARLO_BY_TARGET.u_hi_range  # type: ignore
+}
 
 
 def task_plot_simulation_by_target(
