@@ -26,15 +26,16 @@ class _Arguments(NamedTuple):
     monte_carlo_setup: MonteCarloSetup
 
 
-figures = [SETUP_FIG2, SETUP_FIG3, SETUP_FIG5]
+figures = [("figure2", SETUP_FIG2), ("figure3", SETUP_FIG3), ("figure5", SETUP_FIG5)]
 
 ID_TO_KWARGS = {
     f"{figure}_{sample_size}": _Arguments(
-        setup=figure,
+        setup=figure[1],
         path_to_data=BLD
         / "python"
         / "data"
-        / Path(f"sim_results_{figure}_{sample_size}.pkl"),
+        / "by_sample_size"
+        / Path(f"sim_results_{figure[0]}_sample_size_{sample_size}.pkl"),
         monte_carlo_setup=MONTE_CARLO_SIMPLE._replace(sample_size=sample_size),
     )
     for sample_size, figure in product(SAMPLE_SIZES, figures)

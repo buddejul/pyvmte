@@ -61,7 +61,7 @@ MONTE_CARLO_BY_TARGET = MonteCarloSetup(
     u_hi_range=np.arange(0.35, 1, 0.05),
 )
 
-SAMPLE_SIZES = [1_000, 10_000, 25_000]
+SAMPLE_SIZES = [100, 101, 102]
 
 IV_MST = Instrument(
     support=np.array([0, 1, 2]),

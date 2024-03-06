@@ -42,7 +42,7 @@ def task_plot_simulation_by_target(
     / "simulation_results_by_target.png",
 ) -> None:
     """Plot simulation by target."""
-    files = list(_DEPENDENCIES.values())
+    files = list(path_to_data.values())
 
     dfs = [
         pd.read_pickle(SIMULATION_RESULTS_DIR / "by_target" / f).assign(
