@@ -5,7 +5,7 @@ import coptpy as cp  # type: ignore
 import numpy as np
 from coptpy import COPT
 from scipy.optimize import (  # type: ignore
-    OptimizeResult,  # type: ignore
+    OptimizeResult,
     linprog,  # type: ignore
 )
 
@@ -441,8 +441,8 @@ def _second_step_linear_program(
     result_lower = _solve_second_step_lp_estimation(lp_second_inputs, "min", method)
 
     return {
-        "upper_bound": -1 * result_upper.fun,
-        "lower_bound": result_lower.fun,
+        "upper_bound": -1 * result_upper.fun,  # type: ignore
+        "lower_bound": result_lower.fun,  # type: ignore
         "inputs": lp_second_inputs,
         "scipy_return_upper": result_upper,
         "scipy_return_lower": result_lower,
