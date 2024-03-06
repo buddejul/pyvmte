@@ -6,14 +6,14 @@ import numpy as np
 import pandas as pd  # type: ignore
 from pytask import Product, task
 
+from pyvmte.classes import MonteCarloSetup, Setup
 from pyvmte.config import (
     BLD,
+    MONTE_CARLO_SIMPLE,
     RNG,
     SETUP_FIG2,
     SETUP_FIG3,
     SETUP_FIG5,
-    SETUP_MONTE_CARLO,
-    Setup,
 )
 from pyvmte.simulation.simulation_funcs import monte_carlo_pyvmte
 
@@ -44,14 +44,14 @@ for id_, kwargs in ID_TO_KWARGS.items():
     def task_run_monte_carlo_simulation(
         setup: Setup,
         path_to_data: Annotated[Path, Product],
-        setup_mc: dict = SETUP_MONTE_CARLO,
+        setup_mc: MonteCarloSetup = MONTE_CARLO_SIMPLE,
     ) -> None:
         """Run simulation for different figures in the paper."""
-        tolerance = 1 / setup_mc["sample_size"]
+        tolerance = 1 / setup_mc.sample_size
 
         result = monte_carlo_pyvmte(
-            sample_size=setup_mc["sample_size"],
-            repetitions=setup_mc["repetitions"],
+            sample_size=setup_mc.sample_size,
+            repetitions=setup_mc.repetitions,
             target=setup.target,
             identified_estimands=setup.identified_estimands,
             basis_func_type="constant",

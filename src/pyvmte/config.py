@@ -4,7 +4,7 @@ from pathlib import Path
 
 import numpy as np
 
-from pyvmte.classes import DGP, Estimand, Instrument, Setup
+from pyvmte.classes import DGP, Estimand, Instrument, MonteCarloSetup, Setup
 from pyvmte.utilities import bern_bas
 
 SRC = Path(__file__).parent.resolve()
@@ -50,17 +50,16 @@ SETUP_FIG5 = Setup(
 )
 
 
-SETUP_MONTE_CARLO = {
-    "sample_size": 10_000,
-    "repetitions": 10_000,
-}
+MONTE_CARLO_SIMPLE = MonteCarloSetup(
+    sample_size=10_000,
+    repetitions=10_000,
+)
 
-SETUP_MONTE_CARLO_BY_TARGET = {
-    "sample_size": 10_000,
-    "repetitions": 1_000,
-    "u_hi_range": np.arange(0.35, 1, 0.05),
-}
-
+MONTE_CARLO_BY_TARGET = MonteCarloSetup(
+    sample_size=10_000,
+    repetitions=1_000,
+    u_hi_range=np.arange(0.35, 1, 0.05),
+)
 
 IV_MST = Instrument(
     support=np.array([0, 1, 2]),
