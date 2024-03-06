@@ -17,6 +17,7 @@ for document in documents:
         ),
     )
     @pytask.task(id=document)
+    @pytask.mark.skip()
     def task_compile_document():
         """Compile the document specified in the latex decorator."""
 
@@ -26,6 +27,7 @@ for document in documents:
     }
 
     @pytask.task(id=document, kwargs=kwargs)
+    @pytask.mark.skip()
     def task_copy_to_root(depends_on, produces):
         """Copy a document to the root directory for easier retrieval."""
         shutil.copy(depends_on, produces)

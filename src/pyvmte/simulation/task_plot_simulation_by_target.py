@@ -13,8 +13,8 @@ from pyvmte.config import (
     DGP_MST,
     IV_MST,
     SETUP_FIG5,
+    SETUP_MONTE_CARLO_BY_TARGET,
     SIMULATION_RESULTS_DIR,
-    U_HI_RANGE,
 )
 from pyvmte.replication.plot_bounds_by_target import create_bounds_by_target_df
 
@@ -24,7 +24,7 @@ class _Arguments(NamedTuple):
 
 
 def task_plot_simulation_by_target(
-    u_hi_range=U_HI_RANGE,
+    u_hi_range=SETUP_MONTE_CARLO_BY_TARGET["u_hi_range"],
     path_to_plot: Annotated[Path, Product] = BLD
     / "python"
     / "figures"

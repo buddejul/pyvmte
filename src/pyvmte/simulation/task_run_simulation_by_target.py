@@ -11,13 +11,12 @@ from pyvmte.config import (
     SETUP_FIG5,
     SETUP_MONTE_CARLO_BY_TARGET,
     SRC,
-    U_HI_RANGE,
     Estimand,
     Setup,
 )
 from pyvmte.simulation.simulation_funcs import monte_carlo_pyvmte
 
-for u_hi_target in U_HI_RANGE:
+for u_hi_target in SETUP_MONTE_CARLO_BY_TARGET["u_hi_range"]:
 
     @task  # type: ignore
     def task_run_monte_carlo_simulation(

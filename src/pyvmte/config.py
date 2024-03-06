@@ -58,9 +58,9 @@ SETUP_MONTE_CARLO = {
 SETUP_MONTE_CARLO_BY_TARGET = {
     "sample_size": 10_000,
     "repetitions": 1_000,
+    "u_hi_range": np.arange(0.35, 1, 0.05),
 }
 
-U_HI_RANGE = np.arange(0.35, 1, 0.05)
 
 IV_MST = Instrument(
     support=np.array([0, 1, 2]),
