@@ -41,7 +41,7 @@ def task_plot_simulation_by_sample_size(
     path_to_plot: Annotated[Path, Product] = BLD
     / "python"
     / "figures"
-    / "simulation_results_by_sample_size.png",
+    / "simulation_results_by_sample_size_lower_bound.png",
 ) -> None:
     """Plot simulation by target."""
     files = list(path_to_data.values())
@@ -55,14 +55,50 @@ def task_plot_simulation_by_sample_size(
     df_estimates = pd.concat(dfs, ignore_index=True)
     df_estimates.head()
 
-    # From the filename column extract the string between the last "_" and ".pkl"
-    df_estimates["u_hi"] = (
-        df_estimates["filename"].astype(str).str.extract(r"_([^_]*)\.pkl")
+    # From the filename column extract the string between "sample_size" and ".pkl"
+    df_estimates["sample_size"] = (
+        df_estimates["filename"].astype(str).str.extract(r"sample_size_(.*)\.pkl")
     )
-    df_estimates["u_hi"] = df_estimates["u_hi"].astype(float)
+    df_estimates["sample_size"] = df_estimates["sample_size"].astype(int)
 
-    df_estimates = df_estimates[df_estimates["u_hi"].isin(sample_sizes)]
+    df_estimates = df_estimates[df_estimates["sample_size"].isin(sample_sizes)]
+
+    # Keep "upper_bound", "lower_bound", "sample_size"
+    df_estimates = df_estimates[["upper_bound", "lower_bound", "sample_size"]]
 
     fig = go.Figure()
+
+    params = {
+        size: {
+            "name": f"N = {size}",
+            "color": f"#008{100 + int(np.floor(i * 899 / len(sample_sizes) ))}",
+        }
+        for i, size in enumerate(sample_sizes)
+    }
+
+    for sample_size, param in params.items():
+        fig.add_trace(
+            go.Histogram(
+                x=df_estimates[df_estimates["sample_size"] == sample_size][
+                    "lower_bound"
+                ],
+                name=param["name"],
+                marker_color=param["color"],
+            ),
+        )
+
+    fig.update_layout(
+        barmode="overlay",
+        legend_title_text="Sample Size",
+        title_text=(
+            "Lower Bound Estimates by Sample Size"
+            "<br><sup>Sharp Non-parametric Bounds (Figure 5)</sup>"
+        ),
+        xaxis_title_text="Lower Bound",
+        yaxis_title_text="Count",
+    )
+    fig.update_traces(opacity=0.75)
+
+    fig.add_vline(SETUP_FIG5.lower_bound, annotation={"text": "True Bound"})
 
     pio.write_image(fig, path_to_plot)
