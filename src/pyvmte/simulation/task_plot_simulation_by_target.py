@@ -1,6 +1,6 @@
 """Task for plotting simulation by target."""
 from pathlib import Path
-from typing import Annotated, NamedTuple
+from typing import Annotated
 
 import numpy as np
 import pandas as pd  # type: ignore
@@ -17,11 +17,6 @@ from pyvmte.config import (
     SIMULATION_RESULTS_DIR,
 )
 from pyvmte.replication.plot_bounds_by_target import create_bounds_by_target_df
-
-
-class _Arguments(NamedTuple):
-    path_to_plot: Path
-
 
 _DEPENDENCIES = {
     u_hi: BLD
@@ -51,7 +46,6 @@ def task_plot_simulation_by_target(
         for f in files
     ]
     df_estimates = pd.concat(dfs, ignore_index=True)
-    df_estimates.head()
 
     # From the filename column extract the string between "u_hi" and ".pkl"
     df_estimates["u_hi"] = (
