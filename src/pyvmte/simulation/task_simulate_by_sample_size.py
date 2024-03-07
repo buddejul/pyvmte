@@ -29,16 +29,16 @@ class _Arguments(NamedTuple):
 figures = [("figure2", SETUP_FIG2), ("figure3", SETUP_FIG3), ("figure5", SETUP_FIG5)]
 
 ID_TO_KWARGS = {
-    f"{figure}_{sample_size}": _Arguments(
-        setup=figure[1],
+    f"{fig}_{sample_size}": _Arguments(
+        setup=fig[1],
         path_to_data=BLD
         / "python"
         / "data"
         / "by_sample_size"
-        / Path(f"sim_results_{figure[0]}_sample_size_{sample_size}.pkl"),
+        / Path(f"sim_results_{fig[0]}_sample_size_{sample_size}.pkl"),
         monte_carlo_setup=MONTE_CARLO_BY_SIZE._replace(sample_size=sample_size),
     )
-    for sample_size, figure in product(MC_SAMPLE_SIZES, figures)
+    for sample_size, fig in product(MC_SAMPLE_SIZES, figures)
 }
 
 
