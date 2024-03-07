@@ -1,4 +1,5 @@
 """Task for plotting simulation by sample size."""
+from itertools import product
 from pathlib import Path
 from typing import Annotated, NamedTuple
 
@@ -17,20 +18,21 @@ from pyvmte.config import (
 )
 from pyvmte.config_mc_by_size import MC_SAMPLE_SIZES
 
-figures = [SETUP_FIG2, SETUP_FIG3, SETUP_FIG5]
+figures = [("figure2", SETUP_FIG2), ("figure3", SETUP_FIG3), ("figure5", SETUP_FIG5)]
 
-# TODO implement for all figures
 _DEPENDENCIES = {
-    sample_size: SIMULATION_RESULTS_DIR
+    f"{sample_size}_{figures}": SIMULATION_RESULTS_DIR
     / "by_sample_size"
-    / Path(f"sim_results_figure5_sample_size_{sample_size}.pkl")
-    for sample_size in MC_SAMPLE_SIZES
+    / Path(f"sim_results_{figure[0]}_sample_size_{sample_size}.pkl")
+    for sample_size, figure in product(MC_SAMPLE_SIZES, figures)
 }
 
 
 class _Arguments(NamedTuple):
     path_to_plot: Path
     bound: str
+    true_bound: float
+    fig_name: str
 
 
 ID_TO_KWARGS = {
@@ -38,10 +40,12 @@ ID_TO_KWARGS = {
         path_to_plot=BLD
         / "python"
         / "figures"
-        / f"simulation_results_by_sample_size_{bound}_figure5.png",
+        / f"simulation_results_by_sample_size_{bound}_{fig[0]}.png",
         bound=bound,
+        true_bound=getattr(fig[1], bound),
+        fig_name=fig[0],
     )
-    for bound in ["lower_bound", "upper_bound"]
+    for bound, fig in product(["lower_bound", "upper_bound"], figures)
 }
 
 for _id, kwargs in ID_TO_KWARGS.items():
@@ -50,8 +54,10 @@ for _id, kwargs in ID_TO_KWARGS.items():
     def task_plot_simulation_by_sample_size(
         path_to_plot: Annotated[Path, Product],
         bound: str,
+        true_bound: float,
+        fig_name: str,
         sample_sizes: np.ndarray = MC_SAMPLE_SIZES,  # type: ignore
-        path_to_data: dict[int, Path] = _DEPENDENCIES,
+        path_to_data: dict[str, Path] = _DEPENDENCIES,
     ) -> None:
         """Plot simulation by target."""
         files = list(path_to_data.values())
@@ -93,19 +99,20 @@ for _id, kwargs in ID_TO_KWARGS.items():
             )
 
         bound_title = bound.replace("_", " ").title()
+        figure_title = fig_name.replace("_", " ").title()
 
         fig.update_layout(
             barmode="overlay",
             legend_title_text="Sample Size",
             title_text=(
                 f"{bound_title} Estimates by Sample Size"
-                "<br><sup>Sharp Non-parametric Bounds (Figure 5)</sup>"
+                f"<br><sup>Sharp Non-parametric Bounds ({figure_title})</sup>"
             ),
             xaxis_title_text=f"{bound_title} Estimate",
             yaxis_title_text="Count",
         )
         fig.update_traces(opacity=0.75)
 
-        fig.add_vline(getattr(SETUP_FIG5, bound), annotation={"text": "True Bound"})
+        fig.add_vline(true_bound, annotation={"text": "True Bound"})
 
         pio.write_image(fig, path_to_plot)

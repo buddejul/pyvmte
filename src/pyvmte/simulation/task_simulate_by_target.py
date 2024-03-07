@@ -28,6 +28,7 @@ for u_hi_target in MONTE_CARLO_BY_TARGET.u_hi_range:  # type: ignore
         setup_mc: MonteCarloSetup = MONTE_CARLO_BY_TARGET,
         u_hi_target: float = u_hi_target,
         config: Path = SRC / "config.py",
+        config_mc_by_target: Path = SRC / "config_mc_by_target.py",
     ) -> None:
         """Run simulation by target parameter."""
         tolerance = 1 / setup_mc.sample_size

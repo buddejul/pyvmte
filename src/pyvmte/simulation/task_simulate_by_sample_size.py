@@ -14,6 +14,7 @@ from pyvmte.config import (
     SETUP_FIG2,
     SETUP_FIG3,
     SETUP_FIG5,
+    SRC,
 )
 from pyvmte.config_mc_by_size import MC_SAMPLE_SIZES, MONTE_CARLO_BY_SIZE
 from pyvmte.simulation.simulation_funcs import monte_carlo_pyvmte
@@ -48,6 +49,8 @@ for id_, kwargs in ID_TO_KWARGS.items():
         setup: Setup,
         path_to_data: Annotated[Path, Product],
         monte_carlo_setup: MonteCarloSetup,
+        config: Path = SRC / "config.py",
+        config_mc_by_size: Path = SRC / "config_mc_by_size.py",
     ) -> None:
         """Run simulation for different figures in the paper."""
         tolerance = 1 / monte_carlo_setup.sample_size
