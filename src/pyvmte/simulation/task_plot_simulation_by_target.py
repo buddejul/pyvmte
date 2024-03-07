@@ -12,10 +12,10 @@ from pyvmte.config import (
     BLD,
     DGP_MST,
     IV_MST,
-    MONTE_CARLO_BY_TARGET,
     SETUP_FIG5,
     SIMULATION_RESULTS_DIR,
 )
+from pyvmte.config_mc_by_target import MONTE_CARLO_BY_TARGET
 from pyvmte.replication.plot_bounds_by_target import create_bounds_by_target_df
 
 _DEPENDENCIES = {

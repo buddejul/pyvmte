@@ -10,23 +10,21 @@ from pytask import Product, task
 
 from pyvmte.config import (
     BLD,
-    SAMPLE_SIZES,
     SETUP_FIG2,
     SETUP_FIG3,
     SETUP_FIG5,
     SIMULATION_RESULTS_DIR,
 )
+from pyvmte.config_mc_by_size import MC_SAMPLE_SIZES
 
 figures = [SETUP_FIG2, SETUP_FIG3, SETUP_FIG5]
 
 # TODO implement for all figures
 _DEPENDENCIES = {
-    sample_size: BLD
-    / "python"
-    / "data"
+    sample_size: SIMULATION_RESULTS_DIR
     / "by_sample_size"
     / Path(f"sim_results_figure5_sample_size_{sample_size}.pkl")
-    for sample_size in SAMPLE_SIZES
+    for sample_size in MC_SAMPLE_SIZES
 }
 
 
@@ -52,7 +50,7 @@ for _id, kwargs in ID_TO_KWARGS.items():
     def task_plot_simulation_by_sample_size(
         path_to_plot: Annotated[Path, Product],
         bound: str,
-        sample_sizes: np.ndarray = SAMPLE_SIZES,  # type: ignore
+        sample_sizes: np.ndarray = MC_SAMPLE_SIZES,  # type: ignore
         path_to_data: dict[int, Path] = _DEPENDENCIES,
     ) -> None:
         """Plot simulation by target."""

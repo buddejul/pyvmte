@@ -10,13 +10,12 @@ from pytask import Product, task
 from pyvmte.classes import MonteCarloSetup, Setup
 from pyvmte.config import (
     BLD,
-    MONTE_CARLO_SIMPLE,
     RNG,
-    SAMPLE_SIZES,
     SETUP_FIG2,
     SETUP_FIG3,
     SETUP_FIG5,
 )
+from pyvmte.config_mc_by_size import MC_SAMPLE_SIZES, MONTE_CARLO_BY_SIZE
 from pyvmte.simulation.simulation_funcs import monte_carlo_pyvmte
 
 
@@ -36,9 +35,9 @@ ID_TO_KWARGS = {
         / "data"
         / "by_sample_size"
         / Path(f"sim_results_{figure[0]}_sample_size_{sample_size}.pkl"),
-        monte_carlo_setup=MONTE_CARLO_SIMPLE._replace(sample_size=sample_size),
+        monte_carlo_setup=MONTE_CARLO_BY_SIZE._replace(sample_size=sample_size),
     )
-    for sample_size, figure in product(SAMPLE_SIZES, figures)
+    for sample_size, figure in product(MC_SAMPLE_SIZES, figures)
 }
 
 

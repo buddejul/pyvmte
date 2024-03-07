@@ -8,11 +8,11 @@ from pytask import Product, task
 from pyvmte.classes import Estimand, MonteCarloSetup, Setup
 from pyvmte.config import (
     BLD,
-    MONTE_CARLO_BY_TARGET,
     RNG,
     SETUP_FIG5,
     SRC,
 )
+from pyvmte.config_mc_by_target import MONTE_CARLO_BY_TARGET
 from pyvmte.simulation.simulation_funcs import monte_carlo_pyvmte
 
 for u_hi_target in MONTE_CARLO_BY_TARGET.u_hi_range:  # type: ignore
