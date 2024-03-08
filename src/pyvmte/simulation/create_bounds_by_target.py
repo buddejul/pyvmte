@@ -1,51 +1,15 @@
-"""Plot bounds by arget functions."""
+"""Create bounds by target functions."""
 from collections.abc import Callable
 from dataclasses import replace
 
 import numpy as np
 import pandas as pd  # type: ignore
-import plotly.graph_objects as go  # type: ignore
 
 from pyvmte.config import Instrument, Setup
 from pyvmte.estimation.estimation import _compute_u_partition, _generate_basis_funcs
 from pyvmte.identification import identification
 
 MIN_X_AXIS = 0.45
-
-
-def plot_bounds_by_target(data: pd.DataFrame) -> go.Figure:
-    """Plot bounds by target based on dataframe."""
-    # Plot lines for lower and upper bounds from data_bounds
-    data_plot = data[data["u_hi"] > MIN_X_AXIS]
-
-    fig = go.Figure()
-
-    fig.add_trace(
-        go.Scatter(
-            x=data_plot["u_hi"],
-            y=data_plot["upper_bound"],
-            name="Upper Bound",
-            line_color="green",
-        ),
-    )
-
-    fig.add_trace(
-        go.Scatter(
-            x=data_plot["u_hi"],
-            y=data_plot["lower_bound"],
-            name="Lower Bound",
-            line_color="blue",
-        ),
-    )
-
-    fig.update_layout(
-        title="Bounds by Target",
-        xaxis_title="Target",
-        yaxis_title="Bounds",
-        legend_title="Bound",
-    )
-
-    return fig
 
 
 def create_bounds_by_target_df(

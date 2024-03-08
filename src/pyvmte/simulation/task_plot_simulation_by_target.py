@@ -16,7 +16,7 @@ from pyvmte.config import (
     SIMULATION_RESULTS_DIR,
 )
 from pyvmte.config_mc_by_target import MONTE_CARLO_BY_TARGET
-from pyvmte.replication.plot_bounds_by_target import create_bounds_by_target_df
+from pyvmte.simulation.create_bounds_by_target import create_bounds_by_target_df
 
 _DEPENDENCIES = {
     u_hi: BLD

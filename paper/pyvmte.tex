@@ -332,19 +332,19 @@ In addition to the identification result (which in the plot I call the "true bou
 For a grid of $\overline{u}$ values, I estimate the bounds and plot their means and distributions. Thus, the resulting plot consists of a separate simulation for each value of $\overline{u}$\footnote{This would not be the correct simulation design if we were interested in studying the joint distribution of estimators for different targets, but should be sufficient for studying individual consistency.}.
 Throughout, for each simulation I use a sample size of $N=10000$, $R=1000$ replications and a tolerance for the identification constraint equivalent to $\frac{1}{N}$.
 
-Before turning to the main results in the next section I want to discuss some practical issues I encountered during implementation.
-First, the choice of the \textbf{tolerance criterion} $\kappa_n$ seems to be non-trivial. In Appendix Figure \ref{app_fig:tolerances} I report results for varying tolerances ($\kappa_n \in \{\frac{1}{\sqrt{n}}, \frac{3}{n}, \frac{1}{n}, \frac{1}{n^2}\}$).
-A higher $\kappa_n$ should result in (weakly) wider bounds because more MTR pairs satisfy the constraint. Choosing $\kappa_n$ too lower might result in a very noisy estimator; in the extreme case $\kappa_n = 0$ by construction we only have a single solution (assuming there is a unique minmizer which seems highly likely given the sampling).
-As expected I observe that bounds are significantly wider for $\kappa_n = \frac{1}{\sqrt{n}}$ and narrower when choosing on of the smaller tolerances. Choosing a $\kappa_n<\frac{1}{\sqrt{n}}$ also significatnly reduced bias.
-Beyond a $\kappa_n$ of the order $\frac{1}{n}$ there does not seem to be much of a change, however.
+% Before turning to the main results in the next section I want to discuss some practical issues I encountered during implementation.
+% First, the choice of the \textbf{tolerance criterion} $\kappa_n$ seems to be non-trivial. In Appendix Figure \ref{app_fig:tolerances} I report results for varying tolerances ($\kappa_n \in \{\frac{1}{\sqrt{n}}, \frac{3}{n}, \frac{1}{n}, \frac{1}{n^2}\}$).
+% A higher $\kappa_n$ should result in (weakly) wider bounds because more MTR pairs satisfy the constraint. Choosing $\kappa_n$ too lower might result in a very noisy estimator; in the extreme case $\kappa_n = 0$ by construction we only have a single solution (assuming there is a unique minmizer which seems highly likely given the sampling).
+% As expected I observe that bounds are significantly wider for $\kappa_n = \frac{1}{\sqrt{n}}$ and narrower when choosing on of the smaller tolerances. Choosing a $\kappa_n<\frac{1}{\sqrt{n}}$ also significatnly reduced bias.
+% Beyond a $\kappa_n$ of the order $\frac{1}{n}$ there does not seem to be much of a change, however.
 
-Second, I found that estimation results are highly unstable when the \textbf{partition of $u$} includes values very close to each other.
-When I first ran the simulation below which uses a target $LATE(0.35, \overline{u})$ I ran into this issue:
-Because $p(0) = 0.35$ for a large enough $N$, $\hat{p}(1)$ will be very close to 0.35, thus resulting in a partition that includes 0.35 as well as a number very close to it.
-The result is a bi-modal distribution of the estimator for the lower bound, as shown in Appendix Figure \ref{app_fig:bimodal}. Similar issues arise for the upper bound when $\overline{u}$ comes close to $p(1)$ or $p(2)$.
-The two modes for the lower bound exactly correspond to situations where we estimate $\hat{p}(0) < 0.35$ (smaller mode) or $\hat{p}(0) > 0.35$ (larger mode).
-A simple fix to this issue I rely on in the following results is to remove one of the close knots in the partition.
-This seems also the relevant usecase in practice: When a researcher estimates the (to them unknown) propensity score to be $\hat{p}(0)$ close to 0.35 and wants to extrapolate, $LATE(0.35, 0.9)$ is not a natural choice of the target parameter, but instead $LATE(\hat{p}(0)\approx0.35, 0.9)$.
+% Second, I found that estimation results are highly unstable when the \textbf{partition of $u$} includes values very close to each other.
+% When I first ran the simulation below which uses a target $LATE(0.35, \overline{u})$ I ran into this issue:
+% Because $p(0) = 0.35$ for a large enough $N$, $\hat{p}(1)$ will be very close to 0.35, thus resulting in a partition that includes 0.35 as well as a number very close to it.
+% The result is a bi-modal distribution of the estimator for the lower bound, as shown in Appendix Figure \ref{app_fig:bimodal}. Similar issues arise for the upper bound when $\overline{u}$ comes close to $p(1)$ or $p(2)$.
+% The two modes for the lower bound exactly correspond to situations where we estimate $\hat{p}(0) < 0.35$ (smaller mode) or $\hat{p}(0) > 0.35$ (larger mode).
+% A simple fix to this issue I rely on in the following results is to remove one of the close knots in the partition.
+% This seems also the relevant usecase in practice: When a researcher estimates the (to them unknown) propensity score to be $\hat{p}(0)$ close to 0.35 and wants to extrapolate, $LATE(0.35, 0.9)$ is not a natural choice of the target parameter, but instead $LATE(\hat{p}(0)\approx0.35, 0.9)$.
 
 
 \section{Results}
@@ -362,9 +362,9 @@ Imposing parametric assumptions in Figure 8 of the paper makes these bounds appr
 
 \textbf{Estimation}: In terms of estimation, I first find that the average bounds in Figure \ref{fig:main_sim_violin} are for the most part too wide. This holds in particular for almost all $\overline{u}$ for the estimator of the lower bound, while the upper bound overestimates the true bound for all values $\overline{u}\in[0.45, 0.75]$. For any larger values, the estimator for the upper bound has a mean indistinguishable from the true bound.
 Generally, for the given sample size the distributions of the estimators are fairly tightly centered around their respective means. For example, almost none of the individuals simulation runs for any of the lower bound estimators come cloe to the true estimator.
-While the \citet{mogstad2018using} only prove consistency and there is no reason to believe that the estimator is unbiased in finite samples, the quality of the result does not change when increasing the sample size.
-If this was only a finite sample bias we would at least hope that the bias decreases when increasing $N$. Appendix Figure \ref{app_fig:large_n} reports simulation results in similar form for $N\in\{25000, 50000, 100000\}$. While the standard deviation of the estimator decreases as expected, estimated means are largely unchanged.
-If true, this would call into question the consistency of the estimator in this setting\footnote{While technically the estimator might still converge at some point, this seems unlikely. Also, for these sample sizes we would in any way hope for a lot smaller finite sample bias.}.
+% While the \citet{mogstad2018using} only prove consistency and there is no reason to believe that the estimator is unbiased in finite samples, the quality of the result does not change when increasing the sample size.
+% If this was only a finite sample bias we would at least hope that the bias decreases when increasing $N$. Appendix Figure \ref{app_fig:large_n} reports simulation results in similar form for $N\in\{25000, 50000, 100000\}$. While the standard deviation of the estimator decreases as expected, estimated means are largely unchanged.
+% If true, this would call into question the consistency of the estimator in this setting\footnote{While technically the estimator might still converge at some point, this seems unlikely. Also, for these sample sizes we would in any way hope for a lot smaller finite sample bias.}.
 
 Figure \ref{fig:histos} additionally plots the distribution of the lower and upper bound estimators for a fixed $\overline{u}=0.95$.
 As noted, before this figure shows that the lower bound estimator considerabl underestimates the true bound, a feature also present for a large sample of $N=50,000$.
