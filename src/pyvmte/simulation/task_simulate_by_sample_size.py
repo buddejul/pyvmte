@@ -1,4 +1,4 @@
-"""Task for running simulation."""
+"""Task for running simulation by sample size."""
 from itertools import product
 from pathlib import Path
 from typing import Annotated, NamedTuple

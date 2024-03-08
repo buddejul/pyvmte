@@ -28,6 +28,7 @@ _DEPENDENCIES = {
 }
 
 
+# TODO make this plot nicer
 def task_plot_simulation_by_target(
     u_hi_range: np.ndarray = MONTE_CARLO_BY_TARGET.u_hi_range,  # type: ignore
     path_to_data: dict[str, Path] = _DEPENDENCIES,
@@ -131,7 +132,6 @@ def task_plot_simulation_by_target(
     )
 
     # Remove legend
-    fig.update_layout(showlegend=False)
 
     # Update title
     fig.update_layout(
