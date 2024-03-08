@@ -3,7 +3,6 @@ from itertools import product
 from pathlib import Path
 from typing import Annotated, NamedTuple
 
-import numpy as np
 import pandas as pd  # type: ignore
 from pytask import Product, task
 
@@ -72,17 +71,5 @@ for id_, kwargs in ID_TO_KWARGS.items():
             "lower_bound": result["lower_bound"],
         }
         data = pd.DataFrame(bounds)
-
-        # Get length of u_partition
-        lens = [len(x) for x in result["u_partition"]]
-        u_partition_length = max(lens)
-
-        # Get ith elements of result["u_partition"] entries and put into data column
-        for i in range(u_partition_length):
-            for x in result["u_partition"]:
-                if len(x) == u_partition_length:
-                    data[f"u_partition_{i}"] = x[i]
-                else:
-                    data[f"u_partition_{i}"] = np.nan
 
         data.to_pickle(path_to_data)
