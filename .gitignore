@@ -24,5 +24,6 @@ bld/
 *.pdf
 *.run.xml
 *.synctex.gz
+*.toc
 
 *.ipynb
