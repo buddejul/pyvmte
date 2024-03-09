@@ -1,0 +1,29 @@
+---
+name: pyvmte
+channels: [conda-forge, nodefaults]
+dependencies:
+  - conda-lock
+  - ipykernel
+  - jupyterlab
+  - line_profiler
+  - numba
+  - pandas
+  - pip >=21.1
+  - plotly>=5.13.0
+  - pre-commit
+  - pygraphviz
+  - pytask-latex>=0.4.0
+  - pytask-parallel>=0.4.0
+  - pytask>=0.4.0
+  - pytest
+  - pytest-cov
+  - pytest-xdist
+  - python-graphviz
+  - python=3.11
+  - pyyaml
+  - scipy
+  - setuptools_scm
+  - snakeviz
+  - statsmodels
+  - toml
+  - pip: [-e ., kaleido==0.1.0.post1, pdbp, coptpy]

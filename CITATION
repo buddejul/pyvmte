@@ -1,0 +1,6 @@
+@Unpublished{pyvmte2023,
+    Title  = {Implementation of Mogstad, Santos, Torgovitsky 2018 Econometrica.},
+    Author = {Julian Budde},
+    Year   = {2023},
+    Url    = {https://github.com/buddejul/pyvmte}
+}

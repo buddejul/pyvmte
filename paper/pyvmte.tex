@@ -1,0 +1,432 @@
+\documentclass[11pt, a4paper, leqno]{article}
+\usepackage{a4wide}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{afterpage, rotating, graphicx}
+\usepackage{epstopdf}
+\usepackage{longtable, booktabs, tabularx}
+\usepackage{fancyvrb, moreverb, relsize}
+\usepackage{eurosym, calc}
+% \usepackage{chngcntr}
+\usepackage{amsmath, amssymb, amsfonts, amsthm, bm}
+\usepackage{caption}
+\usepackage{mdwlist}
+\usepackage{xfrac}
+\usepackage{setspace}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{subcaption}
+\usepackage{minibox}
+\usepackage{booktabs}
+\usepackage{multirow}
+% \usepackage{pdf14} % Enable for Manuscriptcentral -- can't handle pdf 1.5
+% \usepackage{endfloat} % Enable to move tables / figures to the end. Useful for some
+% submissions.
+\usepackage[capposition=top]{floatrow}
+
+
+\usepackage[
+    natbib=true,
+    bibencoding=inputenc,
+    bibstyle=authoryear-ibid,
+    citestyle=authoryear-comp,
+    maxcitenames=3,
+    maxbibnames=10,
+    useprefix=false,
+    sortcites=true,
+    backend=biber
+]{biblatex}
+\AtBeginDocument{\toggletrue{blx@useprefix}}
+\AtBeginBibliography{\togglefalse{blx@useprefix}}
+\setlength{\bibitemsep}{1.5ex}
+\addbibresource{refs.bib}
+
+\usepackage[unicode=true]{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    anchorcolor=black,
+    citecolor=NavyBlue,
+    filecolor=black,
+    menucolor=black,
+    runcolor=black,
+    urlcolor=NavyBlue
+}
+
+
+\widowpenalty=10000
+\clubpenalty=10000
+
+\setlength{\parskip}{1ex}
+\setlength{\parindent}{0ex}
+\setstretch{1.5}
+
+
+\begin{document}
+
+\title{Simulation: Inference About Policy Relevant Treatment Effects \thanks{Econometrics Topics Course, Summer 2023, University of Bonn.}}
+
+\author{Julian Budde\thanks{University of Bonn}}
+
+\date{\today \\ \vspace{1em} Term Paper (Econometrics Topics Course Summer 2023)}
+\maketitle
+
+
+\begin{abstract}
+\citet{mogstad2018using} propose an identification framework for extrapolating from identified IV-like estimands to a broad set of policy relevant treatment effect parameters.
+I perform simulation studies using the estimators for the identified set proposed in the paper.
+\end{abstract}
+
+\clearpage
+\pagebreak
+
+\tableofcontents
+\clearpage
+\newpage
+
+
+\section{Introduction}
+
+\section{The Identification Problem}
+\subsection{Model Setup}
+\citet{mogstad2018using} use an IV model based on a selection equation, an approach summarized for example in \citet{heckman2007econometric1} and \citet{heckman2007econometric2}.
+They key to the model is the selection equation which determines treatment status as a function of observed covariates (including the instrument) and unobserved heterogeneity in the likelihoood to select into treatment.
+The key selection problem usually is that this unobserved heterogeneity is correlated with treatment effects or the level of potential outcomes.
+The instrumental variable solves this problem by shifting people into or out of treatment in a way uncorrelated to their unobserved heterogeneity.
+
+They key model is formulated as follows: We consider a model with binary treatment $D\in\{0,1\}$. For convenience I drop all the subscripts throughout the paper.
+The \textbf{outcome equation} relates potential outcomes (the outcomes observed if individuals where exogenously assigned their value $D=d$) and treatment to \textit{observed} outcomes $Y$ by
+\begin{equation}
+    Y = Y_1D + Y_0(1-D).
+\end{equation}
+Treatment $D$ itself is determined by the \textit{choice equation}, which relates treatment status to observed covariates (in particular the instrument denoted by $Z$) and unobserved heterogeneity $U$:
+\begin{equation}
+    D = I\{p(Z) - U \geq 0\}.
+\end{equation}
+$U$ is modeled to follow a standard Uniform distribution, although this is not a restriction because for any continuous $U$ we can redefine the selection equation by applying the CDf $F_U$ on both sides of the inequality.
+With this normalization, $p(Z) = P(D=1|Z=1)$ and thus is the \textit{propensity score}, the probability to take up treatment conditional on observed covariates.
+$U$ can be understood as the "resistance" to treatment: conditional on the propensity score (i.e. observables), individuals with a sufficiently high realization of $U$ will never take up treatment.
+
+While the model can be formulated to include both exogenous covariates $X$ and "outside" instruments $Z_0$ (so $Z=(Z_0,X)$), in what follows I focus on the case without any covariates.
+Thus all the following statements will not include any condiitoning on $X$.
+
+\textbf{IV Model}: In addition to the outcome equation and choice equation, the IV model requires three further assumptions
+\begin{itemize}
+    \item[I.1] $U\perp Z_0$
+    \item[I.2] $E[Y_d|Z,U] = E[Y_d|U]$ and $E[Y_d^2]<\infty$ for $d\in\{0,1\}$.
+    \item[I.3] $U$ has a uniform distribution on $[0,1]$ conditional on $Z$.
+\end{itemize}
+The first two assumptions guarantee exogeneity of $Z_0$ (exogenous shift in the choice probability and no direct effect on potential outcomes).
+The first assumption in combination with the additive separability of the choice equation, is equivalent to the monotonicity assumption in \citet{angrist1996identification} that allows identificaiton of the LATE among instrument-compliers, a result proven by \citet{vytlacil2002independence}.
+
+For example, a binary IV $Z\in\{0,1\}$ with propensity score $p(0) = \underline{u} < p(1) = \overline{u}$ allows to identify $LATE(\underline{u},\overline{u})$.
+Intuitively, individuals with realization of $U$ in the interval $[\underline{u}, \overline{u}]$ are those for which the instrument realization randomly shifts them between treatment states (the compliers).
+Those with realizations smaller than $\underline{u}$ always take up treatment (the always-taker), while those with realizations larger than $\overline{u}$ never take up treatment.
+The next section introduces the identification or extrapolation problem.
+
+\subsection{Extrapolation}
+While the \citet{imbens1994identification} result shows that we can identify a LATE in this model (or multiple LATE if $Z$ takes on several values), these might not necessarily the parameters of interest.
+The key insight of \citet{mogstad2018using} is that many target parameter of interests \textit{as well as} identified parameters like the LATE or IV slope coefficients are functions of the same underlying \textbf{marginal treatment response} (MTR) functions.
+The MTR functions are denoted $m_0, m_1$ and defined as
+\begin{equation}
+    m_d(u) = E[Y_d|U=u]
+\end{equation}
+For some target parameters, which will be denoted by $\beta^*$, writing them in terms of MTR functions is immediate.
+For example, $LATE(a,b)$ averages the difference $m_1(u) - m_0(u)$ over the range $u\in[a,b]$.
+
+More generally, target parameters can be written in the form
+\begin{equation}
+    \beta^* = E\left[\int_0^1 m_0(u,X)\omega_0^*(u,Z)d\mu^*(u)\right] + E\left[\int_0^1 m_1(u,X)\omega_1^*(u,Z)d\mu^*(u)\right]
+\end{equation}
+where $\omega_{d}^*$ are identified weighting functions depending on the target parameter (e.g. $1$ and $-1$ for the ATE).
+
+A central result in the paper (Proposition 1) is that also all \textbf{IV-like estimands} of the form $E[s(D,Z)Y]$ are weighted averages of MTR functions:
+\begin{equation}
+    \beta_s =
+    E\left[\int_0^1 m_0(u,X)\omega_{0s}(u,Z)du\right]
+    + E\left[\int_0^1 m_1(u,X)\omega_{1s}(u,Z)du\right]
+\end{equation}
+where the ewights are $\omega_{0s} \equiv s(0,z)I[u>p(z)]$, $\omega_{1s} \equiv s(1,z)I[u\leq p(z)]$.
+
+Introduce some further notation:
+\begin{itemize}
+    \item $S$: Set of IV-like specifications implying identified parameters $\beta_s$.
+    \item $\mathcal{M}$: Space of possible MTR functions, potentially including some a priori restrictions.
+    \item $\mathcal{M_S}\subseteq \mathcal{M}$: Sub-space of MTR functions \textit{consistent} with identified estimands $\beta_s$ for all $s\in S$.
+\end{itemize}
+
+Then the \textit{identified set} for $\beta^*$ denoted by $\mathcal{B}_S^*$ is the set of $b\in\mathbb{R}$ that is generated by some $m\equiv(m_0, m_1)\in \mathcal{M}_S$.
+
+Proposition 2 in the paper establishes that for a convex $\mathcal{M}$ the identified is of the form $\mathcal{B}^*_S = [\underline{\beta}^*, \overleftarrow{\beta}^*]\subseteq \mathbb{R}$.
+Further, these bounds are the solution to an optimiuation problem over $m\in\mathcal{M}_S$ that can be recast as a linear program.
+In this program, the objective is to make the target parameter as small (or large) as possible while satisfying the constraint that at the optimal solution the chosen MTR functions imply the identified estimands (implicit in $m\in\mathcal{M}_S$).
+
+\textbf{Sharp identified set}: Proposition 3 in the paper establihes that if we use "enough" IV-like specifications to identify $\mathcal{B}^*_S$, then this is the smallest set consistent with conditional means $E[Y|Z=z, D=d]$ and the model assumptions.
+For example, for a binary instrument we need to use all cross moments of the form $E[I\{Z=z\}I\{D=d\}Y]$.
+Intuitively, if we think about the numerator of the Wald estimand $E[Y|Z=1] - E[Y|Z=0]$ this differences out $E[Y_1]$ for the always-taker and $E[Y_0]$ for the never-taker, which allows to identify the (scaled) average treatment effect for the complier subpopulation.
+However, these moments itself constraint the admissible MTR functions so for extrapolation we want to use estimands that contain this information.
+
+
+\subsection{Implementation}
+In practice we need to consider a finite-dimensional parameter space $\mathcal{M}_{fd}\subseteq \mathcal{M}$.
+For example we can model $m_d(u,x)$ as a finite number of basis functions:
+\begin{equation*}
+    m_d(u) = \sum_{k=1}^{K_d}\theta_{dj}b_{dj}(u).
+\end{equation*}
+
+For the simulation exercise here, the setting is however a lot easier. Proposition 4 in the paper establishes that for a $Z$ with discrete support and target weights on the MTR functions that are piecewise constant over $u$, a finite-dimensional space of MTR functions recovers the exact solution.
+In particular, we can use constant splines as the basis functions, defined over a partition of $u$ where all relevant weights (target and identified parameters) are constant.
+
+It is useful to define linear maps $\Gamma$ and $\Gamma^*$ that takes as argument some $m\in\mathcal{M}$ and return a parameter $\beta$.
+In particular, define for identified estimands $\beta_s$
+\begin{equation}
+    \Gamma_s(m) = E\left[\int_0^1 m_0(u,X)\omega_{0s}(u,Z)du\right]
+    + E\left[\int_0^1 m_1(u,X)\omega_{1s}(u,Z)du\right]
+\end{equation}
+and for the target parameter $\beta^*$
+\begin{equation}
+    \Gamma^*(m) = E\left[\int_0^1 m_0(u,X)\omega^*_{0}(u,Z)du\right]
+    + E\left[\int_0^1 m_1(u,X)\omega^*_{1}(u,Z)du\right].
+\end{equation}
+In both cases, $\omega_{ds}$ are the relevant weights implied by the IV-like specification.
+
+Then our MTR space constrained by the identified estimands becomes
+\begin{equation}
+    \mathcal{M}_S \equiv \{m\in \mathcal{M}: \Gamma_s(m) = \beta_s \text{ for all } s\in S\}.
+\end{equation}
+and the identified set is given by
+\begin{equation}
+    \mathcal{B}^*_S \equiv \{b \in \mathcal{R}: b = \Gamma^*(m) \text{ for some } m \in \mathcal{M}_S\}.
+\end{equation}
+
+Because these maps are linear and we use a linear combination of basis functions to approcximate $\mathcal{M}$ we can restate the problem as
+$$
+\bar{\beta}_{\mathrm{fd}}^{\star} \equiv \sup _{\left(\theta_0, \theta_1\right) \in \Theta} \sum_{k=1}^{K_0} \theta_{0 k} \Gamma_0^{\star}\left(b_{0 k}\right)+\sum_{k=1}^{K_1} \theta_{1 k} \Gamma_1^{\star}\left(b_{1 k}\right)
+$$
+s.t. $\quad \sum_{k=1}^{K_0} \theta_{0 k} \Gamma_{0 s}\left(b_{0 k}\right)+\sum_{k=1}^{K_1} \theta_{1 k} \Gamma_{1 s}\left(b_{1 k}\right)=\beta_s \quad$ for all $s \in \mathcal{S}$.
+
+In the case I consider in this study with discrete $Z$ and a target parameter (LATE) that has constant weights, Proposition 4 applies and we can get exact results using constant splines as basis functions.
+In particular, these have to use knots corresponding to the points at which either the target parameter or the propensity score changes.
+For example, with a propensity score of $p=(0.35, 0.6, 0.7)$ and a target parameter $LATE(0.35, 0.9)$ we use a partition of u with $u_{part} = [0, 0.35, 0.6, 0.7, 0.9, 1]$, implying five basis functions for each of the intervals.
+As argued in the paper, for the case of constant splines (as well as Bernstein polynomials) the integrals in the linear maps $\Gamma^*_d(b_{dj})$ and $\Gamma_{ds}(b_{dj})$ can be solved analytically. For example, considering $d=1$ and some IV-like specification $s(0,z)$, for $\Gamma_{ds}$ (focusing on a single constant spline) we get:
+\begin{equation}
+    \begin{split}
+    \Gamma_{0s}(b_{0j}) & = E_Z\left[\int_0^1 m_0(u)w_{0s}(u,Z)du\right] \\
+     & = E_Z\left[\int_0^1 I\{u\in[\underline{u}_j, \overline{u}_j]\}\theta_{0j} s(0, Z) I\{p(Z)<u\}du\right] \\
+     & = \theta_{0j}E_Z\left[s(0,Z)\int_0^1 I\{u\in[\underline{u}_j, \overline{u}_j]\}I\{p(Z)<\underline{u}_j\}du\right] \\
+     & = \theta_{0j}E_Z\left[s(0,Z)I\{p(Z)<\underline{u}_j\}(\overline{u}_j-\underline{u}_j)\right] \\
+     & = \theta_{0j}(\overline{u}_j-\underline{u}_j)\sum_{z\in \mathcal{Z}}f_Z(z) s(0,z) I\{p(z)< \underline{u}_j\}.
+    \end{split}
+\end{equation}
+
+The second line follows from the definition of the weights and taking a constant spline as the basis functions, where $\theta_{0j}$ is the coefficient on the basis function $b_{dj}$ corresponding to some element of the u-partition ranging from $[\underline{u}_j,\overline{u}_j]$.
+This $\theta_{0j}$, as written earlier, will be one of the choice variables in the linear program. The third line uses the fact that we use a partition such that weights (and thus also the propensity scores) are constant over a given element of the partition.
+Therefore, $p(Z)<u \iff p(Z)<\underline{u}_j$\footnote{$p(Z) = \underline{u}_j$ might hold with equality but then this only holds exactly for that point so the interval also evaluates to zero.}.
+The last lines then pull out constants and write out the expectation using that $Z$ has discrete support $mathcal{Z}$.
+An equivalent result holds for $d=1$:
+\begin{equation}
+    \Gamma_{1s}(b_{1j}) = \theta_{1j}(\overline{u}_j-\underline{u}_j)\sum_{z\in \mathcal{Z}}f_Z(z) s(1,z) I\{p(z)> \underline{u}_j\}.
+\end{equation}
+
+\section{The Estimation Problem}
+When observing only a random sample we cannot exactly satisfy the constraint that the optimizer \textit{exactly} implies identified estimands $\beta_s$.
+Both the identified estimands and the weights on the constant splines will be estimated. Instead, \citet{mogstad2018using} propose to solve the following problem (stated for the upper bound):
+\begin{equation*}
+    \label{eq:est_lp}
+    \hat{\overline{\beta}}^* = \sup_{m\in\mathcal{M}} \hat{\Gamma}^*(m) \text{ s.t. } \sum_{s\in S}|\hat{\Gamma}_s(m) - \hat{\beta}_s| \leq \inf_{m'\in\mathcal{M}} \sum_{s\in S}|\hat{\Gamma}_s(m') - \hat{\beta}_s| + \kappa_n.
+\end{equation*}
+
+A few things to note:
+\begin{itemize}
+    \item The upper bound makes the target estimand as large as possible for some $m\in\mathcal{M}$, but note that the linear map $\Gamma*(m)$ needs to be estimated (the weights on the MTR functions are functions of the data as will be clear below).
+    \item The constraint is reformulated:
+    \begin{itemize}
+        \item All admissible $m\in\mathcal{M}$ have to come as close to the estimated identified estimands $\hat{\beta}_s$ as the MTR functions that are closest to satisfying it plus some tolerance $\kappa_n$.
+        \item The tolerance $\kappa_n$ has to shrink with the sample size. If $\kappa_n$ is too large the bounds will be too wide, while a very small $\kappa_n$ will introduce a lot of noise (e.g. think $\kappa_n = 0$ which leaves the minimizer on the RHS as the only solution).
+    \end{itemize}
+\end{itemize}
+
+This implies that we now have to solve a first-step linear program that finds the minimizer to the problem on the RHS of the constraint. [Briefly explain how this is done using tricks for the absolute value.]
+I explore the choice of $\kappa_n$ in the simulations below but generally find $\frac{1}{N}$ or $\frac{1}{N^2}$ to result in similar estimates with MSE considerably lower than $\frac{1}{\sqrt{N}}$ or $\frac{1}{N^\frac{1}{4}}$.
+
+\citet{mogstad2018using} propose the following plug-in estimators
+$$
+\begin{gathered}
+\hat{\Gamma}_{d s}\left(b_{d k}\right) \equiv \frac{1}{n} \sum_{i=1}^n \int_0^1 b_{d k}\left(u, X_i\right) \hat{\omega}_{d s}\left(u, Z_i\right) d \mu^{\star}(u), \\
+\text { where } \hat{\omega}_{0 s}(u, z) \equiv \hat{s}(0, z) \mathbb{1}[u>\hat{p}(z)] \\
+\text { and } \hat{\omega}_{1 s}(u, z) \equiv \hat{s}(1, z) \mathbb{1}[u \leq \hat{p}(z)],
+\end{gathered}
+$$
+where $\hat{s}$ is an estimator of $s$, and $\hat{p}$ is an estimator of the propensity score. An estimator of $\hat{\Gamma}_d^{\star}\left(b_{d k}\right)$ can be constructed similarly as
+$$
+\hat{\Gamma}^{\star}\left(b_{d k}\right) \equiv \frac{1}{n} \sum_{i=1}^n \int_0^1 b_{d k}\left(u, X_i\right) \hat{\omega}_d^{\star}\left(u, Z_i\right) d \mu^{\star}(u),
+$$
+where $\hat{\omega}_d^{\star}$ is an estimator of $\omega_d^{\star}$, the form of which will depend on the form of the target parameter.
+As pointed out in the paper, these estimators simplify considerably with constant spline basis functions for some parameters because the integrals can actually be solved analytically [TODO do this in the simulation/code; add formulas for this; this could be potential bug].
+$\beta_s$ can be estimated based on
+$$
+\hat{\beta}_s \equiv \frac{1}{n} \sum_{i=1}^n \hat{s}\left(D_i, Z_i\right) Y_i.
+$$
+
+Appendix Proposition S3 establishes the consistency of their procedure, in particular that $\hat{\underline{\beta}}^*\to_p \underline{\beta}^*$ and $\hat{\overline{\beta}}^*\to_p\overline{\beta}^*$.
+
+In our case, the estimators of the linear map simplify to
+\begin{equation}
+    \label{eq:est_weights_maps}
+    \hat{\Gamma}_{1s}(b_{1j}) =\theta_{1j} (\overline{u}_j-\underline{u}_j)\sum_{i=1}^{n} \hat{s}(1,Z_i) I\{\hat{p}(Z_i)> \underline{u}_j\}.
+\end{equation}
+and similarly for $d==0$. Here, we replace the expectation by sample moments and $s(1,z)$ and $p(z)$ by their estimated counterparts.
+
+\subsection{Implementation}
+The estimation procedure I implement closely follows the suggestions in \citet{mogstad2018using}. In particular I solve the estimation problem in three steps:
+
+Before solving the two linear programs I first estimate all the required objects. These include
+\begin{itemize}
+    \item The identified estimands: $\beta_s = E[s(D,Z)Y]$ for $s\in S$.
+    \item The "weights" on the $\theta_{dj}$ choice variables implied by the target and identified estimands via the linear maps $\Gamma*$ and $\Gamma_{ds}$ (see equation \ref{eq:est_weights_maps}).
+    \item The propensity score $p(z)$.
+\end{itemize}
+
+\textbf{Step 1 --- LP for the Constraint}: The first task is to solve the minimization problem in the RHS of the constraint in equation \ref{eq:est_lp}.
+This solves for the $\theta_{jd}$ that imply the minimal deviation from the estimates of the identified estimands $\beta_s$ in terms of absolute loss.
+As suggested in the paper, to model absolute loss in the objective function it is possible to introduce dummy variables that have to satisfy two constraints corresponding to the negative and positive part of each $|\hat{Gamma}_s(m')\hat{\beta_s}|$
+\footnote{For example, with a program of the form $\min |X|$ introducing a dummy $X'$, and objective $\min X'$ with two constraints $X\leq X'$ and $-X\leq X'$ mimics the desired program.
+In our case the objective will generally be of the form $\min\sum_{s\in S}|X_s|$ which can be modeled by introducing $|S|$ variables and $2|S|$ constraints. I mainly used the \href{https://lpsolve.sourceforge.net/5.1/absolute.htm}{lpSolve manual 5.1} as a reference.}.
+
+\textbf{Step 2 --- LP for the Bounds}: With the solution from Step 1 at hand and chosen tolerance level $\kappa_n$, we can now solve the two linear programs corresponding to (\ref{eq:est_lp}).
+These are standard linear programs with the objective of maximizing (minimizing) the implied target estimand. Now the constraint includes absolute values (the deviations from estimated target parameters in the LHS of the constraint in (\ref{eq:est_lp})), which we can again address by introducing dummy variables and additional constraints.
+The resulting optimal solutions constitute the upper and lower bounds.
+
+I solve both linear programs using AMPL, specifically the \href{https://amplpy.readthedocs.io/en/latest/}{AMPL Python API}. AMPL licenses are free for researchers and graduate students.
+The solver I used was "HiGHS" or "gurobi". All estimation, data handling and analysis steps are performed in Python.
+I discuss some practical issues relating to the tolerance level and the u-partition after introducing the DGP and main simulation analysis below.
+
+\section{Simulation Setting} \label{sec:4_sim}
+I use the main data generating process (DGP) used in the numerical example by \cite{mogstad2018using}.
+They have a discrete instrument with the following specifications:
+\begin{itemize}
+    \item Support of Z: $Z\in\{0,1,2\}$;
+    \item Density of Z: $f_Z(0) = 0.5, f_Z(1)=0.4, f_Z(2)=0.1$;
+    \item Propensity score: $P(d=1|Z=0) \equiv p(0) = 0.35,   $.
+\end{itemize}
+Note the setup has no covariates $X$. Following \citet{imbens1994identification} three local average treatment effects (LATE) are point-identified: LATE(0.35, 0.6), LATE(0.6,0.7), and LATE(0.35, 0.7).
+This will show up in the identification results below, which cover point-identification as a special case.
+
+While the paper assumes a binary outcome I directly simulate (potential) outcomes using the underlying MTR functions, such that $Y_d = m_d(u)$ which imply outcomes $Y$.
+These are of course no longer binary, but all essential moments remain the same so consistency should not be affected
+\footnote{If we want to use a binary $Y$ consistent with the DGP one way would be to draw outcomes from $\{0,1\}$ with probability corresponding to $m_{d_i}(u_i)$ for each $i=1,\ldots, n$. This might be preferred if we want to do simulations for an actual DGP corresponding to some observed data, because otherwise we understate the variance $Y$.}.
+
+I study a range of different targets of the form $LATE(0.35, \overline{u})$, where $0.35 \leq \overline{u} <= 1$.
+
+I focus on the sharp, non-parametric bounds depicted in Figure 5 of \cite{mogstad2018using}.
+These are constructed using all cross-moments of $D,Z$ with the data $Y$, i.e. IV-like estimands of the form
+\begin{equation*}
+    \beta_s = E[I\{D=d, Z=z\}Y]
+\end{equation*}
+for $d\in\{0,1\}$ and $z\in\{0,1,2\}$. Proposition 3 in the paper establishes that this set of identified estimands
+delivers the sharpest bounds that are consistent with the conditional means of $Y$ and the assumptions of the model.
+
+Throughout the analysis I impose the restriction that the MTR functions $m$ are bounded between $0,1$ (formulated as $\theta_{jd}\in[0,1]$), a restriction imposed in the paper and immediate for a binary outcome.
+
+In the following section I report a Figure similar to Figure 8 in the paper, which reports bounds for LATE(0.35, $\overline{u}$) for a range of values, although with a different parametric assumption on the MTRs.
+In addition to the identification result (which in the plot I call the "true bounds"), I also report estimation results.
+For a grid of $\overline{u}$ values, I estimate the bounds and plot their means and distributions. Thus, the resulting plot consists of a separate simulation for each value of $\overline{u}$\footnote{This would not be the correct simulation design if we were interested in studying the joint distribution of estimators for different targets, but should be sufficient for studying individual consistency.}.
+Throughout, for each simulation I use a sample size of $N=10000$, $R=1000$ replications and a tolerance for the identification constraint equivalent to $\frac{1}{N}$.
+
+% Before turning to the main results in the next section I want to discuss some practical issues I encountered during implementation.
+% First, the choice of the \textbf{tolerance criterion} $\kappa_n$ seems to be non-trivial. In Appendix Figure \ref{app_fig:tolerances} I report results for varying tolerances ($\kappa_n \in \{\frac{1}{\sqrt{n}}, \frac{3}{n}, \frac{1}{n}, \frac{1}{n^2}\}$).
+% A higher $\kappa_n$ should result in (weakly) wider bounds because more MTR pairs satisfy the constraint. Choosing $\kappa_n$ too lower might result in a very noisy estimator; in the extreme case $\kappa_n = 0$ by construction we only have a single solution (assuming there is a unique minmizer which seems highly likely given the sampling).
+% As expected I observe that bounds are significantly wider for $\kappa_n = \frac{1}{\sqrt{n}}$ and narrower when choosing on of the smaller tolerances. Choosing a $\kappa_n<\frac{1}{\sqrt{n}}$ also significatnly reduced bias.
+% Beyond a $\kappa_n$ of the order $\frac{1}{n}$ there does not seem to be much of a change, however.
+
+% Second, I found that estimation results are highly unstable when the \textbf{partition of $u$} includes values very close to each other.
+% When I first ran the simulation below which uses a target $LATE(0.35, \overline{u})$ I ran into this issue:
+% Because $p(0) = 0.35$ for a large enough $N$, $\hat{p}(1)$ will be very close to 0.35, thus resulting in a partition that includes 0.35 as well as a number very close to it.
+% The result is a bi-modal distribution of the estimator for the lower bound, as shown in Appendix Figure \ref{app_fig:bimodal}. Similar issues arise for the upper bound when $\overline{u}$ comes close to $p(1)$ or $p(2)$.
+% The two modes for the lower bound exactly correspond to situations where we estimate $\hat{p}(0) < 0.35$ (smaller mode) or $\hat{p}(0) > 0.35$ (larger mode).
+% A simple fix to this issue I rely on in the following results is to remove one of the close knots in the partition.
+% This seems also the relevant usecase in practice: When a researcher estimates the (to them unknown) propensity score to be $\hat{p}(0)$ close to 0.35 and wants to extrapolate, $LATE(0.35, 0.9)$ is not a natural choice of the target parameter, but instead $LATE(\hat{p}(0)\approx0.35, 0.9)$.
+
+
+\section{Results}
+The figure below reports identification and estimation results for each $LATE(0.35, \overline{u})$.
+
+\textbf{Identification}: Turning to identification first, a few things are noteworthy.
+First, as alluded to earlier we achieve point identification for $LATE(0.35, 0.6)$ and $LATE(0.35, 0.7)$ as indicated by the upper and lower bound coinciding at these points.
+In that sense, the procedure covers point identification as a special case.
+Second, as argued in the paper, extrapolation to parameters "further" away from what is point-identified results in wider bounds.
+For example, for $\overline{u}\geq0.7$ bounds are monotonically increasing in $\overline{u}$. In cases of multiple point-identified estimands this relationship is obviously not monotone in $\overline{u}$ for all values, as shown for example by the range $\overline{u}\in[0.6, 0.7]$ in between the two point-identified estimands.
+Third, in stark contrast to the Figure 8 reported in the paper, which imposes parametric assumptions on the underlying MTR functions, the sharp non-parametric bounds reported here quickly become completely uninformative as $\overline{u}<0.6$ with bounds $[-1,1]$ for $\overline{u}\leq0.45$. This highlights the importance of assumptions on the ability to extrapolate.
+Interestingly, the sharp non-parametric bounds here are generally more narrow for $\overline{u}\geq0.7$ than $\overline{u}\leq0.6$, implying that the data alone in the form of the conditional moments $E[Y|D,Z]$ contain more information about these parameters.
+Imposing parametric assumptions in Figure 8 of the paper makes these bounds approximately equally wide, implying that the relative importance of parametric assumptions strongly varies by the target, i.e. $\overline{u}$.
+
+
+\textbf{Estimation}: In terms of estimation, I first find that the average bounds in Figure \ref{fig:main_sim_violin} are for the most part too wide. This holds in particular for almost all $\overline{u}$ for the estimator of the lower bound, while the upper bound overestimates the true bound for all values $\overline{u}\in[0.45, 0.75]$. For any larger values, the estimator for the upper bound has a mean indistinguishable from the true bound.
+Generally, for the given sample size the distributions of the estimators are fairly tightly centered around their respective means. For example, almost none of the individuals simulation runs for any of the lower bound estimators come cloe to the true estimator.
+% While the \citet{mogstad2018using} only prove consistency and there is no reason to believe that the estimator is unbiased in finite samples, the quality of the result does not change when increasing the sample size.
+% If this was only a finite sample bias we would at least hope that the bias decreases when increasing $N$. Appendix Figure \ref{app_fig:large_n} reports simulation results in similar form for $N\in\{25000, 50000, 100000\}$. While the standard deviation of the estimator decreases as expected, estimated means are largely unchanged.
+% If true, this would call into question the consistency of the estimator in this setting\footnote{While technically the estimator might still converge at some point, this seems unlikely. Also, for these sample sizes we would in any way hope for a lot smaller finite sample bias.}.
+
+Figure \ref{fig:histos} additionally plots the distribution of the lower and upper bound estimators for a fixed $\overline{u}=0.95$.
+As noted, before this figure shows that the lower bound estimator considerabl underestimates the true bound, a feature also present for a large sample of $N=50,000$.
+The upper bound estimator, however, for this target parameter is tightly centered around the true mean.
+To get a sense of the distribution, the plot overlays corresponding normal denities with matched means and variances. The upper bound estimator clearly has a non-standard asymmetric distribution, with a median to the right of the mean.
+For the lower bound estimator the distribution actually looks somewhat closer to a normal, although this is hard to judge as $R=500$ probably introduces noticeable simulation noise.
+
+\begin{figure}[H]
+    \caption{Simulation Results for Sharp Non-Parametric Bounds \label{fig:main_sim_violin}}
+    \includegraphics[width=\textwidth]{../python/figures/simulation_results_by_target}
+\end{figure}
+
+\clearpage
+\newpage
+
+\begin{figure}[H][h!]
+    \caption{Distribution of Estimator for $LATE(0.35, 0.9)$ by $N$ \label{fig:histos}}
+     \centering
+
+     \begin{subfigure}[b]{0.49\textwidth}
+         \centering
+         \includegraphics[width=\textwidth]{../python/figures/simulation_results_by_sample_size_lower_bound_figure5}
+         \subcaption{$N=10,000$}
+     \end{subfigure}
+    \hfill
+     \begin{subfigure}[b]{0.49\textwidth}
+         \centering
+         \includegraphics[width=\textwidth]{../python/figures/simulation_results_by_sample_size_upper_bound_figure5}
+         \subcaption{$N=10,000$}
+        \end{subfigure}
+
+\floatfoot{\footnotesize
+
+\textbf{Notes}: This figure compares simulation results for the main specification, a fixed target parameter $LATE(0.35, 0.9)$ and different sample sizes $N$.
+The solid line indicates the true upper bound, the true lower bound is given by -0.138. The dashed line correspond to the mean of the estimator. Additionally, the plot shows a normal distribution with the mean and variance equal to the moments of the estimator distributions.}
+
+\end{figure}
+\clearpage
+\newpage
+
+\section{Conclusion}
+While the (identificaiton) approach proposed by \citet{mogstad2018using} offers a framework for applied researchers enabling them to coherently think about and identify relevant target estimands, I think it would be beneficial if more was known on the behavior of these estimators by the means of simulation results.
+Simulation are neither reported in \citet{mogstad2018using} or their working paper version, nor the \textit{ivmte} R-package implementation described in \citet{shea2021ivmte}.
+While the results here should be viewed very cautiously, as they are probably subject to implementation error, this is also one of the simplest possible settings in terms of DGP and assumptions\footnote{I also tried to replicate the analysis using the \textit{ivmte} package by \citet{shea2021ivmte}. However, for the same DGP, similar restrictions and using a saturated regressions for the identified moments I found the resulting distributions of the bounds to be even more biased. It is hard to tell, however, how exactly the estimator is implemented, as the package does not exactly follow the original \citet{mogstad2018using} paper.}. Yet, already some problems showed up that make the estimator hard to implement.
+In settings applied researchers want to use, say with $Z$ taking on many more values, other covariates $X$, or while imposing restrictions on the MTRs, additional issues might show up that might be worth investigating.
+
+Thus, future analysis could focus on the behavior of the estimator in these types of settings.
+Beyond that, \citet{mogstad2018using} propose a bootstrap method for constructing confidence intervals for the identified sets in their working paper version.
+However, they already note that no accepted procedure for these types of problems exist. While a lot more computationally demanding, it would be interesting to have simulation results on these or think about a different approaches to quantify uncertainty about the estimator\footnote{Maybe it would be worthiwhile recasting this as a Bayesian problem, although this might give up the attractive distinction between model uncertainty (in the form of the identified set) and sampling unertainty (the frequentist CI for that set).}.
+Lastly, applied reseachers are concerned with problems about weak instruments \citep{andrews2019weak}. It would be interesting to study how these translate into the estimation of the bounds.
+From the point of identificaiton of course, there is no problem with weak instruments --- as long as the propensity score varies over $Z$, the instruments identify something, only bounds for extrapolation will be wide. Still the estimator may suffer from a particularly bad finite sample bias or the bootstrap approach to CI construction might fail\footnote{\citet{mogstad2018using} briefly mention the weak IV in footnote 3 and suggest to instead dropping the first-stage scaling by $\frac{1}{Cov(D,Z_0)}$ from the IV-like specification, which they argue imposes the same constraints on the MTR functions.}.
+
+
+\setstretch{1}
+\printbibliography
+\setstretch{1.5}
+
+
+% \appendix
+
+% The chngctr package is needed for the following lines.
+% \counterwithin{table}{section}
+% \counterwithin{figure}{section}
+
+\end{document}
