@@ -163,12 +163,6 @@ def test_compute_first_step_upper_bounds():
     assert actual == pytest.approx(expected)
 
 
-# TODO implement or delete
-@pytest.mark.skip(reason="Not implemented yet")
-def test_estimate_identified_estimands():
-    pass
-
-
 @pytest.fixture()
 def setup_dgp():
     identified_estimands = [Estimand(esttype="iv_slope"), Estimand(esttype="ols_slope")]
