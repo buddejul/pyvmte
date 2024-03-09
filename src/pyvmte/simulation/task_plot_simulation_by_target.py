@@ -1,8 +1,8 @@
 """Task for plotting simulation by target."""
-import os
 from pathlib import Path
-from typing import Annotated, NamedTuple
+from typing import Annotated
 
+import numpy as np
 import pandas as pd  # type: ignore
 import plotly.graph_objects as go  # type: ignore
 import plotly.io as pio  # type: ignore
@@ -12,30 +12,33 @@ from pyvmte.config import (
     BLD,
     DGP_MST,
     IV_MST,
-    MONTE_CARLO_BY_TARGET,
     SETUP_FIG5,
     SIMULATION_RESULTS_DIR,
 )
-from pyvmte.replication.plot_bounds_by_target import create_bounds_by_target_df
+from pyvmte.config_mc_by_target import MONTE_CARLO_BY_TARGET
+from pyvmte.simulation.create_bounds_by_target import create_bounds_by_target_df
+
+_DEPENDENCIES = {
+    u_hi: BLD
+    / "python"
+    / "data"
+    / "by_target"
+    / Path(f"sim_results_figure5_u_hi_{u_hi}.pkl")
+    for u_hi in MONTE_CARLO_BY_TARGET.u_hi_range  # type: ignore
+}
 
 
-class _Arguments(NamedTuple):
-    path_to_plot: Path
-
-
+# TODO make this plot nicer
 def task_plot_simulation_by_target(
-    u_hi_range=MONTE_CARLO_BY_TARGET.u_hi_range,
+    u_hi_range: np.ndarray = MONTE_CARLO_BY_TARGET.u_hi_range,  # type: ignore
+    path_to_data: dict[str, Path] = _DEPENDENCIES,
     path_to_plot: Annotated[Path, Product] = BLD
     / "python"
     / "figures"
     / "simulation_results_by_target.png",
 ) -> None:
     """Plot simulation by target."""
-    files = [
-        f
-        for f in os.listdir(SIMULATION_RESULTS_DIR / "by_target")
-        if Path.is_file(SIMULATION_RESULTS_DIR / "by_target" / f)
-    ]
+    files = list(path_to_data.values())
 
     dfs = [
         pd.read_pickle(SIMULATION_RESULTS_DIR / "by_target" / f).assign(
@@ -44,10 +47,11 @@ def task_plot_simulation_by_target(
         for f in files
     ]
     df_estimates = pd.concat(dfs, ignore_index=True)
-    df_estimates.head()
 
     # From the filename column extract the string between "u_hi" and ".pkl"
-    df_estimates["u_hi"] = df_estimates["filename"].str.extract(r"u_hi_(.*)\.pkl")
+    df_estimates["u_hi"] = (
+        df_estimates["filename"].astype(str).str.extract(r"u_hi_(.*)\.pkl")
+    )
     df_estimates["u_hi"] = df_estimates["u_hi"].astype(float)
 
     df_estimates = df_estimates[df_estimates["u_hi"].isin(u_hi_range)]
@@ -57,11 +61,11 @@ def task_plot_simulation_by_target(
     df_mean = df_estimates.groupby("u_hi")[["lower_bound", "upper_bound"]].mean()
     df_mean = df_mean.reset_index()
 
-    df_10 = df_estimates.groupby("u_hi")[["lower_bound", "upper_bound"]].quantile(0.1)
-    df_10 = df_10.reset_index()
+    df_05 = df_estimates.groupby("u_hi")[["lower_bound", "upper_bound"]].quantile(0.05)
+    df_05 = df_05.reset_index()
 
-    df_90 = df_estimates.groupby("u_hi")[["lower_bound", "upper_bound"]].quantile(0.9)
-    df_90 = df_90.reset_index()
+    df_95 = df_estimates.groupby("u_hi")[["lower_bound", "upper_bound"]].quantile(0.95)
+    df_95 = df_95.reset_index()
 
     df_identified = create_bounds_by_target_df(
         setup=SETUP_FIG5,
@@ -71,70 +75,71 @@ def task_plot_simulation_by_target(
         n_gridpoints=100,
     )
 
-    # Simulation results
-    for df in [df_mean, df_10, df_90]:
-        if df is df_mean:
-            name = "Mean"
-        elif df is df_10:
-            name = "10th Percentile"
-        elif df is df_90:
-            name = "90th Percentile"
+    df_identified = df_identified[df_identified["u_hi"] <= max(u_hi_range)]
 
-        transp = 1.0 if df is df_mean else 0.5
+    data_to_plot = {
+        "mean": {"data": df_mean, "name": "Mean", "transp": 1.0, "line_dash": "solid"},
+        "5th": {
+            "data": df_05,
+            "name": "5th Percentile",
+            "transp": 0.5,
+            "line_dash": "solid",
+        },
+        "95th": {
+            "data": df_95,
+            "name": "95th Percentile",
+            "transp": 0.5,
+            "line_dash": "solid",
+        },
+        "identified": {
+            "data": df_identified,
+            "name": "True Bound",
+            "transp": 1.0,
+            "line_dash": "dot",
+        },
+    }
 
-        fig.add_trace(
-            go.Scatter(
-                x=df["u_hi"],
-                y=df["upper_bound"],
-                name=name,
-                mode="lines",
-                line_color="green",
-                opacity=transp,
-            ),
-        )
+    bounds_to_plot = {
+        "lower_bound": {"color": "blue"},
+        "upper_bound": {"color": "green"},
+    }
 
-        fig.add_trace(
-            go.Scatter(
-                x=df["u_hi"],
-                y=df["lower_bound"],
-                name=name,
-                mode="lines",
-                line_color="blue",
-                opacity=transp,
-            ),
-        )
+    for data in data_to_plot.values():
+        for key, values in bounds_to_plot.items():
+            fig.add_trace(
+                go.Scatter(
+                    x=data["data"]["u_hi"],
+                    y=data["data"][key],
+                    name=data["name"],
+                    mode="lines",
+                    line_color=values["color"],
+                    line_dash=data["line_dash"],
+                    opacity=data["transp"],
+                    legendgroup=key,
+                    legendgrouptitle_text=key.replace("_", " ").title(),
+                ),
+            )
 
-    # (True) Identified bounds
-    fig.add_trace(
-        go.Scatter(
-            x=df_identified["u_hi"],
-            y=df_identified["upper_bound"],
-            name=name,
-            mode="lines",
-            line={"color": "green", "dash": "dot"},
-            opacity=transp,
-        ),
-    )
-
-    fig.add_trace(
-        go.Scatter(
-            x=df_identified["u_hi"],
-            y=df_identified["lower_bound"],
-            name=name,
-            mode="lines",
-            line={"color": "blue", "dash": "dot"},
-            opacity=transp,
-        ),
-    )
-
-    # Remove legend
-    fig.update_layout(showlegend=False)
-
-    # Update title
     fig.update_layout(
-        title_text="Sharp Non-Parametric Bound Estimates by Target Parameter",
+        title_text=(
+            "Bound Estimates by Target Parameter"
+            "<br><sup>Target LATE(0.35, x), Sharp-Nonparametric Bounds (Figure 5 MST)</sup>"  # noqa: E501
+        ),
     )
     fig.update_xaxes(title_text="Upper Bound of Target Parameter")
     fig.update_yaxes(title_text="Bound Estimate")
+
+    fig.add_annotation(
+        text=(
+            f"Sample Size = {MONTE_CARLO_BY_TARGET.sample_size}, "
+            f"Repetitions = {MONTE_CARLO_BY_TARGET.repetitions}"
+        ),
+        xref="paper",
+        yref="paper",
+        x=0,
+        y=-0.2,
+        font={"size": 10},
+        showarrow=False,
+    )
 
     pio.write_image(fig, path_to_plot)

@@ -8,11 +8,11 @@ from pytask import Product, task
 from pyvmte.classes import Estimand, MonteCarloSetup, Setup
 from pyvmte.config import (
     BLD,
-    MONTE_CARLO_BY_TARGET,
     RNG,
     SETUP_FIG5,
     SRC,
 )
+from pyvmte.config_mc_by_target import MONTE_CARLO_BY_TARGET
 from pyvmte.simulation.simulation_funcs import monte_carlo_pyvmte
 
 for u_hi_target in MONTE_CARLO_BY_TARGET.u_hi_range:  # type: ignore
@@ -28,6 +28,7 @@ for u_hi_target in MONTE_CARLO_BY_TARGET.u_hi_range:  # type: ignore
         setup_mc: MonteCarloSetup = MONTE_CARLO_BY_TARGET,
         u_hi_target: float = u_hi_target,
         config: Path = SRC / "config.py",
+        config_mc_by_target: Path = SRC / "config_mc_by_target.py",
     ) -> None:
         """Run simulation by target parameter."""
         tolerance = 1 / setup_mc.sample_size
@@ -49,7 +50,5 @@ for u_hi_target in MONTE_CARLO_BY_TARGET.u_hi_range:  # type: ignore
             "lower_bound": result["lower_bound"],
         }
         data = pd.DataFrame(bounds)
-
-        # TODO (@buddejul):   Store simulation setting alongside?
 
         data.to_pickle(path_to_data)
