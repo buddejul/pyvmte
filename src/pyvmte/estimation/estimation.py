@@ -9,10 +9,15 @@ from scipy.optimize import (  # type: ignore
     linprog,  # type: ignore
 )
 
-from pyvmte.config import Estimand, Instrument
+from pyvmte.classes import Estimand, Instrument
 from pyvmte.identification.identification import _compute_choice_weights
 from pyvmte.utilities import (
-    _check_estimation_arguments,
+    _error_report_estimand,
+    _error_report_estimation_data,
+    _error_report_invalid_basis_func_type,
+    _error_report_method,
+    _error_report_tolerance,
+    _error_report_u_partition,
     s_cross,
     s_iv_slope,
     s_ols_slope,
@@ -28,7 +33,6 @@ def estimation(
     z_data: np.ndarray,
     d_data: np.ndarray,
     tolerance: float | None = None,
-    x_data: np.ndarray | None = None,
     u_partition: np.ndarray | None = None,
     method: str = "highs",
 ):
@@ -45,7 +49,6 @@ def estimation(
         d_data (np.array): Array containing the treatment data.
         tolerance (float, optional): Tolerance for the second-step linear program.
         The default is 1 / sample_size.
-        x_data (np.array, optional): Array containing the covariate data.
         u_partition (list or np.array, optional): Partition of u for basis_funcs.
         Defaults to None.
         method (str, optional): Method for scipy linprog solver. Default highs.
@@ -55,6 +58,9 @@ def estimation(
         estimand.
 
     """
+    if isinstance(identified_estimands, Estimand):
+        identified_estimands = [identified_estimands]
+
     _check_estimation_arguments(
         target,
         identified_estimands,
@@ -63,8 +69,8 @@ def estimation(
         z_data,
         d_data,
         tolerance,
-        x_data,
         u_partition,
+        method,
     )
 
     # ==================================================================================
@@ -297,8 +303,6 @@ def _estimate_estimand(
     return np.mean(ind_elements)
 
 
-# TODO (@buddejul): spend 60% of time here
-# take out estimation of moments and generating array of pscores
 def _estimate_weights_estimand(
     estimand: Estimand,
     basis_funcs: list,
@@ -556,7 +560,6 @@ def _estimate_instrument_characteristics(
     )
 
 
-# TODO (@buddejul):  optimize: spend about 50% of time here
 def _estimate_gamma_for_basis_funcs(
     d_value: int,
     estimand: Estimand,
@@ -577,7 +580,6 @@ def _estimate_gamma_for_basis_funcs(
     if estimand.esttype == "iv_slope":
         coef = (data["z"] - moments["expectation_z"]) / moments["covariance_dz"]
     if estimand.esttype == "cross":
-        # TODO (@buddejul):  make specification of cross estimands safer
         d_cross = estimand.dz_cross[0]  # type: ignore
         z_cross = estimand.dz_cross[1]  # type: ignore
 
@@ -637,3 +639,32 @@ def _solve_lp_estimation_copt(lp_second_inputs: dict, min_or_max: str) -> float:
         msg = "LP not solved to optimality by copt."
         raise ValueError(msg)
     return model.objval
+
+
+def _check_estimation_arguments(
+    target,
+    identified_estimands,
+    basis_func_type,
+    y_data,
+    z_data,
+    d_data,
+    tolerance,  # optional
+    u_partition,  # optional
+    method,  # optional
+):
+    """Check args to estimation func, returns report if there are errors."""
+    error_report = ""
+
+    error_report += _error_report_estimand(target)
+    for ident in identified_estimands:
+        error_report += _error_report_estimand(ident)
+    error_report += _error_report_invalid_basis_func_type(basis_func_type)
+
+    error_report += _error_report_estimation_data(y_data, z_data, d_data)
+
+    error_report += _error_report_tolerance(tolerance)
+    error_report += _error_report_u_partition(u_partition)
+    error_report += _error_report_method(method)
+
+    if error_report != "":
+        raise ValueError(error_report)

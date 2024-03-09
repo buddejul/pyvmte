@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from pyvmte.config import Estimand
+from pyvmte.classes import Estimand
 from pyvmte.estimation.estimation import _estimate_prop_z, estimation
 from pyvmte.utilities import simulate_data_from_paper_dgp
 
@@ -44,7 +44,6 @@ def monte_carlo_pyvmte(
             z_data,
             d_data,
             tolerance,
-            x_data=None,
             u_partition=None,
             method=method,
         )

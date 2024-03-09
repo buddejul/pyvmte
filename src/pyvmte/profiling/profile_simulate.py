@@ -27,7 +27,6 @@ def simulate_data_from_paper_dgp(sample_size, rng):
 
     y = np.empty(sample_size)
     idx = d == 0
-    # TODO (@buddejul):  do this properly
     y[idx] = (
         +0.6 * (1 - u[idx]) ** 2 + 0.4 * 2 * u[idx] * (1 - u[idx]) + 0.3 * u[idx] ** 2
     )

@@ -5,7 +5,7 @@ from dataclasses import replace
 import numpy as np
 import pandas as pd  # type: ignore
 
-from pyvmte.config import Instrument, Setup
+from pyvmte.classes import Instrument, Setup
 from pyvmte.estimation.estimation import _compute_u_partition, _generate_basis_funcs
 from pyvmte.identification import identification
 
@@ -18,9 +18,25 @@ def create_bounds_by_target_df(
     m0: Callable,
     m1: Callable,
     n_gridpoints: int,
+    u_hi_min: float,
+    u_hi_max: float,
 ) -> pd.DataFrame:
-    """Returns dataframe of bounds for different targets."""
-    range_of_targets = np.linspace(0.35, 1, n_gridpoints)
+    """Returns dataframe of bounds for different targets.
+
+    Args:
+        setup (Setup): For which setup to create bounds
+        instrument (Instrument): Instrument implied by the DGP
+        m0 (Callable): MTR for treatment = 0
+        m1 (Callable): MTR for treatment = 1
+        n_gridpoints (int): gridpoints to compute bounds for
+        u_hi_min (float): smallest target to consider
+        u_hi_max (float): largest target to consider
+
+    Returns:
+        pd.DataFrame: dataframe of bounds for different targets
+
+    """
+    range_of_targets = np.linspace(u_hi_min, u_hi_max, n_gridpoints)
     upper_bounds = np.zeros(len(range_of_targets))
     lower_bounds = np.zeros(len(range_of_targets))
 

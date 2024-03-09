@@ -119,9 +119,6 @@ def _njit__estimate_weights_estimand(
     return weights
 
 
-# FIXME think about accurate timing, e.g. calling functions first to compile them
-
-
 def _optimized_estimate_gamma_for_basis_funcs(
     d_value: int,
     estimand: Estimand,
@@ -142,7 +139,6 @@ def _optimized_estimate_gamma_for_basis_funcs(
     if estimand.esttype == "iv_slope":
         coef = (data["z"] - moments["expectation_z"]) / moments["covariance_dz"]
     if estimand.esttype == "cross":
-        # TODO (@buddejul):  make specification of cross estimands safer
         d_cross = estimand.dz_cross[0]  # type: ignore
         z_cross = estimand.dz_cross[1]  # type: ignore
 
@@ -195,7 +191,6 @@ def _estimate_gamma_for_basis_funcs(
     if estimand.esttype == "iv_slope":
         coef = (data["z"] - moments["expectation_z"]) / moments["covariance_dz"]
     if estimand.esttype == "cross":
-        # TODO (@buddejul):  make specification of cross estimands safer
         d_cross = estimand.dz_cross[0]  # type: ignore
         z_cross = estimand.dz_cross[1]  # type: ignore
         coef = np.where(d_value == d_cross, data["z"] == z_cross, 0)

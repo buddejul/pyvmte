@@ -9,8 +9,20 @@ from scipy.optimize import (  # type: ignore
     linprog,  # type: ignore
 )
 
-from pyvmte.config import Estimand, Instrument
-from pyvmte.utilities import compute_moments, s_cross, s_iv_slope, s_late, s_ols_slope
+from pyvmte.classes import Estimand, Instrument
+from pyvmte.utilities import (
+    _error_report_basis_funcs,
+    _error_report_estimand,
+    _error_report_instrument,
+    _error_report_method,
+    _error_report_mtr_function,
+    _error_report_u_partition,
+    compute_moments,
+    s_cross,
+    s_iv_slope,
+    s_late,
+    s_ols_slope,
+)
 
 
 def identification(
@@ -26,16 +38,16 @@ def identification(
     """Compute bounds on target estimand given identified estimands and DGP.
 
     Args:
-        target (dict): Dictionary containing all information about the target estimand.
-        identified_estimands (dict or list of dicts): Dictionary containing all
-            information about the identified estimand(s). List of dicts if multiple
+        target (Estimand): All information about the target estimand.
+        identified_estimands (Estimand or list of Estimands): All
+            information about the identified estimand(s). List if multiple
             identified estimands.
         basis_funcs (dict or list of dicts): Dictionaries describing the basis
             functions.
         m0_dgp (function): The MTR function for d=0 of the DGP.
         m1_dgp (function): The MTR function for d=1 of the DGP.
-        instrument (dict): Dictionary containing all information about the instrument.
-        u_partition (list or np.array, optional): Partition of u for basis_funcs.
+        instrument (Instrument): All information about the instrument.
+        u_partition (list or np.array): Partition of u for basis_funcs.
             Defaults to None.
         method (str, optional): Method for solving the linear program.
             Implemented are: all methods supported by scipy.linprog as well as copt.
@@ -48,8 +60,22 @@ def identification(
     # ==================================================================================
     # Perform some additional checks on arguments
     # ==================================================================================
-    if isinstance(identified_estimands, dict):
+    if isinstance(identified_estimands, Estimand):
         identified_estimands = [identified_estimands]
+
+    if isinstance(basis_funcs, dict):
+        basis_funcs = [basis_funcs]
+
+    _check_identification_arguments(
+        target,
+        identified_estimands,
+        basis_funcs,
+        m0_dgp,
+        m1_dgp,
+        instrument,
+        u_partition,
+        method,
+    )
 
     # ==================================================================================
     # Generate linear program inputs
@@ -133,10 +159,8 @@ def _compute_choice_weights(
     bfunc_type = basis_funcs[0]["type"]
 
     if bfunc_type == "constant":
-        # TODO (@buddejul):  think about separating identification and estimation
         if moments is None and instrument is not None:
             moments = _compute_moments_for_weights(target, instrument)
-        # FIXME check why this all works with moments = None and instruments = None
         c = []
         for d in [0, 1]:
             for bfunc in basis_funcs:
@@ -348,7 +372,6 @@ def _compute_constant_spline_weights(
     the law of iterated expectations.
 
     """
-    # TODO (@buddejul):  change this, do not actually need u here I think
     u = (basis_function["u_lo"] + basis_function["u_hi"]) / 2
 
     if estimand.esttype == "ols_slope":
@@ -460,3 +483,33 @@ def _compute_cross_weight_for_identification(u, d, instrument: Instrument, dz_cr
     ]
 
     return np.sum(weights_by_z)
+
+
+def _check_identification_arguments(
+    target,
+    identified_estimands,
+    basis_funcs,
+    m0_dgp,
+    m1_dgp,
+    instrument,
+    u_partition,
+    method,
+):
+    """Check identification arguments.
+
+    Fail and comprehensive report if invalid.
+
+    """
+    error_report = ""
+    error_report += _error_report_estimand(target)
+    for ident in identified_estimands:
+        error_report += _error_report_estimand(ident)
+    error_report += _error_report_basis_funcs(basis_funcs)
+    error_report += _error_report_mtr_function(m0_dgp)
+    error_report += _error_report_mtr_function(m1_dgp)
+    error_report += _error_report_instrument(instrument)
+    error_report += _error_report_u_partition(u_partition)
+    error_report += _error_report_method(method)
+
+    if error_report:
+        raise ValueError(error_report)

@@ -28,7 +28,6 @@ _DEPENDENCIES = {
 }
 
 
-# TODO make this plot nicer
 def task_plot_simulation_by_target(
     u_hi_range: np.ndarray = MONTE_CARLO_BY_TARGET.u_hi_range,  # type: ignore
     path_to_data: dict[str, Path] = _DEPENDENCIES,
@@ -73,6 +72,8 @@ def task_plot_simulation_by_target(
         m0=DGP_MST.m0,
         m1=DGP_MST.m1,
         n_gridpoints=100,
+        u_hi_min=SETUP_FIG5.target.u_lo + 0.01,
+        u_hi_max=SETUP_FIG5.target.u_hi,
     )
 
     df_identified = df_identified[df_identified["u_hi"] <= max(u_hi_range)]
