@@ -19,15 +19,20 @@ To build the project, type
 $ pytask
 ```
 
-To reduce runtime it is recommended to use the [pytask-parallel](https://github.com/pytask-dev/pytask-parallel) plug-in:
+To reduce runtime it is recommended to use the
+[pytask-parallel](https://github.com/pytask-dev/pytask-parallel) plug-in:
+
 ```console
 $ pytask -n <workers>
 ```
+
 where `workers` is the number of workers.
 
 With parallelization the project builds in 5-10 minutes on my machine using 11 workers.
 
-To reduce run-time it is also possible to adjust the simulation settings in `config_mc_by_size.py` and `config_mc_by_target.py`:
+To reduce run-time it is also possible to adjust the simulation settings in
+`config_mc_by_size.py` and `config_mc_by_target.py`:
+
 ```python
 MC_SAMPLE_SIZES = [500, 2500, 10000]
 
@@ -42,7 +47,10 @@ MONTE_CARLO_BY_TARGET = MonteCarloSetup(
     u_hi_range=np.arange(0.35, 1, 0.05),
 )
 ```
-Reducing the `repetitions` always works. Only be careful with really small sample sizes which can result in errors because estimators are undefined (the linear programs do not have a solution).
+
+Reducing the `repetitions` always works. Only be careful with really small sample sizes
+which can result in errors because estimators are undefined (the linear programs do not
+have a solution).
 
 ## Credits
 
