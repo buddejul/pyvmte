@@ -73,7 +73,16 @@ def bern_bas(n, v, x):
 
 
 def simulate_data_from_paper_dgp(sample_size, rng):
-    """Simulate data using the dgp from MST 2018 ECMA."""
+    """Simulate data using the dgp from MST 2018 ECMA.
+
+    Args:
+        sample_size (int): The number of observations in the sample.
+        rng (np.random.Generator): The random number generator.
+
+    Returns:
+        dict: A dictionary containing the simulated data.
+
+    """
     data = pd.DataFrame()
 
     support = np.array([0, 1, 2])
