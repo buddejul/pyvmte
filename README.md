@@ -107,6 +107,8 @@ not have a solution).
 
 ## Credits
 
+The original repo I mainly used for development can be found at [pyvmte](https://github.com/buddejul/pyvmte).
+
 This project was created with [cookiecutter](https://github.com/audreyr/cookiecutter)
 and the
 [econ-project-templates](https://github.com/OpenSourceEconomics/econ-project-templates).
