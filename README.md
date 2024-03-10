@@ -31,6 +31,14 @@ functions* in a binary choice model. Hence, a combination of data moments and
 assumptions on MTR functions imply an identified set for the target parameter. For a
 more detailed introduction to the method see the report in this project.
 
+I originally started working on this project in an econometrics topics course in the
+2023 summer term, but back then couldn't get the code to run properly. In particular,
+similar Monte Carlo studies resulted in estimates exhibiting severe bias due to a faulty
+implementation. The results reported here now are more plausible given the results in
+MST. While technically their estimator is only consistent (probably not unbiased) and
+they don't report any simulations, this paper would probably have not been published if
+their method was severely biased for any realistic sample size.
+
 ## Implementation
 
 All sets in MST (identified or estimated) are implicitly defined by linear programs

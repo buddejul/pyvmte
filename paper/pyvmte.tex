@@ -63,11 +63,11 @@
 
 \begin{document}
 
-\title{Simulation: Inference About Policy Relevant Treatment Effects \thanks{Econometrics Topics Course, Summer 2023, University of Bonn.}}
+\title{Simulation: Inference About Policy Relevant Treatment Effects \thanks{EPP Winter 2024/2024, originally Econometrics Topics Course, Summer 2023, University of Bonn.}}
 
 \author{Julian Budde\thanks{University of Bonn}}
 
-\date{\today \\ \vspace{1em} Term Paper (Econometrics Topics Course Summer 2023)}
+\date{\today \\ \vspace{1em} Term Paper (EPP Winter 2023/2024)}
 \maketitle
 
 
@@ -296,9 +296,8 @@ In our case the objective will generally be of the form $\min\sum_{s\in S}|X_s|$
 These are standard linear programs with the objective of maximizing (minimizing) the implied target estimand. Now the constraint includes absolute values (the deviations from estimated target parameters in the LHS of the constraint in (\ref{eq:est_lp})), which we can again address by introducing dummy variables and additional constraints.
 The resulting optimal solutions constitute the upper and lower bounds.
 
-I solve both linear programs using AMPL, specifically the \href{https://amplpy.readthedocs.io/en/latest/}{AMPL Python API}. AMPL licenses are free for researchers and graduate students.
-The solver I used was "HiGHS" or "gurobi". All estimation, data handling and analysis steps are performed in Python.
-I discuss some practical issues relating to the tolerance level and the u-partition after introducing the DGP and main simulation analysis below.
+I solve both linear programs using the scipy implementation of the highs algorithm. All estimation, data handling and analysis steps are performed in Python.
+% I discuss some practical issues relating to the tolerance level and the u-partition after introducing the DGP and main simulation analysis below.
 
 \section{Simulation Setting} \label{sec:4_sim}
 I use the main data generating process (DGP) used in the numerical example by \cite{mogstad2018using}.
@@ -360,56 +359,54 @@ Interestingly, the sharp non-parametric bounds here are generally more narrow fo
 Imposing parametric assumptions in Figure 8 of the paper makes these bounds approximately equally wide, implying that the relative importance of parametric assumptions strongly varies by the target, i.e. $\overline{u}$.
 
 
-\textbf{Estimation}: In terms of estimation, I first find that the average bounds in Figure \ref{fig:main_sim_violin} are for the most part too wide. This holds in particular for almost all $\overline{u}$ for the estimator of the lower bound, while the upper bound overestimates the true bound for all values $\overline{u}\in[0.45, 0.75]$. For any larger values, the estimator for the upper bound has a mean indistinguishable from the true bound.
-Generally, for the given sample size the distributions of the estimators are fairly tightly centered around their respective means. For example, almost none of the individuals simulation runs for any of the lower bound estimators come cloe to the true estimator.
+\textbf{Estimation}: In terms of estimation, I first find that the average bounds in Figure \ref{fig:main_sim_violin} are for the most part very close to the respective identification results. The figure contains simulation results for separate targets $LATE(0.35, x)$.
+For each upper limit of the target parameter (corresponding to different sub-populations), I report the true bound (dashed line), the mean as well as the 5th and 95th percentile of the simulated estimator.
+%This holds in particular for almost all $\overline{u}$ for the estimator of the lower bound, while the upper bound overestimates the true bound for all values $\overline{u}\in[0.45, 0.75]$. For any larger values, the estimator for the upper bound has a mean indistinguishable from the true bound.
+%Generally, for the given sample size the distributions of the estimators are fairly tightly centered around their respective means. For example, almost none of the individuals simulation runs for any of the lower bound estimators come cloe to the true estimator.
 % While the \citet{mogstad2018using} only prove consistency and there is no reason to believe that the estimator is unbiased in finite samples, the quality of the result does not change when increasing the sample size.
 % If this was only a finite sample bias we would at least hope that the bias decreases when increasing $N$. Appendix Figure \ref{app_fig:large_n} reports simulation results in similar form for $N\in\{25000, 50000, 100000\}$. While the standard deviation of the estimator decreases as expected, estimated means are largely unchanged.
 % If true, this would call into question the consistency of the estimator in this setting\footnote{While technically the estimator might still converge at some point, this seems unlikely. Also, for these sample sizes we would in any way hope for a lot smaller finite sample bias.}.
 
 Figure \ref{fig:histos} additionally plots the distribution of the lower and upper bound estimators for a fixed $\overline{u}=0.95$.
-As noted, before this figure shows that the lower bound estimator considerabl underestimates the true bound, a feature also present for a large sample of $N=50,000$.
-The upper bound estimator, however, for this target parameter is tightly centered around the true mean.
-To get a sense of the distribution, the plot overlays corresponding normal denities with matched means and variances. The upper bound estimator clearly has a non-standard asymmetric distribution, with a median to the right of the mean.
-For the lower bound estimator the distribution actually looks somewhat closer to a normal, although this is hard to judge as $R=500$ probably introduces noticeable simulation noise.
-
+As noted before, this figure shows that for larger sample sizes ($N=10,000$) the estimator distribution is tightly centered around the true upper (lower) bound.
+For smaller sample sizes, however, the estimator exhibits considerable bias. For example, for $N=500$, the upper bound is on average over-estimated, while the lower-bound is under-estimated.
+In line with the consistency result in the paper, increasing the sample sizes the estimator distribution seems to converge to the true parameter. The mean is considerably closer to the true bound and the variance shrinks, as expected.
 \begin{figure}[H]
     \caption{Simulation Results for Sharp Non-Parametric Bounds \label{fig:main_sim_violin}}
     \includegraphics[width=\textwidth]{../python/figures/simulation_results_by_target}
 \end{figure}
 
-\clearpage
-\newpage
 
 \begin{figure}[H]
     \caption{Distribution of Estimator for $LATE(0.35, 0.9)$ by $N$ \label{fig:histos}}
      \centering
 
-     \begin{subfigure}[b]{0.49\textwidth}
+     \begin{subfigure}[b]{0.90\textwidth}
          \centering
          \includegraphics[width=\textwidth]{../python/figures/simulation_results_by_sample_size_lower_bound_figure5}
-         \subcaption{$N=10,000$}
+         \subcaption{Lower Bound}
      \end{subfigure}
-    \hfill
-     \begin{subfigure}[b]{0.49\textwidth}
+
+     \begin{subfigure}[b]{0.90\textwidth}
          \centering
          \includegraphics[width=\textwidth]{../python/figures/simulation_results_by_sample_size_upper_bound_figure5}
-         \subcaption{$N=10,000$}
+         \subcaption{Upper Bound}
         \end{subfigure}
 
 \floatfoot{\footnotesize
 
 \textbf{Notes}: This figure compares simulation results for the main specification, a fixed target parameter $LATE(0.35, 0.9)$ and different sample sizes $N$.
-The solid line indicates the true upper bound, the true lower bound is given by -0.138. The dashed line correspond to the mean of the estimator. Additionally, the plot shows a normal distribution with the mean and variance equal to the moments of the estimator distributions.}
+The solid lines indicate true bounds. The dashed line correspond to the mean of the estimator.}
 
 \end{figure}
-\clearpage
-\newpage
 
 \section{Conclusion}
 While the (identificaiton) approach proposed by \citet{mogstad2018using} offers a framework for applied researchers enabling them to coherently think about and identify relevant target estimands, I think it would be beneficial if more was known on the behavior of these estimators by the means of simulation results.
 Simulation are neither reported in \citet{mogstad2018using} or their working paper version, nor the \textit{ivmte} R-package implementation described in \citet{shea2021ivmte}.
-While the results here should be viewed very cautiously, as they are probably subject to implementation error, this is also one of the simplest possible settings in terms of DGP and assumptions\footnote{I also tried to replicate the analysis using the \textit{ivmte} package by \citet{shea2021ivmte}. However, for the same DGP, similar restrictions and using a saturated regressions for the identified moments I found the resulting distributions of the bounds to be even more biased. It is hard to tell, however, how exactly the estimator is implemented, as the package does not exactly follow the original \citet{mogstad2018using} paper.}. Yet, already some problems showed up that make the estimator hard to implement.
-In settings applied researchers want to use, say with $Z$ taking on many more values, other covariates $X$, or while imposing restrictions on the MTRs, additional issues might show up that might be worth investigating.
+This report adds to this gap by reporting a first set of results for the main specification in \citet{mogstad2018using}.
+I show that the estimator is well-behaved in larger samples (means close to the true bound with small variance) and estimator seems to converge to the true bound.
+%While the results here should be viewed very cautiously, as they are probably subject to implementation error, this is also one of the simplest possible settings in terms of DGP and assumptions\footnote{I also tried to replicate the analysis using the \textit{ivmte} package by \citet{shea2021ivmte}. However, for the same DGP, similar restrictions and using a saturated regressions for the identified moments I found the resulting distributions of the bounds to be even more biased. It is hard to tell, however, how exactly the estimator is implemented, as the package does not exactly follow the original \citet{mogstad2018using} paper.}. Yet, already some problems showed up that make the estimator hard to implement.
+%In settings applied researchers want to use, say with $Z$ taking on many more values, other covariates $X$, or while imposing restrictions on the MTRs, additional issues might show up that might be worth investigating.
 
 Thus, future analysis could focus on the behavior of the estimator in these types of settings.
 Beyond that, \citet{mogstad2018using} propose a bootstrap method for constructing confidence intervals for the identified sets in their working paper version.
