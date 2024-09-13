@@ -9,6 +9,8 @@ from pyvmte.config import (
     SETUP_FIG2,
     SETUP_FIG3,
     SETUP_FIG5,
+    SETUP_FIG6,
+    SETUP_FIG7,
     U_PART_MST,
 )
 from pyvmte.identification.identification import _compute_estimand, identification
@@ -42,17 +44,25 @@ def test_compute_estimand(target, kwargs, expected):
         (SETUP_FIG2, "highs"),
         (SETUP_FIG3, "highs"),
         (SETUP_FIG5, "highs"),
+        (SETUP_FIG6, "highs"),
+        (SETUP_FIG7, "highs"),
         (SETUP_FIG2, "copt"),
         (SETUP_FIG3, "copt"),
         (SETUP_FIG5, "copt"),
+        (SETUP_FIG6, "copt"),
+        (SETUP_FIG7, "copt"),
     ],
     ids=[
         "fig2_highs",
         "fig3_highs",
         "fig5_highs",
+        "fig6_highs",
+        "fig7_highs",
         "fig2_copt",
         "fig3_copt",
         "fig5_copt",
+        "fig6_copt",
+        "fig7_copt",
     ],
 )
 def test_identification_paper_bounds(setup: Setup, method: str):

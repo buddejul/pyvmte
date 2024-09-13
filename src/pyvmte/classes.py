@@ -72,6 +72,8 @@ class Setup(NamedTuple):
     identified_estimands: list[Estimand]
     lower_bound: float
     upper_bound: float
+    shape_constraint: tuple[str, str] | None = None
+    polynomial: tuple[str, int] | None = None
 
 
 class MonteCarloSetup(NamedTuple):
