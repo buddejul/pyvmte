@@ -55,7 +55,7 @@ SETUP_FIG6 = Setup(
     identified_estimands=cross_estimands,
     lower_bound=-0.095,
     upper_bound=0.077,
-    shape_constraint=("decreasing", "decreasing")
+    shape_constraints=("decreasing", "decreasing"),
 )
 
 SETUP_FIG7 = Setup(
@@ -63,7 +63,7 @@ SETUP_FIG7 = Setup(
     identified_estimands=cross_estimands,
     lower_bound=-0.000,
     upper_bound=0.067,
-    polynomial=("bernstein", 9)
+    polynomial=("bernstein", 9),
 )
 
 IV_MST = Instrument(

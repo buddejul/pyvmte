@@ -305,3 +305,30 @@ def _error_report_instrument(instrument: Instrument):
         error_report += "Instrument attribute pmf does not sum to 1."
 
     return error_report
+
+
+def _error_report_shape_constraints(shape_constraints: tuple[str, str] | None) -> str:
+    """Return error message if shape_constraints is not valid."""
+    error_report = ""
+    if shape_constraints is None:
+        return error_report
+
+    if not isinstance(shape_constraints, tuple):
+        return f"Shape constraints {shape_constraints} is not of type tuple."
+
+    n_shape_constraints = 2
+
+    if len(shape_constraints) != n_shape_constraints:
+        error_report += (
+            f"Shape constraints {shape_constraints} does not have exactly two elements."
+        )
+
+    valid_constraints = ["decreasing", "increasing"]
+
+    for constraint in shape_constraints:
+        if constraint not in valid_constraints:
+            error_report += (
+                f"Shape constraint {constraint} is not valid. "
+                f"Only {valid_constraints} are valid."
+            )
+    return error_report

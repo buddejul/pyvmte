@@ -16,6 +16,7 @@ from pyvmte.utilities import (
     _error_report_instrument,
     _error_report_method,
     _error_report_mtr_function,
+    _error_report_shape_constraints,
     _error_report_u_partition,
     compute_moments,
     s_cross,
@@ -33,6 +34,7 @@ def identification(
     m1_dgp: Callable,
     instrument: Instrument,
     u_partition: np.ndarray,
+    shape_constraints: tuple[str, str] | None = None,
     method: str = "highs",
 ):
     """Compute bounds on target estimand given identified estimands and DGP.
@@ -49,6 +51,7 @@ def identification(
         instrument (Instrument): All information about the instrument.
         u_partition (list or np.array): Partition of u for basis_funcs.
             Defaults to None.
+        shape_constraints: Shape constraints for the MTR functions.
         method (str, optional): Method for solving the linear program.
             Implemented are: all methods supported by scipy.linprog as well as copt.
             Defaults to "highs" using scipy.linprog.
@@ -74,6 +77,7 @@ def identification(
         m1_dgp,
         instrument,
         u_partition,
+        shape_constraints,
         method,
     )
 
@@ -493,6 +497,7 @@ def _check_identification_arguments(
     m1_dgp,
     instrument,
     u_partition,
+    shape_constraints,
     method,
 ):
     """Check identification arguments.
@@ -510,6 +515,7 @@ def _check_identification_arguments(
     error_report += _error_report_instrument(instrument)
     error_report += _error_report_u_partition(u_partition)
     error_report += _error_report_method(method)
+    error_report += _error_report_shape_constraints(shape_constraints)
 
     if error_report:
         raise ValueError(error_report)

@@ -1,4 +1,5 @@
 """Function for estimation."""
+
 from itertools import pairwise
 
 import coptpy as cp  # type: ignore
@@ -16,6 +17,7 @@ from pyvmte.utilities import (
     _error_report_estimation_data,
     _error_report_invalid_basis_func_type,
     _error_report_method,
+    _error_report_shape_constraints,
     _error_report_tolerance,
     _error_report_u_partition,
     s_cross,
@@ -34,6 +36,7 @@ def estimation(
     d_data: np.ndarray,
     tolerance: float | None = None,
     u_partition: np.ndarray | None = None,
+    shape_constraints: tuple[str, str] | None = None,
     method: str = "highs",
 ):
     """Estimate bounds given target, identified estimands, and data (estimation).
@@ -51,6 +54,7 @@ def estimation(
         The default is 1 / sample_size.
         u_partition (list or np.array, optional): Partition of u for basis_funcs.
         Defaults to None.
+        shape_constraints: Shape constraints for the MTR functions.
         method (str, optional): Method for scipy linprog solver. Default highs.
 
     Returns:
@@ -70,6 +74,7 @@ def estimation(
         d_data,
         tolerance,
         u_partition,
+        shape_constraints,
         method,
     )
 
@@ -642,15 +647,16 @@ def _solve_lp_estimation_copt(lp_second_inputs: dict, min_or_max: str) -> float:
 
 
 def _check_estimation_arguments(
-    target,
-    identified_estimands,
-    basis_func_type,
-    y_data,
-    z_data,
-    d_data,
-    tolerance,  # optional
-    u_partition,  # optional
-    method,  # optional
+    target: Estimand,
+    identified_estimands: list[Estimand],
+    basis_func_type: str,
+    y_data: np.ndarray,
+    z_data: np.ndarray,
+    d_data: np.ndarray,
+    tolerance: float | None,
+    u_partition: np.ndarray | None,
+    shape_constraints: tuple[str, str] | None,
+    method: str,
 ):
     """Check args to estimation func, returns report if there are errors."""
     error_report = ""
@@ -665,6 +671,7 @@ def _check_estimation_arguments(
     error_report += _error_report_tolerance(tolerance)
     error_report += _error_report_u_partition(u_partition)
     error_report += _error_report_method(method)
+    error_report += _error_report_shape_constraints(shape_constraints)
 
     if error_report != "":
         raise ValueError(error_report)
