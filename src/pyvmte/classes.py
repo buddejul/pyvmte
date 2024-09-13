@@ -65,7 +65,6 @@ class DGP:
         )
 
 
-# TODO give this a clearer name.
 class Setup(NamedTuple):
     """Setup from the paper."""
 

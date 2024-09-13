@@ -6,6 +6,8 @@ import os
 import numpy as np
 import pandas as pd  # type: ignore
 
+from pyvmte.classes import Estimand, Instrument
+
 
 def compute_moments(supp_z, f_z, prop_z):
     """Calculate E[z], E[d], E[dz], Cov[d,z] for a discrete instrument z and binary d.
@@ -71,7 +73,16 @@ def bern_bas(n, v, x):
 
 
 def simulate_data_from_paper_dgp(sample_size, rng):
-    """Simulate data using the dgp from MST 2018 ECMA."""
+    """Simulate data using the dgp from MST 2018 ECMA.
+
+    Args:
+        sample_size (int): The number of observations in the sample.
+        rng (np.random.Generator): The random number generator.
+
+    Returns:
+        dict: A dictionary containing the simulated data.
+
+    """
     data = pd.DataFrame()
 
     support = np.array([0, 1, 2])
@@ -94,7 +105,6 @@ def simulate_data_from_paper_dgp(sample_size, rng):
 
     y = np.empty(sample_size)
     idx = d == 0
-    # TODO (@buddejul):  do this properly
     y[idx] = (
         +0.6 * (1 - u[idx]) ** 2 + 0.4 * 2 * u[idx] * (1 - u[idx]) + 0.3 * u[idx] ** 2
     )
@@ -108,45 +118,190 @@ def simulate_data_from_paper_dgp(sample_size, rng):
     return {"z": z, "d": d, "y": y, "u": u}
 
 
-def _check_estimation_arguments(
-    target,
-    identified_estimands,
-    basis_func_type,
-    y_data,
-    z_data,
-    d_data,
-    tolerance,
-    x_data,
-    u_partition,
-):
-    """Check arguments provided to estimation function.
-
-    If there are errors, returns a comprehensive error report for all arguments.
-
-    """
-    error_report = ""
-
-    data_dict = {
-        "y": y_data,
-        "z": z_data,
-        "d": d_data,
-    }
-
-    # Check that all data arguments are numpy arrays
-    for key, value in data_dict.items():
-        if not isinstance(value, np.ndarray):
-            error_report += f"Argument {key} is not a numpy array.\n"
-
-    if error_report != "":
-        raise EstimationArgumentError(error_report)
-
-
-class EstimationArgumentError(Exception):
-    """Raised when arguments to estimation function are not valid."""
-
-
 @contextlib.contextmanager
 def suppress_print():
     """Suppress print statements in context."""
     with open(os.devnull, "w") as f, contextlib.redirect_stdout(f):  # noqa: PTH123
         yield
+
+
+def _error_report_estimand(estimand: Estimand):
+    """Return error message if estimand is not valid."""
+    error_report = ""
+    if not isinstance(estimand, Estimand):
+        error_report += f"Identified estimand {estimand} is not of type Estimand."
+    else:
+        if estimand.esttype not in ["iv_slope", "ols_slope", "late", "cross"]:
+            error_report += (
+                f"Estimand type {estimand.esttype} is not valid. "
+                "Only iv_slope, ols_slope, late, and cross are valid."
+            )
+        if estimand.esttype == "cross" and not isinstance(estimand.dz_cross, tuple):
+            error_report += (
+                f"Estimand type cross requires dz_cross to be a tuple. "
+                f"Got {estimand.dz_cross}."
+            )
+        if estimand.esttype == "late" and not (
+            isinstance(estimand.u_lo, float | int)
+            and isinstance(estimand.u_hi, float | int)
+        ):
+            error_report += (
+                f"Estimand type late requires u_lo and u_hi to be floats. "
+                f"Got {estimand.u_lo} and {estimand.u_hi}."
+            )
+        if (
+            isinstance(estimand.u_lo, float | int)
+            and isinstance(
+                estimand.u_hi,
+                float | int,
+            )
+            and estimand.esttype == "late"
+            and not (0 <= estimand.u_lo < estimand.u_hi <= 1)
+        ):
+            error_report += (
+                f"Estimand type late requires 0 <= u_lo < u_hi <= 1. "
+                f"Got {estimand.u_lo} and {estimand.u_hi}."
+            )
+    return error_report
+
+
+def _error_report_invalid_basis_func_type(basis_func_type):
+    """Return error message if basis_func_type is not valid."""
+    error_report = ""
+    if basis_func_type not in ["constant"]:
+        error_report += (
+            f"Basis function type {basis_func_type} is not valid. "
+            "Only 'constant' is currently implemented."
+        )
+    return error_report
+
+
+def _error_report_estimation_data(y_data, z_data, d_data):
+    """Return error message if estimation data is not valid."""
+    error_report = ""
+    for i, data in enumerate([y_data, z_data, d_data]):
+        if not isinstance(data, np.ndarray):
+            data_names = ["y_data", "z_data", "d_data"]
+            error_report += f"Data {data_names[i]} is not of type np.ndarray."
+            return error_report
+
+    if len(y_data) != len(z_data) or len(y_data) != len(d_data):
+        error_report += (
+            f"Data lengths are not equal. "
+            f"Lengths are {len(y_data)}, {len(z_data)}, {len(d_data)}."
+        )
+
+    if not np.all(np.logical_or(d_data == 0, d_data == 1)):
+        error_report += f"Data d_data is not binary. Got values {np.unique(d_data)}."
+
+    return error_report
+
+
+def _error_report_tolerance(tolerance):
+    """Return error message if tolerance is not valid."""
+    error_report = ""
+    if tolerance is None:
+        return error_report
+
+    if not isinstance(tolerance, int | float):
+        return f"Tolerance {tolerance} is not a number."
+    if tolerance <= 0:
+        error_report += f"Tolerance {tolerance} is not positive."
+    return error_report
+
+
+def _error_report_method(method):
+    """Return error message if method is not valid."""
+    error_report = ""
+    if method not in ["highs", "copt"]:
+        error_report += (
+            f"Method {method} is not valid. Only 'highs' and 'copt' are implemented."
+        )
+    return error_report
+
+
+def _error_report_u_partition(u_partition):
+    """Return error message if u_partition is not valid."""
+    error_report = ""
+    if u_partition is None:
+        return error_report
+
+    if not isinstance(u_partition, np.ndarray):
+        return f"u_partition {u_partition} is not of type np.ndarray."
+
+    if not np.all(np.diff(u_partition) > 0):
+        error_report += f"u_partition {u_partition} is not strictly increasing."
+
+    if u_partition[0] < 0 or u_partition[-1] > 1:
+        error_report += f"u_partition {u_partition} not between 0 and 1."
+
+    return error_report
+
+
+def _error_report_basis_funcs(basis_funcs):
+    """Return error message if basis_funcs is not valid."""
+    error_report = ""
+
+    # Check if list of dict not empty
+    if not basis_funcs:
+        error_report += "Basis functions list is empty."
+        return error_report
+
+    for i, basis_func in enumerate(basis_funcs):
+        if not isinstance(basis_func, dict):
+            error_report += (
+                f"Basis function {basis_func} at index {i} is not of type dict."
+            )
+        else:
+            if basis_func["type"] not in ["constant"]:
+                error_report += (
+                    f"Basis func type {basis_func['type']} at index {i} is invalid. "
+                    "Only 'constant' is currently implemented."
+                )
+            if not (
+                isinstance(basis_func["u_lo"], float | int)
+                and isinstance(basis_func["u_hi"], float | int)
+            ):
+                error_report += (
+                    f"Basis func {basis_func} at index {i} requires u_lo and u_hi "
+                    f"to be floats. Got {basis_func['u_lo']} and {basis_func['u_hi']}."
+                )
+            if not (0 <= basis_func["u_lo"] < basis_func["u_hi"] <= 1):
+                error_report += (
+                    f"Basis function {basis_func} at index {i} requires "
+                    f"0 <= u_lo < u_hi <= 1. "
+                    f"Got {basis_func['u_lo']} and {basis_func['u_hi']}."
+                )
+    return error_report
+
+
+def _error_report_mtr_function(mtr_function):
+    """Return error message if mtr_function is not valid."""
+    error_report = ""
+    if not callable(mtr_function):
+        return f"MTR function {mtr_function} is not callable."
+
+    if mtr_function.__code__.co_argcount != 1:
+        error_report += (
+            f"MTR function {mtr_function} does not have exactly one argument."
+        )
+    return error_report
+
+
+def _error_report_instrument(instrument: Instrument):
+    """Return error message if instrument is not valid."""
+    error_report = ""
+    if not isinstance(instrument, Instrument):
+        return f"Instrument {instrument} is not of type Instrument."
+
+    for attr in ["support", "pmf", "pscores"]:
+        if not isinstance(getattr(instrument, attr), np.ndarray):
+            error_report += f"Instrument attribute {attr} is not of type np.ndarray."
+
+    for attr in ["pmf", "pscores"]:
+        if not np.all(getattr(instrument, attr) >= 0):
+            error_report += f"Instrument attribute {attr} contains negative values."
+    if not np.isclose(np.sum(instrument.pmf), 1):
+        error_report += "Instrument attribute pmf does not sum to 1."
+
+    return error_report

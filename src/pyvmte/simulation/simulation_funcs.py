@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from pyvmte.config import Estimand
+from pyvmte.classes import Estimand
 from pyvmte.estimation.estimation import _estimate_prop_z, estimation
 from pyvmte.utilities import simulate_data_from_paper_dgp
 
@@ -18,7 +18,24 @@ def monte_carlo_pyvmte(
     lp_outputs: bool = False,  # noqa: FBT001, FBT002
     method: str = "highs",
 ) -> dict:
-    """Run monte carlo simulation using pyvmte module."""
+    """Run monte carlo simulation using pyvmte module.
+
+    Args:
+        sample_size (int): The number of observations in each sample.
+        repetitions (int): The number of repetitions of the simulation.
+        target (Estimand): The estimand to be estimated.
+        identified_estimands (list[Estimand]): The list of identified estimands.
+        basis_func_type (str): The type of basis function to use.
+        rng (np.random.Generator): The random number generator.
+        tolerance (float, optional): The tolerance for the optimization algorithm.
+        lp_outputs (bool, optional): Whether to return the outputs from the linear
+            programming algorithm.
+        method (str, optional): The method to use for the optimization algorithm.
+
+    Returns:
+        dict: A dictionary containing the results of the monte carlo simulation.
+
+    """
     upper_bounds = np.zeros(repetitions)
     lower_bounds = np.zeros(repetitions)
     if lp_outputs is True:
@@ -44,7 +61,6 @@ def monte_carlo_pyvmte(
             z_data,
             d_data,
             tolerance,
-            x_data=None,
             u_partition=None,
             method=method,
         )
