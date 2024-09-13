@@ -1,6 +1,7 @@
 """Function for identification."""
 
 from collections.abc import Callable
+from functools import partial
 
 import coptpy as cp  # type: ignore
 import numpy as np
@@ -171,6 +172,7 @@ def _compute_choice_weights(
     moments: dict | None = None,
 ) -> np.ndarray:
     """Compute weights on the choice variables."""
+    # TODO: Refactor this; current approach only allows for one type of func anyways.
     bfunc_type = basis_funcs[0]["type"]
 
     if bfunc_type == "constant":
@@ -188,6 +190,19 @@ def _compute_choice_weights(
                 )
                 c.append(weight)
 
+    if bfunc_type == "bernstein":
+        c = []
+        for d in [0, 1]:
+            for bfunc in basis_funcs:
+                weight = _compute_bernstein_weights(
+                    estimand=target,
+                    basis_function=bfunc,
+                    d=d,
+                    instrument=instrument,
+                    moments=moments,
+                )
+                c.append(weight)
+
     return np.array(c)
 
 
@@ -197,18 +212,15 @@ def _compute_equality_constraint_matrix(
     instrument: Instrument,
 ) -> np.ndarray:
     """Compute weight matrix for equality constraints."""
-    bfunc_type = basis_funcs[0]["type"]
+    c_matrix = []
+    for target in identified_estimands:
+        c_row = _compute_choice_weights(
+            target=target,
+            basis_funcs=basis_funcs,
+            instrument=instrument,
+        )
 
-    if bfunc_type == "constant":
-        c_matrix = []
-        for target in identified_estimands:
-            c_row = _compute_choice_weights(
-                target=target,
-                basis_funcs=basis_funcs,
-                instrument=instrument,
-            )
-
-            c_matrix.append(c_row)
+        c_matrix.append(c_row)
 
     return np.array(c_matrix)
 
@@ -461,6 +473,79 @@ def _compute_constant_spline_weights(
         )
 
     return out * (basis_function["u_hi"] - basis_function["u_lo"])
+
+
+def _compute_bernstein_weights(
+    estimand: Estimand,
+    d: int,
+    basis_function: dict,
+    instrument: Instrument,
+    moments: dict | None = None,
+) -> float:
+    _bfunc = basis_function["func"]
+
+    # Step 1: Get weight function s(D, Z) depending on the estimand type
+    if estimand.esttype == "late":
+        _s_late = partial(s_late, d=d, u_lo=estimand.u_lo, u_hi=estimand.u_hi)
+
+        def _sdz(z, u):
+            return _s_late(z=z, u=u)
+
+    if estimand.esttype == "ols_slope":
+        if moments is None:
+            moments = _compute_moments_for_weights(estimand, instrument)
+
+        _s_ols_slope = partial(
+            s_ols_slope,
+            d=d,
+            ed=moments["expectation_d"],
+            var_d=moments["variance_d"],
+        )
+
+        def _sdz(z, u):
+            return _s_ols_slope(z=z, u=u)
+
+    if estimand.esttype == "iv_slope":
+        if moments is None:
+            moments = _compute_moments_for_weights(estimand, instrument)
+
+        _s_iv_slope = partial(
+            s_iv_slope,
+            ez=moments["expectation_z"],
+            cov_dz=moments["covariance_dz"],
+        )
+
+        def _sdz(z, u):
+            return _s_iv_slope(z=z, u=u)
+
+    if estimand.esttype == "cross":
+
+        def _sdz(z, u):
+            return s_cross(d=d, z=z, dz_cross=estimand.dz_cross, u=u)
+
+    # Step 2: Indicator for propensity score
+    if d == 0:
+
+        def _ind(z, u):
+            return instrument.pscores[np.where(instrument.support == z)] < u
+
+    elif d == 1:
+
+        def _ind(z, u):
+            return instrument.pscores[np.where(instrument.support == z)] >= u
+
+    # Step 3: Compute the weight separately for each element of z
+    weight = 0
+
+    for z in instrument.support:
+        # Make sure to binds z to the function definition in every iteration.
+        # See: https://docs.astral.sh/ruff/rules/function-uses-loop-variable/.
+        _to_integrate = partial(lambda u, z: _sdz(z, u) * _ind(z, u) * _bfunc(u), z=z)
+        _integral = integrate.quad(_to_integrate, 0, 1)[0]
+        _pos = np.where(instrument.support == z)[0][0]
+        weight += _integral * instrument.pmf[_pos]
+
+    return weight
 
 
 def _weight_late(u, u_lo, u_hi):

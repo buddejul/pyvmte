@@ -1,10 +1,12 @@
 """Utilities used in various parts of the project."""
+
 import contextlib
 import math
 import os
 
 import numpy as np
 import pandas as pd  # type: ignore
+from scipy.interpolate import BPoly  # type: ignore[import-untyped]
 
 from pyvmte.classes import Estimand, Instrument
 
@@ -26,31 +28,34 @@ def compute_moments(supp_z, f_z, prop_z):
     return ez, ed, edz, cov_dz
 
 
-def s_iv_slope(z, ez, cov_dz):
+def s_iv_slope(z, ez, cov_dz, u=None):
     """IV-like specification s(d,z): IV slope.
 
     Args:
         z (np.int): value of the instrument
         ez (np.float): expected value of the instrument
         cov_dz (np.float): covariance between treatment and instrument.
+        u (np.float): Only used to allow for the same function signature.
 
     """
     return (z - ez) / cov_dz
 
 
-def s_ols_slope(d, ed, var_d):
+def s_ols_slope(d, ed, var_d, z=None, u=None):
     """OLS-like specification s(d,z): OLS slope.
 
     Args:
         d (np.int): value of the treatment
         ed (np.float): expected value of the treatment
         var_d (np.float): variance of the treatment.
+        z: Only used to allow for the same function signature.
+        u: Only used to allow for the same function signature
 
     """
     return (d - ed) / var_d
 
 
-def s_late(d, u, u_lo, u_hi):
+def s_late(d, u, u_lo, u_hi, z=None):
     """IV-like specification s(d,z): late."""
     # Return 1 divided by u_hi - u_lo if u_lo < u < u_hi, 0 otherwise
     w = 1 / (u_hi - u_lo) if u_lo < u < u_hi else 0
@@ -60,7 +65,7 @@ def s_late(d, u, u_lo, u_hi):
     return -w
 
 
-def s_cross(d, z, dz_cross):
+def s_cross(d, z, dz_cross, u=None):
     """IV_like specification s(d,z): Cross-moment d_spec * z_spec."""
     if (isinstance(d, np.ndarray) or d in [0, 1]) and isinstance(z, np.ndarray):
         return np.logical_and(d == dz_cross[0], z == dz_cross[1]).astype(int)
@@ -242,6 +247,8 @@ def _error_report_basis_funcs(basis_funcs):
     """Return error message if basis_funcs is not valid."""
     error_report = ""
 
+    supported_bfuncs = ["constant", "bernstein"]
+
     # Check if list of dict not empty
     if not basis_funcs:
         error_report += "Basis functions list is empty."
@@ -253,25 +260,32 @@ def _error_report_basis_funcs(basis_funcs):
                 f"Basis function {basis_func} at index {i} is not of type dict."
             )
         else:
-            if basis_func["type"] not in ["constant"]:
+            if basis_func["type"] not in supported_bfuncs:
                 error_report += (
                     f"Basis func type {basis_func['type']} at index {i} is invalid. "
-                    "Only 'constant' is currently implemented."
+                    f"Only {supported_bfuncs} is currently implemented."
                 )
-            if not (
-                isinstance(basis_func["u_lo"], float | int)
-                and isinstance(basis_func["u_hi"], float | int)
+            if basis_func["type"] == "constant":
+                if not (
+                    isinstance(basis_func["u_lo"], float | int)
+                    and isinstance(basis_func["u_hi"], float | int)
+                ):
+                    error_report += (
+                        f"Basis func {basis_func} at index {i} requires u_lo and u_hi "
+                        f"to be float. Got {basis_func['u_lo']}, {basis_func['u_hi']}."
+                    )
+                if not (0 <= basis_func["u_lo"] < basis_func["u_hi"] <= 1):
+                    error_report += (
+                        f"Basis function {basis_func} at index {i} requires "
+                        f"0 <= u_lo < u_hi <= 1. "
+                        f"Got {basis_func['u_lo']} and {basis_func['u_hi']}."
+                    )
+            elif basis_func["type"] == "bernstein" and not isinstance(
+                basis_func["func"],
+                BPoly,
             ):
-                error_report += (
-                    f"Basis func {basis_func} at index {i} requires u_lo and u_hi "
-                    f"to be floats. Got {basis_func['u_lo']} and {basis_func['u_hi']}."
-                )
-            if not (0 <= basis_func["u_lo"] < basis_func["u_hi"] <= 1):
-                error_report += (
-                    f"Basis function {basis_func} at index {i} requires "
-                    f"0 <= u_lo < u_hi <= 1. "
-                    f"Got {basis_func['u_lo']} and {basis_func['u_hi']}."
-                )
+                error_report += f"Basis function {basis_func} at index {i} is not"
+                "of type BPoly."
     return error_report
 
 
@@ -332,3 +346,28 @@ def _error_report_shape_constraints(shape_constraints: tuple[str, str] | None) -
                 f"Only {valid_constraints} are valid."
             )
     return error_report
+
+
+def generate_bernstein_basis_funcs(k: int) -> list[dict]:
+    """Generate list containing basis functions of kth-oder Bernstein polynomial.
+
+    Arguments:
+        k: The order of the Bernstein polynomial.
+
+    Returns:
+        A list of dictionaries containing the basis functions.
+
+    """
+    basis_funcs = []
+
+    for i in range(k + 1):
+        _c = np.zeros(k + 1).reshape(-1, 1)
+        _c[i] = 1
+
+        basis_func = {
+            "type": "bernstein",
+            "func": BPoly(c=_c, x=[0, 1]),
+        }
+        basis_funcs.append(basis_func)
+
+    return basis_funcs

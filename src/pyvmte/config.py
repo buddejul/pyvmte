@@ -63,6 +63,7 @@ SETUP_FIG7 = Setup(
     identified_estimands=cross_estimands,
     lower_bound=-0.000,
     upper_bound=0.067,
+    shape_constraints=("decreasing", "decreasing"),
     polynomial=("bernstein", 9),
 )
 
