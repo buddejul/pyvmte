@@ -255,7 +255,7 @@ def _solve_lp(lp_inputs: dict, max_or_min: str, method: str) -> float:
     b_ub = lp_inputs.get("b_ub", None)
 
     if method == "copt":
-        return _solve_lp_copt(c, a_eq, b_eq)
+        return _solve_lp_copt(c, a_eq, b_eq, a_ub, b_ub)
 
     return linprog(c=c, A_eq=a_eq, b_eq=b_eq, A_ub=a_ub, b_ub=b_ub, bounds=(0, 1)).fun
 
@@ -325,6 +325,9 @@ def _solve_lp_copt(
     x = model.addMVar(len(c), nameprefix="x", lb=0, ub=1)
     model.setObjective(c @ x, COPT.MINIMIZE)
     model.addMConstr(a_eq, x, "E", b_eq, nameprefix="c")
+    if a_ub is not None and b_ub is not None:
+        model.addMConstr(a_ub, x, "L", b_ub)
+
     model.solveLP()
 
     if model.status != COPT.OPTIMAL:

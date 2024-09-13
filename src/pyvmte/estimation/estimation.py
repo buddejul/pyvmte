@@ -117,6 +117,7 @@ def estimation(
         data=data,
         beta_hat=beta_hat,
         instrument=instrument,
+        shape_constraints=shape_constraints,
         method=method,
     )
 
@@ -166,6 +167,7 @@ def _first_step_linear_program(
     data: dict[str, np.ndarray],
     beta_hat: np.ndarray,
     instrument: Instrument,
+    shape_constraints: tuple[str, str] | None,
     method: str,
 ) -> dict:
     """First step linear program to get minimal deviations in constraint."""
