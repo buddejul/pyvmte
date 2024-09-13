@@ -1,7 +1,9 @@
+import numpy as np
 import pytest
 from pyvmte.config import BFUNCS_MST, IV_MST, SETUP_FIG3
 from pyvmte.identification.identification import (
     _compute_choice_weights,
+    _compute_inequality_constraint_matrix,
 )
 
 
@@ -28,3 +30,31 @@ def test_lp_input_c_figure_3():
     )
 
     assert expected == pytest.approx(actual)
+
+
+def test_compute_inequality_constraint_matrix():
+    n_basis_funcs = 3
+
+    expected_increasing = np.array(
+        [
+            [1, -1, 0, 0, 0, 0],
+            [0, 1, -1, 0, 0, 0],
+            [0, 0, 0, 1, -1, 0],
+            [0, 0, 0, 0, 1, -1],
+        ],
+    )
+
+    expected_decreasing = -expected_increasing
+
+    actual_increasing = _compute_inequality_constraint_matrix(
+        shape_constraints=("increasing", "increasing"),
+        n_basis_funcs=n_basis_funcs,
+    )
+
+    actual_decreasing = _compute_inequality_constraint_matrix(
+        shape_constraints=("decreasing", "decreasing"),
+        n_basis_funcs=n_basis_funcs,
+    )
+
+    assert expected_increasing == pytest.approx(actual_increasing)
+    assert expected_decreasing == pytest.approx(actual_decreasing)

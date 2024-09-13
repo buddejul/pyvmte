@@ -80,6 +80,7 @@ def test_identification_paper_bounds(setup: Setup, method: str):
         u_partition=U_PART_MST,
         instrument=IV_MST,
         method=method,
+        shape_constraints=setup.shape_constraints,
     )
 
     actual = [result["lower_bound"], result["upper_bound"]]

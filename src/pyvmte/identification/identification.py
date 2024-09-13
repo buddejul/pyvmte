@@ -1,4 +1,5 @@
 """Function for identification."""
+
 from collections.abc import Callable
 
 import coptpy as cp  # type: ignore
@@ -101,6 +102,16 @@ def identification(
         instrument=instrument,
     )
 
+    if shape_constraints is not None:
+        lp_inputs["a_ub"] = _compute_inequality_constraint_matrix(
+            shape_constraints=shape_constraints,
+            n_basis_funcs=len(basis_funcs),
+        )
+        lp_inputs["b_ub"] = _compute_inequality_upper_bounds(
+            shape_constraints=shape_constraints,
+            n_basis_funcs=len(basis_funcs),
+        )
+
     # ==================================================================================
     # Solve linear program
     # ==================================================================================
@@ -202,6 +213,37 @@ def _compute_equality_constraint_matrix(
     return np.array(c_matrix)
 
 
+def _compute_inequality_constraint_matrix(
+    shape_constraints: tuple[str, str],
+    n_basis_funcs: int,
+) -> np.ndarray:
+    """Returns the inequality constraint matrix incorporating shape constraints."""
+    a = np.eye(2 * n_basis_funcs - 1, 2 * n_basis_funcs)
+    b = np.eye(2 * n_basis_funcs - 1, 2 * n_basis_funcs, 1)
+
+    out = a - b
+
+    # Now we need to delete the (n_basis_funcs)th row, so we don't put cross-
+    # restrictions on the MTR d = 0 and d = 1 functions.
+    out = np.delete(out, n_basis_funcs - 1, axis=0)
+
+    if shape_constraints == ("increasing", "increasing"):
+        return out
+
+    if shape_constraints == ("decreasing", "decreasing"):
+        return -out
+
+    msg = "Invalid shape constraints."
+    raise ValueError(msg)
+
+
+def _compute_inequality_upper_bounds(
+    shape_constraints: tuple[str, str],
+    n_basis_funcs: int,
+) -> np.ndarray:
+    return np.zeros(2 * n_basis_funcs - 2)
+
+
 def _solve_lp(lp_inputs: dict, max_or_min: str, method: str) -> float:
     """Wrapper for solving the linear program."""
     c = np.array(lp_inputs["c"]) if max_or_min == "min" else -np.array(lp_inputs["c"])
@@ -209,10 +251,13 @@ def _solve_lp(lp_inputs: dict, max_or_min: str, method: str) -> float:
     b_eq = lp_inputs["b_eq"]
     a_eq = lp_inputs["a_eq"]
 
+    a_ub = lp_inputs.get("a_ub", None)
+    b_ub = lp_inputs.get("b_ub", None)
+
     if method == "copt":
         return _solve_lp_copt(c, a_eq, b_eq)
 
-    return linprog(c, A_eq=a_eq, b_eq=b_eq, bounds=(0, 1)).fun
+    return linprog(c=c, A_eq=a_eq, b_eq=b_eq, A_ub=a_ub, b_ub=b_ub, bounds=(0, 1)).fun
 
 
 def _compute_moments_for_weights(target: Estimand, instrument: Instrument) -> dict:
@@ -271,6 +316,8 @@ def _solve_lp_copt(
     c: np.ndarray,
     a_eq: np.ndarray,
     b_eq: np.ndarray,
+    a_ub: np.ndarray | None = None,
+    b_ub: np.ndarray | None = None,
 ) -> float:
     """Wrapper for solving LP using copt algorithm."""
     env = cp.Envr()
