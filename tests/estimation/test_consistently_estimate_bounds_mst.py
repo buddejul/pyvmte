@@ -13,7 +13,7 @@ from pyvmte.config import (
 )
 from pyvmte.simulation.simulation_funcs import monte_carlo_pyvmte
 
-SAMPLE_SIZE = 1_000
+SAMPLE_SIZE = 10_000
 NUM_SIMULATIONS = 250
 
 
@@ -53,6 +53,7 @@ def test_consistently_estimate_bounds_mst(setup: Setup, method: str):
         target=setup.target,
         identified_estimands=setup.identified_estimands,
         basis_func_type="constant",
+        shape_constraints=setup.shape_constraints,
         tolerance=1 / SAMPLE_SIZE,
         rng=RNG,
         method=method,

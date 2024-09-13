@@ -135,6 +135,7 @@ def estimation(
         tolerance=tolerance,
         beta_hat=beta_hat,
         instrument=instrument,
+        shape_constraints=shape_constraints,
         method=method,
     )
 
@@ -183,13 +184,26 @@ def _first_step_linear_program(
         data,
         instrument,
     )
+    if shape_constraints is not None:
+        lp_first_inputs["a_ub"] = _append_shape_constraints_a_ub(
+            shape_constraints,
+            lp_first_inputs["a_ub"],
+            num_bfuncs,
+            num_idestimands=len(identified_estimands),
+        )
+        lp_first_inputs["b_ub"] = _append_shape_constraints_b_ub(
+            shape_constraints,
+            lp_first_inputs["b_ub"],
+            num_bfuncs,
+        )
+
     lp_first_inputs["bounds"] = _compute_first_step_bounds(
         identified_estimands,
         basis_funcs,  # type: ignore
     )
     if method == "copt":
-        minimal_deviations = _solve_lp_estimation_copt(lp_first_inputs, "min")
         first_step_solution = None
+        minimal_deviations = _solve_lp_estimation_copt(lp_first_inputs, "min")
     else:
         first_step_solution = _solve_first_step_lp_estimation(lp_first_inputs, method)
         minimal_deviations = first_step_solution.fun
@@ -404,6 +418,60 @@ def _compute_first_step_bounds(
     ]
 
 
+def _append_shape_constraints_a_ub(
+    shape_constraints: tuple[str, str],
+    a_ub,
+    num_bfuncs: int,
+    num_idestimands: int | None = None,
+) -> np.ndarray:
+    """Append shape constraints to a_ub matrix.
+
+    num_idestimands needs to be supplied for the first step linear program.
+
+    """
+    a = np.eye(num_bfuncs - 1, num_bfuncs)
+    b = np.eye(num_bfuncs - 1, num_bfuncs, 1)
+
+    to_append = a - b
+
+    # Now we need to delete the (num_bfuncs)th row, so we don't put cross-
+    # restrictions on the MTR d = 0 and d = 1 functions.
+    to_delete = int(num_bfuncs / 2 - 1)
+    to_append = np.delete(to_append, to_delete, axis=0)
+
+    # Add a matrix of zeros to the right with the same rows and num_idestimands columns
+    # to match the first step linear program structure.
+    if num_idestimands is not None:
+        to_append = np.hstack(
+            (to_append, np.zeros((to_append.shape[0], num_idestimands))),
+        )
+
+    if shape_constraints == ("increasing", "increasing"):
+        return np.vstack((a_ub, to_append))
+
+    if shape_constraints == ("decreasing", "decreasing"):
+        return np.vstack((a_ub, -to_append))
+
+    msg = "Invalid shape constraints."
+    raise ValueError(msg)
+
+
+def _append_shape_constraints_b_ub(
+    shape_constraints: tuple[str, str],
+    b_ub: np.ndarray,
+    num_bfuncs: int,
+) -> np.ndarray:
+    """Append shape constraints to b_ub vector."""
+    if shape_constraints in [
+        ("increasing", "increasing"),
+        ("decreasing", "decreasing"),
+    ]:
+        return np.append(b_ub, np.zeros(num_bfuncs - 2))
+
+    msg = "Invalid shape constraints."
+    raise ValueError(msg)
+
+
 def _second_step_linear_program(
     target: Estimand,
     identified_estimands: list[Estimand],
@@ -413,6 +481,7 @@ def _second_step_linear_program(
     tolerance: float,
     beta_hat: np.ndarray,
     instrument: Instrument,
+    shape_constraints: tuple[str, str] | None,
     method: str,
 ) -> dict:
     """Second step linear program to estimate upper and lower bounds."""
@@ -434,6 +503,19 @@ def _second_step_linear_program(
         data=data,
         instrument=instrument,
     )
+    if shape_constraints is not None:
+        lp_second_inputs["a_ub"] = _append_shape_constraints_a_ub(
+            shape_constraints,
+            lp_second_inputs["a_ub"],
+            len(basis_funcs) * 2,
+            num_idestimands=len(identified_estimands),
+        )
+        lp_second_inputs["b_ub"] = _append_shape_constraints_b_ub(
+            shape_constraints,
+            lp_second_inputs["b_ub"],
+            len(basis_funcs) * 2,
+        )
+
     lp_second_inputs["bounds"] = _compute_second_step_bounds(
         basis_funcs,
         identified_estimands,  # type: ignore

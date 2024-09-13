@@ -14,6 +14,7 @@ def monte_carlo_pyvmte(
     identified_estimands: list[Estimand],
     basis_func_type: str,
     rng: np.random.Generator,
+    shape_constraints: tuple[str, str] | None = None,
     tolerance: float | None = None,
     lp_outputs: bool = False,  # noqa: FBT001, FBT002
     method: str = "highs",
@@ -31,6 +32,7 @@ def monte_carlo_pyvmte(
         lp_outputs (bool, optional): Whether to return the outputs from the linear
             programming algorithm.
         method (str, optional): The method to use for the optimization algorithm.
+        shape_constraints: Shape constraints on MTR functions.
 
     Returns:
         dict: A dictionary containing the results of the monte carlo simulation.
@@ -61,6 +63,7 @@ def monte_carlo_pyvmte(
             z_data,
             d_data,
             tolerance,
+            shape_constraints=shape_constraints,
             u_partition=None,
             method=method,
         )
