@@ -1,10 +1,13 @@
 import numpy as np
 import pytest
-from pyvmte.config import BFUNCS_MST, IV_MST, SETUP_FIG3
+from pyvmte.config import BFUNCS_MST, IV_MST, SETUP_FIG3, SETUP_FIG7
 from pyvmte.identification.identification import (
+    _compute_bernstein_weights,
     _compute_choice_weights,
     _compute_inequality_constraint_matrix,
 )
+from pyvmte.utilities import generate_bernstein_basis_funcs
+from scipy import integrate  # type: ignore[import-untyped]
 
 
 def test_lp_input_c_figure_3():
@@ -58,3 +61,55 @@ def test_compute_inequality_constraint_matrix():
 
     assert expected_increasing == pytest.approx(actual_increasing)
     assert expected_decreasing == pytest.approx(actual_decreasing)
+
+
+def test_compute_bernstein_weights():
+    bfunc_dicts = generate_bernstein_basis_funcs(k=2)
+
+    # Hard-code the base functions of the k=2 Bernstein polynomial
+    def _b1(u):
+        return (1 - u) ** 2
+
+    def _b2(u):
+        return 2 * u * (1 - u)
+
+    def _b3(u):
+        return u**2
+
+    estimand = SETUP_FIG7.target
+    instrument = IV_MST
+
+    u_lo = estimand.u_lo
+    u_hi = estimand.u_hi
+
+    w = 1 / (u_hi - u_lo)
+
+    expected = np.array(
+        [
+            -w * integrate.quad(_b1, u_lo, u_hi)[0],
+            -w * integrate.quad(_b2, u_lo, u_hi)[0],
+            -w * integrate.quad(_b3, u_lo, u_hi)[0],
+            w * integrate.quad(_b1, u_lo, u_hi)[0],
+            w * integrate.quad(_b2, u_lo, u_hi)[0],
+            w * integrate.quad(_b3, u_lo, u_hi)[0],
+        ],
+    )
+
+    actual = np.zeros(len(bfunc_dicts) * 2)
+
+    i = 0
+    for d in [0, 1]:
+        for bfunc in bfunc_dicts:
+            actual[i] = _compute_bernstein_weights(
+                estimand=estimand,
+                d=d,
+                basis_function=bfunc,
+                instrument=instrument,
+            )
+
+            i += 1
+
+    assert expected == pytest.approx(actual)
+
+
+# TODO(@buddejul): Add tests for other weights (IV, OLS, cross).

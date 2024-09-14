@@ -55,7 +55,7 @@ def s_ols_slope(d, ed, var_d, z=None, u=None):
     return (d - ed) / var_d
 
 
-def s_late(d, u, u_lo, u_hi, z=None):
+def s_late(d, u, u_lo, u_hi):
     """IV-like specification s(d,z): late."""
     # Return 1 divided by u_hi - u_lo if u_lo < u < u_hi, 0 otherwise
     w = 1 / (u_hi - u_lo) if u_lo < u < u_hi else 0

@@ -500,13 +500,13 @@ def _compute_bernstein_weights(
 ) -> float:
     _bfunc = basis_function["func"]
 
-    # Step 1: Get weight function s(D, Z) depending on the estimand type
+    # For late target, we can compute the weight directly
     if estimand.esttype == "late":
         _s_late = partial(s_late, d=d, u_lo=estimand.u_lo, u_hi=estimand.u_hi)
 
-        def _sdz(z, u):
-            return _s_late(z=z, u=u)
+        return integrate.quad(lambda u: _bfunc(u) * _s_late(u=u), 0, 1)[0]
 
+    # Step 1: Get weight function s(D, Z) depending on the estimand type
     if estimand.esttype == "ols_slope":
         if moments is None:
             moments = _compute_moments_for_weights(estimand, instrument)
