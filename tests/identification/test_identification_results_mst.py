@@ -78,4 +78,7 @@ def test_identification_paper_bounds(setup: Setup, method: str):
     )
 
     actual = [result["lower_bound"], result["upper_bound"]]
+
+    # Note: (actual - lower_bound) * 10 is the solution, maybe just a scaling-issue.
+
     assert actual == pytest.approx(expected, abs=1e-3)

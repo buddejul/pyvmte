@@ -38,6 +38,7 @@ def identification(
     u_partition: np.ndarray,
     shape_constraints: tuple[str, str] | None = None,
     method: str = "highs",
+    debug: bool = False,  # noqa: FBT001, FBT002
 ):
     """Compute bounds on target estimand given identified estimands and DGP.
 
@@ -57,6 +58,7 @@ def identification(
         method (str, optional): Method for solving the linear program.
             Implemented are: all methods supported by scipy.linprog as well as copt.
             Defaults to "highs" using scipy.linprog.
+        debug: Whether to return the full output of the linear program solver.
 
     Returns:
         dict: A dictionary containing the upper and lower bound of the target estimand.
@@ -116,6 +118,12 @@ def identification(
     # ==================================================================================
     # Solve linear program
     # ==================================================================================
+
+    if debug is True:
+        return {
+            "upper": _solve_lp(lp_inputs, "max", method=method, debug=debug),
+            "lower": _solve_lp(lp_inputs, "min", method=method, debug=debug),
+        }
 
     upper_bound = (-1) * _solve_lp(lp_inputs, "max", method=method)
     lower_bound = _solve_lp(lp_inputs, "min", method=method)
@@ -256,7 +264,12 @@ def _compute_inequality_upper_bounds(
     return np.zeros(2 * n_basis_funcs - 2)
 
 
-def _solve_lp(lp_inputs: dict, max_or_min: str, method: str) -> float:
+def _solve_lp(
+    lp_inputs: dict,
+    max_or_min: str,
+    method: str,
+    debug: bool = False,  # noqa: FBT001, FBT002
+) -> float:
     """Wrapper for solving the linear program."""
     c = np.array(lp_inputs["c"]) if max_or_min == "min" else -np.array(lp_inputs["c"])
 
@@ -268,6 +281,9 @@ def _solve_lp(lp_inputs: dict, max_or_min: str, method: str) -> float:
 
     if method == "copt":
         return _solve_lp_copt(c, a_eq, b_eq, a_ub, b_ub)
+
+    if debug is True:
+        return linprog(c=c, A_eq=a_eq, b_eq=b_eq, A_ub=a_ub, b_ub=b_ub, bounds=(0, 1))
 
     return linprog(c=c, A_eq=a_eq, b_eq=b_eq, A_ub=a_ub, b_ub=b_ub, bounds=(0, 1)).fun
 
