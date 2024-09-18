@@ -7,6 +7,7 @@ import pytest
 from pyvmte.classes import DGP, Bern
 from pyvmte.utilities import bern_bas
 from scipy import integrate  # type: ignore[import-untyped]
+from scipy.interpolate import BPoly  # type: ignore[import-untyped]
 
 
 @pytest.fixture()
@@ -52,6 +53,23 @@ def test_bern_integration():
     # Actual
     bern = Bern(n=2, coefs=[0, 0, 1])
 
+    actual = bern.integrate(a, b)
+
+    assert actual == pytest.approx(expected[0], abs=1e-5)
+
+
+def test_bern_integration_mixed_coefs():
+    a = 0.5
+    b = 1
+
+    # Expected
+    x = [0, 1]
+    c = [[0.5], [0.4], [0.3]]
+    bp = BPoly(c, x)
+    expected = integrate.quad(lambda x: bp(x=x), a, b)
+
+    # Actual
+    bern = Bern(n=2, coefs=[0.5, 0.4, 0.3])
     actual = bern.integrate(a, b)
 
     assert actual == pytest.approx(expected[0], abs=1e-5)
