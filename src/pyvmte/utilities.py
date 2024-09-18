@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd  # type: ignore
 from scipy.interpolate import BPoly  # type: ignore[import-untyped]
 
-from pyvmte.classes import Estimand, Instrument
+from pyvmte.classes import Bern, Estimand, Instrument
 
 
 def compute_moments(supp_z, f_z, prop_z):
@@ -288,12 +288,11 @@ def _error_report_basis_funcs(basis_funcs):
                         f"0 <= u_lo < u_hi <= 1. "
                         f"Got {basis_func['u_lo']} and {basis_func['u_hi']}."
                     )
-            elif basis_func["type"] == "bernstein" and not isinstance(
-                basis_func["func"],
-                BPoly,
+            elif basis_func["type"] == "bernstein" and not (
+                isinstance(basis_func["func"], BPoly | Bern)
             ):
                 error_report += f"Basis function {basis_func} at index {i} is not"
-                "of type BPoly."
+                "of type BPoly or Bern."
     return error_report
 
 
@@ -374,7 +373,7 @@ def generate_bernstein_basis_funcs(k: int) -> list[dict]:
 
         basis_func = {
             "type": "bernstein",
-            "func": BPoly(c=_c, x=[0, 1]),
+            "func": Bern(n=k, coefs=_c),
         }
         basis_funcs.append(basis_func)
 

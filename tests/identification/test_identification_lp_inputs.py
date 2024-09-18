@@ -102,7 +102,7 @@ def test_compute_bernstein_weights():
         for bfunc in bfunc_dicts:
             actual[i] = _compute_bernstein_weights(
                 estimand=estimand,
-                d=d,
+                d_value=d,
                 basis_function=bfunc,
                 instrument=instrument,
             )
