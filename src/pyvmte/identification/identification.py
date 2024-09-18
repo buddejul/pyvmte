@@ -504,7 +504,11 @@ def _compute_bernstein_weights(
     if estimand.esttype == "late":
         _s_late = partial(s_late, d=d, u_lo=estimand.u_lo, u_hi=estimand.u_hi)
 
-        return integrate.quad(lambda u: _bfunc(u) * _s_late(u=u), 0, 1)[0]
+        _mid = (
+            estimand.u_lo + (estimand.u_hi - estimand.u_lo) / 2  # type: ignore[operator]
+        )
+
+        return _s_late(u=_mid) * _bfunc.integrate(estimand.u_lo, estimand.u_hi)
 
     # For the remaining estimands, the weights are not a function of u, hence they
     # can be pulled out of the integral.
@@ -564,13 +568,10 @@ def _compute_bernstein_weights(
         # See: https://docs.astral.sh/ruff/rules/function-uses-loop-variable/.
         _pscore = instrument.pscores[np.where(instrument.support == z)][0]
 
-        def _to_integrate(u):
-            return _bfunc(u)
-
         if d == 0:
-            _integral = integrate.quad(_to_integrate, _pscore, 1)[0]
+            _integral = _bfunc.integrate(_pscore, 1)
         else:
-            _integral = integrate.quad(_to_integrate, 0, _pscore)[0]
+            _integral = _bfunc.integrate(0, _pscore)
         _pos = np.where(instrument.support == z)[0][0]
         weight += _sdz(z) * _integral * instrument.pmf[_pos]
 
