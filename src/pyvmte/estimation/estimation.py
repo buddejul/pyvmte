@@ -6,7 +6,6 @@ from itertools import pairwise
 import coptpy as cp  # type: ignore
 import numpy as np
 from coptpy import COPT
-from scipy import integrate  # type: ignore[import-untyped]
 from scipy.optimize import (  # type: ignore
     OptimizeResult,
     linprog,  # type: ignore
@@ -720,6 +719,9 @@ def _estimate_gamma_bernstein(
 ) -> float:
     _bfunc = basis_func["func"]
 
+    # All the following weights functions only depend on z, but not u.
+    # Hence we can pull them out of the integral.
+
     # Step 1: Get weight function s(D, Z) depending on the estimand type
     if estimand.esttype == "ols_slope":
         _s_ols_slope = partial(
@@ -729,8 +731,8 @@ def _estimate_gamma_bernstein(
             var_d=moments["variance_d"],
         )
 
-        def _sdz(z, u):
-            return _s_ols_slope(z=z, u=u)
+        def _sdz(z):
+            return _s_ols_slope(z=z)
 
     if estimand.esttype == "iv_slope":
         _s_iv_slope = partial(
@@ -739,35 +741,29 @@ def _estimate_gamma_bernstein(
             cov_dz=moments["covariance_dz"],
         )
 
-        def _sdz(z, u):
-            return _s_iv_slope(z=z, u=u)
+        def _sdz(z):
+            return _s_iv_slope(z=z)
 
     if estimand.esttype == "cross":
 
-        def _sdz(z, u):
-            return s_cross(d=d_value, z=z, dz_cross=estimand.dz_cross, u=u)
-
-    # Step 2: Indicator for propensity score
-    if d_value == 0:
-
-        def _ind(z, u):
-            return instrument.pscores[np.where(instrument.support == z)] < u
-
-    elif d_value == 1:
-
-        def _ind(z, u):
-            return instrument.pscores[np.where(instrument.support == z)] >= u
+        def _sdz(z):
+            return s_cross(d=d_value, z=z, dz_cross=estimand.dz_cross)
 
     # Step 3: Compute the weight separately for each z in support of instrument
     weight = 0
 
     for z in instrument.support:
-        # Make sure to binds z to the function definition in every iteration.
-        # See: https://docs.astral.sh/ruff/rules/function-uses-loop-variable/.
-        _to_integrate = partial(lambda u, z: _sdz(z, u) * _ind(z, u) * _bfunc(u), z=z)
-        _integral = integrate.quad(_to_integrate, 0, 1)[0]
+        _pscore = instrument.pscores[np.where(instrument.support == z)][0]
+
+        # For the case d == 0, lower bound of integration becomes pscore
+        # For the case d == 1, upper bound of integration becomes pscore
+        if d_value == 0:
+            _integral = _bfunc.integrate(_pscore, 1)
+        else:
+            _integral = _bfunc.integrate(0, _pscore)
+
         _pos = np.where(instrument.support == z)[0][0]
-        weight += _integral * instrument.pmf[_pos]
+        weight += _sdz(z) * _integral * instrument.pmf[_pos]
 
     return weight
 

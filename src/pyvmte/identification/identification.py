@@ -205,7 +205,7 @@ def _compute_choice_weights(
                 weight = _compute_bernstein_weights(
                     estimand=target,
                     basis_function=bfunc,
-                    d=d,
+                    d_value=d,
                     instrument=instrument,
                     moments=moments,
                 )
@@ -493,7 +493,7 @@ def _compute_constant_spline_weights(
 
 def _compute_bernstein_weights(
     estimand: Estimand,
-    d: int,
+    d_value: int,
     basis_function: dict,
     instrument: Instrument,
     moments: dict | None = None,
@@ -502,7 +502,7 @@ def _compute_bernstein_weights(
 
     # For late target, we can compute the weight directly
     if estimand.esttype == "late":
-        _s_late = partial(s_late, d=d, u_lo=estimand.u_lo, u_hi=estimand.u_hi)
+        _s_late = partial(s_late, d=d_value, u_lo=estimand.u_lo, u_hi=estimand.u_hi)
 
         _mid = (
             estimand.u_lo + (estimand.u_hi - estimand.u_lo) / 2  # type: ignore[operator]
@@ -520,7 +520,7 @@ def _compute_bernstein_weights(
 
         _s_ols_slope = partial(
             s_ols_slope,
-            d=d,
+            d=d_value,
             ed=moments["expectation_d"],
             var_d=moments["variance_d"],
         )
@@ -544,34 +544,21 @@ def _compute_bernstein_weights(
     if estimand.esttype == "cross":
 
         def _sdz(z):
-            return s_cross(d=d, z=z, dz_cross=estimand.dz_cross)
+            return s_cross(d=d_value, z=z, dz_cross=estimand.dz_cross)
 
-    # Step 2: Indicator for propensity score
-    if d == 0:
-
-        def _ind(z, u):
-            return instrument.pscores[np.where(instrument.support == z)] < u
-
-    elif d == 1:
-
-        def _ind(z, u):
-            return instrument.pscores[np.where(instrument.support == z)] >= u
-
-    # Step 3: Compute the weight separately for each element of z
+    # Step 2: Compute the weight separately for each element of z
     weight = 0
 
     for z in instrument.support:
-        # For the case d == 0, lower bound of integration becomes pscore
-        # For the case d == 1, upper bound of integration becomes pscore
-
-        # Make sure to binds z to the function definition in every iteration.
-        # See: https://docs.astral.sh/ruff/rules/function-uses-loop-variable/.
         _pscore = instrument.pscores[np.where(instrument.support == z)][0]
 
-        if d == 0:
+        # For the case d == 0, lower bound of integration becomes pscore
+        # For the case d == 1, upper bound of integration becomes pscore
+        if d_value == 0:
             _integral = _bfunc.integrate(_pscore, 1)
         else:
             _integral = _bfunc.integrate(0, _pscore)
+
         _pos = np.where(instrument.support == z)[0][0]
         weight += _sdz(z) * _integral * instrument.pmf[_pos]
 
