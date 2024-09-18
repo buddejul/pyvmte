@@ -28,20 +28,19 @@ def compute_moments(supp_z, f_z, prop_z):
     return ez, ed, edz, cov_dz
 
 
-def s_iv_slope(z, ez, cov_dz, u=None):
+def s_iv_slope(z, ez, cov_dz):
     """IV-like specification s(d,z): IV slope.
 
     Args:
         z (np.int): value of the instrument
         ez (np.float): expected value of the instrument
         cov_dz (np.float): covariance between treatment and instrument.
-        u (np.float): Only used to allow for the same function signature.
 
     """
     return (z - ez) / cov_dz
 
 
-def s_ols_slope(d, ed, var_d, z=None, u=None):
+def s_ols_slope(d, ed, var_d, z=None):
     """OLS-like specification s(d,z): OLS slope.
 
     Args:
@@ -49,7 +48,6 @@ def s_ols_slope(d, ed, var_d, z=None, u=None):
         ed (np.float): expected value of the treatment
         var_d (np.float): variance of the treatment.
         z: Only used to allow for the same function signature.
-        u: Only used to allow for the same function signature
 
     """
     return (d - ed) / var_d
@@ -65,7 +63,7 @@ def s_late(d, u, u_lo, u_hi):
     return -w
 
 
-def s_cross(d, z, dz_cross, u=None):
+def s_cross(d, z, dz_cross):
     """IV_like specification s(d,z): Cross-moment d_spec * z_spec."""
     if (isinstance(d, np.ndarray) or d in [0, 1]) and isinstance(z, np.ndarray):
         return np.logical_and(d == dz_cross[0], z == dz_cross[1]).astype(int)
