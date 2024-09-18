@@ -123,6 +123,6 @@ class Bern:
         for i, c in enumerate(self.coefs):
             if c != 0:
                 _to_int = partial(self._indef_integral, i=i)
-                out += c * (_to_int(b) - _to_int(a))
+                out += float(c) * (_to_int(b) - _to_int(a))
 
         return out
