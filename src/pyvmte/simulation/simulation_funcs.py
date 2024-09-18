@@ -18,6 +18,7 @@ def monte_carlo_pyvmte(
     tolerance: float | None = None,
     lp_outputs: bool = False,  # noqa: FBT001, FBT002
     method: str = "highs",
+    basis_func_options: dict | None = None,
 ) -> dict:
     """Run monte carlo simulation using pyvmte module.
 
@@ -33,6 +34,7 @@ def monte_carlo_pyvmte(
             programming algorithm.
         method (str, optional): The method to use for the optimization algorithm.
         shape_constraints: Shape constraints on MTR functions.
+        basis_func_options: Options for basis functions.
 
     Returns:
         dict: A dictionary containing the results of the monte carlo simulation.
@@ -66,6 +68,7 @@ def monte_carlo_pyvmte(
             shape_constraints=shape_constraints,
             u_partition=None,
             method=method,
+            basis_func_options=basis_func_options,
         )
 
         upper_bounds[rep] = results["upper_bound"]

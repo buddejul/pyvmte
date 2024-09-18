@@ -1,10 +1,12 @@
 """Function for estimation."""
 
+from functools import partial
 from itertools import pairwise
 
 import coptpy as cp  # type: ignore
 import numpy as np
 from coptpy import COPT
+from scipy import integrate  # type: ignore[import-untyped]
 from scipy.optimize import (  # type: ignore
     OptimizeResult,
     linprog,  # type: ignore
@@ -17,9 +19,11 @@ from pyvmte.utilities import (
     _error_report_estimation_data,
     _error_report_invalid_basis_func_type,
     _error_report_method,
+    _error_report_missing_basis_func_options,
     _error_report_shape_constraints,
     _error_report_tolerance,
     _error_report_u_partition,
+    generate_bernstein_basis_funcs,
     s_cross,
     s_iv_slope,
     s_ols_slope,
@@ -38,6 +42,7 @@ def estimation(
     u_partition: np.ndarray | None = None,
     shape_constraints: tuple[str, str] | None = None,
     method: str = "highs",
+    basis_func_options: dict | None = None,
 ):
     """Estimate bounds given target, identified estimands, and data (estimation).
 
@@ -56,6 +61,7 @@ def estimation(
         Defaults to None.
         shape_constraints: Shape constraints for the MTR functions.
         method (str, optional): Method for scipy linprog solver. Default highs.
+        basis_func_options: Options for basis functions. Default None.
 
     Returns:
         dict: A dictionary containing the estimated upper and lower bound of the target
@@ -76,6 +82,7 @@ def estimation(
         u_partition,
         shape_constraints,
         method,
+        basis_func_options,
     )
 
     # ==================================================================================
@@ -91,7 +98,14 @@ def estimation(
         pscore_z=instrument.pscores,
     )
 
-    basis_funcs = _generate_basis_funcs(basis_func_type, u_partition)
+    if basis_func_type == "bernstein" and basis_func_options is not None:
+        basis_funcs = _generate_basis_funcs(
+            basis_func_type,
+            u_partition,
+            k_degree=basis_func_options["k_degree"],
+        )
+    else:
+        basis_funcs = _generate_basis_funcs(basis_func_type, u_partition)
 
     beta_hat = _estimate_identified_estimands(
         identified_estimands=identified_estimands,
@@ -273,15 +287,28 @@ def _compute_u_partition(
     return np.unique(knots)
 
 
-def _generate_basis_funcs(basis_func_type: str, u_partition: np.ndarray) -> list:
+def _generate_basis_funcs(
+    basis_func_type: str,
+    u_partition: np.ndarray,
+    k_degree: int | None = None,
+) -> list:
     """Generate list of dictionaries describing basis functions."""
-    bfuncs_list = []
-
     if basis_func_type == "constant":
+        bfuncs_list = []
         for u_lo, u_hi in pairwise(u_partition):
             bfuncs_list.append({"type": "constant", "u_lo": u_lo, "u_hi": u_hi})
 
-    return bfuncs_list
+        return bfuncs_list
+
+    if basis_func_type == "bernstein" and k_degree is not None:
+        return generate_bernstein_basis_funcs(k=k_degree)
+
+    if basis_func_type == "bernstein" and not isinstance(k_degree, int):
+        msg = "Type 'bernstein' provided but k_degree is not an integer."
+    else:
+        msg = "Could not generate basis functions."
+
+    raise ValueError(msg)
 
 
 def _estimate_identified_estimands(
@@ -657,6 +684,102 @@ def _estimate_gamma_for_basis_funcs(
     moments: dict,
     instrument: Instrument,
 ) -> float:
+    bfunc_type = basis_func["type"]
+
+    if bfunc_type == "constant":
+        return _estimate_gamma_constant_spline(
+            d_value,
+            estimand,
+            basis_func,
+            data,
+            moments,
+            instrument,
+        )
+
+    if bfunc_type == "bernstein":
+        return _estimate_gamma_bernstein(
+            d_value,
+            estimand,
+            basis_func,
+            data,
+            moments,
+            instrument,
+        )
+
+    msg = "Invalid basis function type."
+    raise ValueError(msg)
+
+
+def _estimate_gamma_bernstein(
+    d_value: int,
+    estimand: Estimand,
+    basis_func: dict,
+    data: dict,
+    moments: dict,
+    instrument: Instrument,
+) -> float:
+    _bfunc = basis_func["func"]
+
+    # Step 1: Get weight function s(D, Z) depending on the estimand type
+    if estimand.esttype == "ols_slope":
+        _s_ols_slope = partial(
+            s_ols_slope,
+            d=d_value,
+            ed=moments["expectation_d"],
+            var_d=moments["variance_d"],
+        )
+
+        def _sdz(z, u):
+            return _s_ols_slope(z=z, u=u)
+
+    if estimand.esttype == "iv_slope":
+        _s_iv_slope = partial(
+            s_iv_slope,
+            ez=moments["expectation_z"],
+            cov_dz=moments["covariance_dz"],
+        )
+
+        def _sdz(z, u):
+            return _s_iv_slope(z=z, u=u)
+
+    if estimand.esttype == "cross":
+
+        def _sdz(z, u):
+            return s_cross(d=d_value, z=z, dz_cross=estimand.dz_cross, u=u)
+
+    # Step 2: Indicator for propensity score
+    if d_value == 0:
+
+        def _ind(z, u):
+            return instrument.pscores[np.where(instrument.support == z)] < u
+
+    elif d_value == 1:
+
+        def _ind(z, u):
+            return instrument.pscores[np.where(instrument.support == z)] >= u
+
+    # Step 3: Compute the weight separately for each z in support of instrument
+    weight = 0
+
+    for z in instrument.support:
+        # Make sure to binds z to the function definition in every iteration.
+        # See: https://docs.astral.sh/ruff/rules/function-uses-loop-variable/.
+        _to_integrate = partial(lambda u, z: _sdz(z, u) * _ind(z, u) * _bfunc(u), z=z)
+        _integral = integrate.quad(_to_integrate, 0, 1)[0]
+        _pos = np.where(instrument.support == z)[0][0]
+        weight += _integral * instrument.pmf[_pos]
+
+    return weight
+
+
+def _estimate_gamma_constant_spline(
+    d_value: int,
+    estimand: Estimand,
+    basis_func: dict,
+    data: dict,
+    moments: dict,
+    instrument: Instrument,
+) -> float:
     """Estimate gamma linear map for basis function (cf.
 
     S33 in Appendix).
@@ -741,6 +864,7 @@ def _check_estimation_arguments(
     u_partition: np.ndarray | None,
     shape_constraints: tuple[str, str] | None,
     method: str,
+    basis_func_options: dict | None,
 ):
     """Check args to estimation func, returns report if there are errors."""
     error_report = ""
@@ -749,6 +873,10 @@ def _check_estimation_arguments(
     for ident in identified_estimands:
         error_report += _error_report_estimand(ident)
     error_report += _error_report_invalid_basis_func_type(basis_func_type)
+    error_report += _error_report_missing_basis_func_options(
+        basis_func_type,
+        basis_func_options,
+    )
 
     error_report += _error_report_estimation_data(y_data, z_data, d_data)
 

@@ -47,16 +47,24 @@ NUM_SIMULATIONS = 250
 def test_consistently_estimate_bounds_mst(setup: Setup, method: str):
     expected = [setup.lower_bound, setup.upper_bound]
 
+    if setup == SETUP_FIG7 and setup.polynomial is not None:
+        basis_func_type = setup.polynomial[0]
+        basis_func_options = {"k_degree": setup.polynomial[1]}
+    else:
+        basis_func_type = "constant"
+        basis_func_options = None
+
     results = monte_carlo_pyvmte(
         sample_size=SAMPLE_SIZE,
         repetitions=NUM_SIMULATIONS,
         target=setup.target,
         identified_estimands=setup.identified_estimands,
-        basis_func_type="constant",
+        basis_func_type=basis_func_type,
         shape_constraints=setup.shape_constraints,
         tolerance=1 / SAMPLE_SIZE,
         rng=RNG,
         method=method,
+        basis_func_options=basis_func_options,
     )
 
     mean_upper_bound = np.mean(results["upper_bounds"])

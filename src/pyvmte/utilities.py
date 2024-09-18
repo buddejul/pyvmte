@@ -173,10 +173,20 @@ def _error_report_estimand(estimand: Estimand):
 def _error_report_invalid_basis_func_type(basis_func_type):
     """Return error message if basis_func_type is not valid."""
     error_report = ""
-    if basis_func_type not in ["constant"]:
+    if basis_func_type not in ["constant", "bernstein"]:
         error_report += (
             f"Basis function type {basis_func_type} is not valid. "
             "Only 'constant' is currently implemented."
+        )
+    return error_report
+
+
+def _error_report_missing_basis_func_options(basis_func_type, basis_func_options):
+    """Return error message if options are missing for a basis_func_type."""
+    error_report = ""
+    if basis_func_type == "bernstein" and "k_degree" not in basis_func_options:
+        error_report += (
+            "Option 'k_degree' is missing for basis function type 'bernstein'."
         )
     return error_report
 
