@@ -129,6 +129,7 @@ def test_first_step_linear_program_runs_and_non_zero(setup_lp_inputs):
         beta_hat=setup_lp_inputs["beta_hat"],
         instrument=setup_lp_inputs["instrument"],
         method="highs",
+        shape_constraints=None,
     )
 
     assert result["minimal_deviations"] != 0
@@ -218,6 +219,7 @@ def test_second_step_linear_program_runs(setup_dgp):
     result = _second_step_linear_program(
         **kwargs,
         method="highs",
+        shape_constraints=None,
     )
 
     assert result is not None

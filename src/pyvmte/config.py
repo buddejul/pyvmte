@@ -1,4 +1,5 @@
 """All the general configuration of the project."""
+
 from itertools import product
 from pathlib import Path
 
@@ -49,6 +50,22 @@ SETUP_FIG5 = Setup(
     upper_bound=0.407,
 )
 
+SETUP_FIG6 = Setup(
+    target=Estimand(esttype="late", u_lo=0.35, u_hi=0.9),
+    identified_estimands=cross_estimands,
+    lower_bound=-0.095,
+    upper_bound=0.077,
+    shape_constraints=("decreasing", "decreasing"),
+)
+
+SETUP_FIG7 = Setup(
+    target=Estimand(esttype="late", u_lo=0.35, u_hi=0.9),
+    identified_estimands=cross_estimands,
+    lower_bound=-0.000,
+    upper_bound=0.067,
+    shape_constraints=("decreasing", "decreasing"),
+    polynomial=("bernstein", 9),
+)
 
 IV_MST = Instrument(
     support=np.array([0, 1, 2]),

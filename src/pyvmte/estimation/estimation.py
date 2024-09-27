@@ -1,4 +1,6 @@
 """Function for estimation."""
+
+from functools import partial
 from itertools import pairwise
 
 import coptpy as cp  # type: ignore
@@ -16,8 +18,11 @@ from pyvmte.utilities import (
     _error_report_estimation_data,
     _error_report_invalid_basis_func_type,
     _error_report_method,
+    _error_report_missing_basis_func_options,
+    _error_report_shape_constraints,
     _error_report_tolerance,
     _error_report_u_partition,
+    generate_bernstein_basis_funcs,
     s_cross,
     s_iv_slope,
     s_ols_slope,
@@ -34,7 +39,9 @@ def estimation(
     d_data: np.ndarray,
     tolerance: float | None = None,
     u_partition: np.ndarray | None = None,
+    shape_constraints: tuple[str, str] | None = None,
     method: str = "highs",
+    basis_func_options: dict | None = None,
 ):
     """Estimate bounds given target, identified estimands, and data (estimation).
 
@@ -51,7 +58,9 @@ def estimation(
         The default is 1 / sample_size.
         u_partition (list or np.array, optional): Partition of u for basis_funcs.
         Defaults to None.
+        shape_constraints: Shape constraints for the MTR functions.
         method (str, optional): Method for scipy linprog solver. Default highs.
+        basis_func_options: Options for basis functions. Default None.
 
     Returns:
         dict: A dictionary containing the estimated upper and lower bound of the target
@@ -70,7 +79,9 @@ def estimation(
         d_data,
         tolerance,
         u_partition,
+        shape_constraints,
         method,
+        basis_func_options,
     )
 
     # ==================================================================================
@@ -86,7 +97,14 @@ def estimation(
         pscore_z=instrument.pscores,
     )
 
-    basis_funcs = _generate_basis_funcs(basis_func_type, u_partition)
+    if basis_func_type == "bernstein" and basis_func_options is not None:
+        basis_funcs = _generate_basis_funcs(
+            basis_func_type,
+            u_partition,
+            k_degree=basis_func_options["k_degree"],
+        )
+    else:
+        basis_funcs = _generate_basis_funcs(basis_func_type, u_partition)
 
     beta_hat = _estimate_identified_estimands(
         identified_estimands=identified_estimands,
@@ -112,6 +130,7 @@ def estimation(
         data=data,
         beta_hat=beta_hat,
         instrument=instrument,
+        shape_constraints=shape_constraints,
         method=method,
     )
 
@@ -129,6 +148,7 @@ def estimation(
         tolerance=tolerance,
         beta_hat=beta_hat,
         instrument=instrument,
+        shape_constraints=shape_constraints,
         method=method,
     )
 
@@ -161,6 +181,7 @@ def _first_step_linear_program(
     data: dict[str, np.ndarray],
     beta_hat: np.ndarray,
     instrument: Instrument,
+    shape_constraints: tuple[str, str] | None,
     method: str,
 ) -> dict:
     """First step linear program to get minimal deviations in constraint."""
@@ -176,13 +197,26 @@ def _first_step_linear_program(
         data,
         instrument,
     )
+    if shape_constraints is not None:
+        lp_first_inputs["a_ub"] = _append_shape_constraints_a_ub(
+            shape_constraints,
+            lp_first_inputs["a_ub"],
+            num_bfuncs,
+            num_idestimands=len(identified_estimands),
+        )
+        lp_first_inputs["b_ub"] = _append_shape_constraints_b_ub(
+            shape_constraints,
+            lp_first_inputs["b_ub"],
+            num_bfuncs,
+        )
+
     lp_first_inputs["bounds"] = _compute_first_step_bounds(
         identified_estimands,
         basis_funcs,  # type: ignore
     )
     if method == "copt":
-        minimal_deviations = _solve_lp_estimation_copt(lp_first_inputs, "min")
         first_step_solution = None
+        minimal_deviations = _solve_lp_estimation_copt(lp_first_inputs, "min")
     else:
         first_step_solution = _solve_first_step_lp_estimation(lp_first_inputs, method)
         minimal_deviations = first_step_solution.fun
@@ -252,15 +286,28 @@ def _compute_u_partition(
     return np.unique(knots)
 
 
-def _generate_basis_funcs(basis_func_type: str, u_partition: np.ndarray) -> list:
+def _generate_basis_funcs(
+    basis_func_type: str,
+    u_partition: np.ndarray,
+    k_degree: int | None = None,
+) -> list:
     """Generate list of dictionaries describing basis functions."""
-    bfuncs_list = []
-
     if basis_func_type == "constant":
+        bfuncs_list = []
         for u_lo, u_hi in pairwise(u_partition):
             bfuncs_list.append({"type": "constant", "u_lo": u_lo, "u_hi": u_hi})
 
-    return bfuncs_list
+        return bfuncs_list
+
+    if basis_func_type == "bernstein" and k_degree is not None:
+        return generate_bernstein_basis_funcs(k=k_degree)
+
+    if basis_func_type == "bernstein" and not isinstance(k_degree, int):
+        msg = "Type 'bernstein' provided but k_degree is not an integer."
+    else:
+        msg = "Could not generate basis functions."
+
+    raise ValueError(msg)
 
 
 def _estimate_identified_estimands(
@@ -397,6 +444,60 @@ def _compute_first_step_bounds(
     ]
 
 
+def _append_shape_constraints_a_ub(
+    shape_constraints: tuple[str, str],
+    a_ub,
+    num_bfuncs: int,
+    num_idestimands: int | None = None,
+) -> np.ndarray:
+    """Append shape constraints to a_ub matrix.
+
+    num_idestimands needs to be supplied for the first step linear program.
+
+    """
+    a = np.eye(num_bfuncs - 1, num_bfuncs)
+    b = np.eye(num_bfuncs - 1, num_bfuncs, 1)
+
+    to_append = a - b
+
+    # Now we need to delete the (num_bfuncs)th row, so we don't put cross-
+    # restrictions on the MTR d = 0 and d = 1 functions.
+    to_delete = int(num_bfuncs / 2 - 1)
+    to_append = np.delete(to_append, to_delete, axis=0)
+
+    # Add a matrix of zeros to the right with the same rows and num_idestimands columns
+    # to match the first step linear program structure.
+    if num_idestimands is not None:
+        to_append = np.hstack(
+            (to_append, np.zeros((to_append.shape[0], num_idestimands))),
+        )
+
+    if shape_constraints == ("increasing", "increasing"):
+        return np.vstack((a_ub, to_append))
+
+    if shape_constraints == ("decreasing", "decreasing"):
+        return np.vstack((a_ub, -to_append))
+
+    msg = "Invalid shape constraints."
+    raise ValueError(msg)
+
+
+def _append_shape_constraints_b_ub(
+    shape_constraints: tuple[str, str],
+    b_ub: np.ndarray,
+    num_bfuncs: int,
+) -> np.ndarray:
+    """Append shape constraints to b_ub vector."""
+    if shape_constraints in [
+        ("increasing", "increasing"),
+        ("decreasing", "decreasing"),
+    ]:
+        return np.append(b_ub, np.zeros(num_bfuncs - 2))
+
+    msg = "Invalid shape constraints."
+    raise ValueError(msg)
+
+
 def _second_step_linear_program(
     target: Estimand,
     identified_estimands: list[Estimand],
@@ -406,6 +507,7 @@ def _second_step_linear_program(
     tolerance: float,
     beta_hat: np.ndarray,
     instrument: Instrument,
+    shape_constraints: tuple[str, str] | None,
     method: str,
 ) -> dict:
     """Second step linear program to estimate upper and lower bounds."""
@@ -427,6 +529,19 @@ def _second_step_linear_program(
         data=data,
         instrument=instrument,
     )
+    if shape_constraints is not None:
+        lp_second_inputs["a_ub"] = _append_shape_constraints_a_ub(
+            shape_constraints,
+            lp_second_inputs["a_ub"],
+            len(basis_funcs) * 2,
+            num_idestimands=len(identified_estimands),
+        )
+        lp_second_inputs["b_ub"] = _append_shape_constraints_b_ub(
+            shape_constraints,
+            lp_second_inputs["b_ub"],
+            len(basis_funcs) * 2,
+        )
+
     lp_second_inputs["bounds"] = _compute_second_step_bounds(
         basis_funcs,
         identified_estimands,  # type: ignore
@@ -568,6 +683,99 @@ def _estimate_gamma_for_basis_funcs(
     moments: dict,
     instrument: Instrument,
 ) -> float:
+    bfunc_type = basis_func["type"]
+
+    if bfunc_type == "constant":
+        return _estimate_gamma_constant_spline(
+            d_value,
+            estimand,
+            basis_func,
+            data,
+            moments,
+            instrument,
+        )
+
+    if bfunc_type == "bernstein":
+        return _estimate_gamma_bernstein(
+            d_value,
+            estimand,
+            basis_func,
+            data,
+            moments,
+            instrument,
+        )
+
+    msg = "Invalid basis function type."
+    raise ValueError(msg)
+
+
+def _estimate_gamma_bernstein(
+    d_value: int,
+    estimand: Estimand,
+    basis_func: dict,
+    data: dict,
+    moments: dict,
+    instrument: Instrument,
+) -> float:
+    _bfunc = basis_func["func"]
+
+    # All the following weights functions only depend on z, but not u.
+    # Hence we can pull them out of the integral.
+
+    # Step 1: Get weight function s(D, Z) depending on the estimand type
+    if estimand.esttype == "ols_slope":
+        _s_ols_slope = partial(
+            s_ols_slope,
+            d=d_value,
+            ed=moments["expectation_d"],
+            var_d=moments["variance_d"],
+        )
+
+        def _sdz(z):
+            return _s_ols_slope(z=z)
+
+    if estimand.esttype == "iv_slope":
+        _s_iv_slope = partial(
+            s_iv_slope,
+            ez=moments["expectation_z"],
+            cov_dz=moments["covariance_dz"],
+        )
+
+        def _sdz(z):
+            return _s_iv_slope(z=z)
+
+    if estimand.esttype == "cross":
+
+        def _sdz(z):
+            return s_cross(d=d_value, z=z, dz_cross=estimand.dz_cross)
+
+    # Step 3: Compute the weight separately for each z in support of instrument
+    weight = 0
+
+    for z in instrument.support:
+        _pscore = instrument.pscores[np.where(instrument.support == z)][0]
+
+        # For the case d == 0, lower bound of integration becomes pscore
+        # For the case d == 1, upper bound of integration becomes pscore
+        if d_value == 0:
+            _integral = _bfunc.integrate(_pscore, 1)
+        else:
+            _integral = _bfunc.integrate(0, _pscore)
+
+        _pos = np.where(instrument.support == z)[0][0]
+        weight += _sdz(z) * _integral * instrument.pmf[_pos]
+
+    return weight
+
+
+def _estimate_gamma_constant_spline(
+    d_value: int,
+    estimand: Estimand,
+    basis_func: dict,
+    data: dict,
+    moments: dict,
+    instrument: Instrument,
+) -> float:
     """Estimate gamma linear map for basis function (cf.
 
     S33 in Appendix).
@@ -642,15 +850,17 @@ def _solve_lp_estimation_copt(lp_second_inputs: dict, min_or_max: str) -> float:
 
 
 def _check_estimation_arguments(
-    target,
-    identified_estimands,
-    basis_func_type,
-    y_data,
-    z_data,
-    d_data,
-    tolerance,  # optional
-    u_partition,  # optional
-    method,  # optional
+    target: Estimand,
+    identified_estimands: list[Estimand],
+    basis_func_type: str,
+    y_data: np.ndarray,
+    z_data: np.ndarray,
+    d_data: np.ndarray,
+    tolerance: float | None,
+    u_partition: np.ndarray | None,
+    shape_constraints: tuple[str, str] | None,
+    method: str,
+    basis_func_options: dict | None,
 ):
     """Check args to estimation func, returns report if there are errors."""
     error_report = ""
@@ -659,12 +869,17 @@ def _check_estimation_arguments(
     for ident in identified_estimands:
         error_report += _error_report_estimand(ident)
     error_report += _error_report_invalid_basis_func_type(basis_func_type)
+    error_report += _error_report_missing_basis_func_options(
+        basis_func_type,
+        basis_func_options,
+    )
 
     error_report += _error_report_estimation_data(y_data, z_data, d_data)
 
     error_report += _error_report_tolerance(tolerance)
     error_report += _error_report_u_partition(u_partition)
     error_report += _error_report_method(method)
+    error_report += _error_report_shape_constraints(shape_constraints)
 
     if error_report != "":
         raise ValueError(error_report)

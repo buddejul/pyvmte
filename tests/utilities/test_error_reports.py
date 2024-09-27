@@ -11,6 +11,7 @@ from pyvmte.utilities import (
     _error_report_invalid_basis_func_type,
     _error_report_method,
     _error_report_mtr_function,
+    _error_report_shape_constraints,
     _error_report_tolerance,
     _error_report_u_partition,
 )
@@ -301,6 +302,21 @@ def test_error_report_mtr_function(mtr_function):
 def test_error_report_instrument(instrument):
     error_report = _error_report_instrument(instrument)
     print(error_report)  # noqa: T201
+    assert error_report != ""
+
+
+@pytest.mark.parametrize(
+    "shape_constraints",
+    [
+        "not a tuple",
+        (1, 2),
+        ("not a shape constraint", "not a shape constraint"),
+        ("increasing", "not a shape constraint"),
+        ("not a shape constraint", "increasing"),
+    ],
+)
+def test_error_report_shape_constraints(shape_constraints):
+    error_report = _error_report_shape_constraints(shape_constraints)
     assert error_report != ""
 
 

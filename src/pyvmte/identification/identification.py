@@ -1,5 +1,7 @@
 """Function for identification."""
+
 from collections.abc import Callable
+from functools import partial
 
 import coptpy as cp  # type: ignore
 import numpy as np
@@ -16,6 +18,7 @@ from pyvmte.utilities import (
     _error_report_instrument,
     _error_report_method,
     _error_report_mtr_function,
+    _error_report_shape_constraints,
     _error_report_u_partition,
     compute_moments,
     s_cross,
@@ -33,7 +36,9 @@ def identification(
     m1_dgp: Callable,
     instrument: Instrument,
     u_partition: np.ndarray,
+    shape_constraints: tuple[str, str] | None = None,
     method: str = "highs",
+    debug: bool = False,  # noqa: FBT001, FBT002
 ):
     """Compute bounds on target estimand given identified estimands and DGP.
 
@@ -49,9 +54,11 @@ def identification(
         instrument (Instrument): All information about the instrument.
         u_partition (list or np.array): Partition of u for basis_funcs.
             Defaults to None.
+        shape_constraints: Shape constraints for the MTR functions.
         method (str, optional): Method for solving the linear program.
             Implemented are: all methods supported by scipy.linprog as well as copt.
             Defaults to "highs" using scipy.linprog.
+        debug: Whether to return the full output of the linear program solver.
 
     Returns:
         dict: A dictionary containing the upper and lower bound of the target estimand.
@@ -74,6 +81,7 @@ def identification(
         m1_dgp,
         instrument,
         u_partition,
+        shape_constraints,
         method,
     )
 
@@ -97,9 +105,25 @@ def identification(
         instrument=instrument,
     )
 
+    if shape_constraints is not None:
+        lp_inputs["a_ub"] = _compute_inequality_constraint_matrix(
+            shape_constraints=shape_constraints,
+            n_basis_funcs=len(basis_funcs),
+        )
+        lp_inputs["b_ub"] = _compute_inequality_upper_bounds(
+            shape_constraints=shape_constraints,
+            n_basis_funcs=len(basis_funcs),
+        )
+
     # ==================================================================================
     # Solve linear program
     # ==================================================================================
+
+    if debug is True:
+        return {
+            "upper": _solve_lp(lp_inputs, "max", method=method, debug=debug),
+            "lower": _solve_lp(lp_inputs, "min", method=method, debug=debug),
+        }
 
     upper_bound = (-1) * _solve_lp(lp_inputs, "max", method=method)
     lower_bound = _solve_lp(lp_inputs, "min", method=method)
@@ -156,6 +180,7 @@ def _compute_choice_weights(
     moments: dict | None = None,
 ) -> np.ndarray:
     """Compute weights on the choice variables."""
+    # TODO: Refactor this; current approach only allows for one type of func anyways.
     bfunc_type = basis_funcs[0]["type"]
 
     if bfunc_type == "constant":
@@ -173,6 +198,19 @@ def _compute_choice_weights(
                 )
                 c.append(weight)
 
+    if bfunc_type == "bernstein":
+        c = []
+        for d in [0, 1]:
+            for bfunc in basis_funcs:
+                weight = _compute_bernstein_weights(
+                    estimand=target,
+                    basis_function=bfunc,
+                    d_value=d,
+                    instrument=instrument,
+                    moments=moments,
+                )
+                c.append(weight)
+
     return np.array(c)
 
 
@@ -182,33 +220,72 @@ def _compute_equality_constraint_matrix(
     instrument: Instrument,
 ) -> np.ndarray:
     """Compute weight matrix for equality constraints."""
-    bfunc_type = basis_funcs[0]["type"]
+    c_matrix = []
+    for target in identified_estimands:
+        c_row = _compute_choice_weights(
+            target=target,
+            basis_funcs=basis_funcs,
+            instrument=instrument,
+        )
 
-    if bfunc_type == "constant":
-        c_matrix = []
-        for target in identified_estimands:
-            c_row = _compute_choice_weights(
-                target=target,
-                basis_funcs=basis_funcs,
-                instrument=instrument,
-            )
-
-            c_matrix.append(c_row)
+        c_matrix.append(c_row)
 
     return np.array(c_matrix)
 
 
-def _solve_lp(lp_inputs: dict, max_or_min: str, method: str) -> float:
+def _compute_inequality_constraint_matrix(
+    shape_constraints: tuple[str, str],
+    n_basis_funcs: int,
+) -> np.ndarray:
+    """Returns the inequality constraint matrix incorporating shape constraints."""
+    a = np.eye(2 * n_basis_funcs - 1, 2 * n_basis_funcs)
+    b = np.eye(2 * n_basis_funcs - 1, 2 * n_basis_funcs, 1)
+
+    out = a - b
+
+    # Now we need to delete the (n_basis_funcs)th row, so we don't put cross-
+    # restrictions on the MTR d = 0 and d = 1 functions.
+    out = np.delete(out, n_basis_funcs - 1, axis=0)
+
+    if shape_constraints == ("increasing", "increasing"):
+        return out
+
+    if shape_constraints == ("decreasing", "decreasing"):
+        return -out
+
+    msg = "Invalid shape constraints."
+    raise ValueError(msg)
+
+
+def _compute_inequality_upper_bounds(
+    shape_constraints: tuple[str, str],
+    n_basis_funcs: int,
+) -> np.ndarray:
+    return np.zeros(2 * n_basis_funcs - 2)
+
+
+def _solve_lp(
+    lp_inputs: dict,
+    max_or_min: str,
+    method: str,
+    debug: bool = False,  # noqa: FBT001, FBT002
+) -> float:
     """Wrapper for solving the linear program."""
     c = np.array(lp_inputs["c"]) if max_or_min == "min" else -np.array(lp_inputs["c"])
 
     b_eq = lp_inputs["b_eq"]
     a_eq = lp_inputs["a_eq"]
 
-    if method == "copt":
-        return _solve_lp_copt(c, a_eq, b_eq)
+    a_ub = lp_inputs.get("a_ub", None)
+    b_ub = lp_inputs.get("b_ub", None)
 
-    return linprog(c, A_eq=a_eq, b_eq=b_eq, bounds=(0, 1)).fun
+    if method == "copt":
+        return _solve_lp_copt(c, a_eq, b_eq, a_ub, b_ub)
+
+    if debug is True:
+        return linprog(c=c, A_eq=a_eq, b_eq=b_eq, A_ub=a_ub, b_ub=b_ub, bounds=(0, 1))
+
+    return linprog(c=c, A_eq=a_eq, b_eq=b_eq, A_ub=a_ub, b_ub=b_ub, bounds=(0, 1)).fun
 
 
 def _compute_moments_for_weights(target: Estimand, instrument: Instrument) -> dict:
@@ -267,6 +344,8 @@ def _solve_lp_copt(
     c: np.ndarray,
     a_eq: np.ndarray,
     b_eq: np.ndarray,
+    a_ub: np.ndarray | None = None,
+    b_ub: np.ndarray | None = None,
 ) -> float:
     """Wrapper for solving LP using copt algorithm."""
     env = cp.Envr()
@@ -274,6 +353,9 @@ def _solve_lp_copt(
     x = model.addMVar(len(c), nameprefix="x", lb=0, ub=1)
     model.setObjective(c @ x, COPT.MINIMIZE)
     model.addMConstr(a_eq, x, "E", b_eq, nameprefix="c")
+    if a_ub is not None and b_ub is not None:
+        model.addMConstr(a_ub, x, "L", b_ub)
+
     model.solveLP()
 
     if model.status != COPT.OPTIMAL:
@@ -409,6 +491,80 @@ def _compute_constant_spline_weights(
     return out * (basis_function["u_hi"] - basis_function["u_lo"])
 
 
+def _compute_bernstein_weights(
+    estimand: Estimand,
+    d_value: int,
+    basis_function: dict,
+    instrument: Instrument,
+    moments: dict | None = None,
+) -> float:
+    _bfunc = basis_function["func"]
+
+    # For late target, we can compute the weight directly
+    if estimand.esttype == "late":
+        _s_late = partial(s_late, d=d_value, u_lo=estimand.u_lo, u_hi=estimand.u_hi)
+
+        _mid = (
+            estimand.u_lo + (estimand.u_hi - estimand.u_lo) / 2  # type: ignore[operator]
+        )
+
+        return _s_late(u=_mid) * _bfunc.integrate(estimand.u_lo, estimand.u_hi)
+
+    # For the remaining estimands, the weights are not a function of u, hence they
+    # can be pulled out of the integral.
+
+    # Step 1: Get weight function s(D, Z) depending on the estimand type
+    if estimand.esttype == "ols_slope":
+        if moments is None:
+            moments = _compute_moments_for_weights(estimand, instrument)
+
+        _s_ols_slope = partial(
+            s_ols_slope,
+            d=d_value,
+            ed=moments["expectation_d"],
+            var_d=moments["variance_d"],
+        )
+
+        def _sdz(z):
+            return _s_ols_slope(z=z)
+
+    if estimand.esttype == "iv_slope":
+        if moments is None:
+            moments = _compute_moments_for_weights(estimand, instrument)
+
+        _s_iv_slope = partial(
+            s_iv_slope,
+            ez=moments["expectation_z"],
+            cov_dz=moments["covariance_dz"],
+        )
+
+        def _sdz(z):
+            return _s_iv_slope(z=z)
+
+    if estimand.esttype == "cross":
+
+        def _sdz(z):
+            return s_cross(d=d_value, z=z, dz_cross=estimand.dz_cross)
+
+    # Step 2: Compute the weight separately for each element of z
+    weight = 0
+
+    for z in instrument.support:
+        _pscore = instrument.pscores[np.where(instrument.support == z)][0]
+
+        # For the case d == 0, lower bound of integration becomes pscore
+        # For the case d == 1, upper bound of integration becomes pscore
+        if d_value == 0:
+            _integral = _bfunc.integrate(_pscore, 1)
+        else:
+            _integral = _bfunc.integrate(0, _pscore)
+
+        _pos = np.where(instrument.support == z)[0][0]
+        weight += _sdz(z) * _integral * instrument.pmf[_pos]
+
+    return weight
+
+
 def _weight_late(u, u_lo, u_hi):
     """Weight function for late target."""
     if u_lo < u < u_hi:
@@ -493,6 +649,7 @@ def _check_identification_arguments(
     m1_dgp,
     instrument,
     u_partition,
+    shape_constraints,
     method,
 ):
     """Check identification arguments.
@@ -510,6 +667,7 @@ def _check_identification_arguments(
     error_report += _error_report_instrument(instrument)
     error_report += _error_report_u_partition(u_partition)
     error_report += _error_report_method(method)
+    error_report += _error_report_shape_constraints(shape_constraints)
 
     if error_report:
         raise ValueError(error_report)

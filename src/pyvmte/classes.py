@@ -1,6 +1,9 @@
 """Define custom classes for pyvmte."""
+
+import math
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import partial
 from typing import NamedTuple
 
 import numpy as np
@@ -72,6 +75,8 @@ class Setup(NamedTuple):
     identified_estimands: list[Estimand]
     lower_bound: float
     upper_bound: float
+    shape_constraints: tuple[str, str] | None = None
+    polynomial: tuple[str, int] | None = None
 
 
 class MonteCarloSetup(NamedTuple):
@@ -80,3 +85,44 @@ class MonteCarloSetup(NamedTuple):
     sample_size: int
     repetitions: int
     u_hi_range: np.ndarray | None = None
+
+
+class Bern:
+    """Bernstein polynomial of degree n with coefficients on the basis functions."""
+
+    bfunc_type: str = "bernstein"
+    lo: float = 0
+    hi: float = 1
+
+    def __init__(self, n, coefs):
+        """Initialize the Bernstein polynomial with degree n and coefficients coefs."""
+        self.n = n
+        self.coefs = coefs
+
+    def __call__(self, x):
+        """Evaluate the Bernstein polynomial at point x."""
+        return sum([self._bern_bas(self.n, i, x) * c for i, c in enumerate(self.coefs)])
+
+    def _bern_bas(self, n, v, x):
+        return math.comb(n, v) * x**v * (1 - x) ** (n - v)
+
+    def _indef_integral(self, u: float, i: int) -> float:
+        out = 0.0
+
+        for j in range(i + 1, self.n + 1 + 1):
+            out += self._bern_bas(self.n + 1, j, u)
+
+        # Construct the integral of the basis polynomials
+
+        return (self.hi - self.lo) / (self.n + 1) * out
+
+    def integrate(self, a, b):
+        """Integrate the Bernstein polynomial over the interval [a, b]."""
+        out = 0.0
+
+        for i, c in enumerate(self.coefs):
+            if c != 0:
+                _to_int = partial(self._indef_integral, i=i)
+                out += float(c) * (_to_int(b) - _to_int(a))
+
+        return out

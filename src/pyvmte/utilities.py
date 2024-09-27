@@ -1,12 +1,14 @@
 """Utilities used in various parts of the project."""
+
 import contextlib
 import math
 import os
 
 import numpy as np
 import pandas as pd  # type: ignore
+from scipy.interpolate import BPoly  # type: ignore[import-untyped]
 
-from pyvmte.classes import Estimand, Instrument
+from pyvmte.classes import Bern, Estimand, Instrument
 
 
 def compute_moments(supp_z, f_z, prop_z):
@@ -38,13 +40,14 @@ def s_iv_slope(z, ez, cov_dz):
     return (z - ez) / cov_dz
 
 
-def s_ols_slope(d, ed, var_d):
+def s_ols_slope(d, ed, var_d, z=None):
     """OLS-like specification s(d,z): OLS slope.
 
     Args:
         d (np.int): value of the treatment
         ed (np.float): expected value of the treatment
         var_d (np.float): variance of the treatment.
+        z: Only used to allow for the same function signature.
 
     """
     return (d - ed) / var_d
@@ -168,10 +171,20 @@ def _error_report_estimand(estimand: Estimand):
 def _error_report_invalid_basis_func_type(basis_func_type):
     """Return error message if basis_func_type is not valid."""
     error_report = ""
-    if basis_func_type not in ["constant"]:
+    if basis_func_type not in ["constant", "bernstein"]:
         error_report += (
             f"Basis function type {basis_func_type} is not valid. "
             "Only 'constant' is currently implemented."
+        )
+    return error_report
+
+
+def _error_report_missing_basis_func_options(basis_func_type, basis_func_options):
+    """Return error message if options are missing for a basis_func_type."""
+    error_report = ""
+    if basis_func_type == "bernstein" and "k_degree" not in basis_func_options:
+        error_report += (
+            "Option 'k_degree' is missing for basis function type 'bernstein'."
         )
     return error_report
 
@@ -242,6 +255,8 @@ def _error_report_basis_funcs(basis_funcs):
     """Return error message if basis_funcs is not valid."""
     error_report = ""
 
+    supported_bfuncs = ["constant", "bernstein"]
+
     # Check if list of dict not empty
     if not basis_funcs:
         error_report += "Basis functions list is empty."
@@ -253,25 +268,31 @@ def _error_report_basis_funcs(basis_funcs):
                 f"Basis function {basis_func} at index {i} is not of type dict."
             )
         else:
-            if basis_func["type"] not in ["constant"]:
+            if basis_func["type"] not in supported_bfuncs:
                 error_report += (
                     f"Basis func type {basis_func['type']} at index {i} is invalid. "
-                    "Only 'constant' is currently implemented."
+                    f"Only {supported_bfuncs} is currently implemented."
                 )
-            if not (
-                isinstance(basis_func["u_lo"], float | int)
-                and isinstance(basis_func["u_hi"], float | int)
+            if basis_func["type"] == "constant":
+                if not (
+                    isinstance(basis_func["u_lo"], float | int)
+                    and isinstance(basis_func["u_hi"], float | int)
+                ):
+                    error_report += (
+                        f"Basis func {basis_func} at index {i} requires u_lo and u_hi "
+                        f"to be float. Got {basis_func['u_lo']}, {basis_func['u_hi']}."
+                    )
+                if not (0 <= basis_func["u_lo"] < basis_func["u_hi"] <= 1):
+                    error_report += (
+                        f"Basis function {basis_func} at index {i} requires "
+                        f"0 <= u_lo < u_hi <= 1. "
+                        f"Got {basis_func['u_lo']} and {basis_func['u_hi']}."
+                    )
+            elif basis_func["type"] == "bernstein" and not (
+                isinstance(basis_func["func"], BPoly | Bern)
             ):
-                error_report += (
-                    f"Basis func {basis_func} at index {i} requires u_lo and u_hi "
-                    f"to be floats. Got {basis_func['u_lo']} and {basis_func['u_hi']}."
-                )
-            if not (0 <= basis_func["u_lo"] < basis_func["u_hi"] <= 1):
-                error_report += (
-                    f"Basis function {basis_func} at index {i} requires "
-                    f"0 <= u_lo < u_hi <= 1. "
-                    f"Got {basis_func['u_lo']} and {basis_func['u_hi']}."
-                )
+                error_report += f"Basis function {basis_func} at index {i} is not"
+                "of type BPoly or Bern."
     return error_report
 
 
@@ -305,3 +326,55 @@ def _error_report_instrument(instrument: Instrument):
         error_report += "Instrument attribute pmf does not sum to 1."
 
     return error_report
+
+
+def _error_report_shape_constraints(shape_constraints: tuple[str, str] | None) -> str:
+    """Return error message if shape_constraints is not valid."""
+    error_report = ""
+    if shape_constraints is None:
+        return error_report
+
+    if not isinstance(shape_constraints, tuple):
+        return f"Shape constraints {shape_constraints} is not of type tuple."
+
+    n_shape_constraints = 2
+
+    if len(shape_constraints) != n_shape_constraints:
+        error_report += (
+            f"Shape constraints {shape_constraints} does not have exactly two elements."
+        )
+
+    valid_constraints = ["decreasing", "increasing"]
+
+    for constraint in shape_constraints:
+        if constraint not in valid_constraints:
+            error_report += (
+                f"Shape constraint {constraint} is not valid. "
+                f"Only {valid_constraints} are valid."
+            )
+    return error_report
+
+
+def generate_bernstein_basis_funcs(k: int) -> list[dict]:
+    """Generate list containing basis functions of kth-oder Bernstein polynomial.
+
+    Arguments:
+        k: The order of the Bernstein polynomial.
+
+    Returns:
+        A list of dictionaries containing the basis functions.
+
+    """
+    basis_funcs = []
+
+    for i in range(k + 1):
+        _c = np.zeros(k + 1).reshape(-1, 1)
+        _c[i] = 1
+
+        basis_func = {
+            "type": "bernstein",
+            "func": Bern(n=k, coefs=_c),
+        }
+        basis_funcs.append(basis_func)
+
+    return basis_funcs
