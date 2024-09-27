@@ -14,14 +14,17 @@ atol = 1e-05
 # --------------------------------------------------------------------------------------
 num_gridpoints = 3
 
-identified_sharp = [
-    Estimand(esttype="cross", dz_cross=(d, z)) for d in [0, 1] for z in [0, 1]
-]
-
 u_hi_late = 0.2
 
 pscore_lo = 0.4
 pscore_hi = 0.6
+
+identified_sharp = [
+    Estimand(esttype="cross", dz_cross=(d, z)) for d in [0, 1] for z in [0, 1]
+]
+
+identified_late = [Estimand(esttype="late", u_lo=pscore_lo, u_hi=pscore_hi)]
+
 
 instrument = Instrument(
     support=np.array([0, 1]),
@@ -92,6 +95,43 @@ def _no_solution(y1_at, y1_c, y0_c, y0_nt):
     return np.logical_or(y1_at < y1_c, y0_c < y0_nt)
 
 
+def _no_solution_nonsharp(y1_at, y1_c, y0_c, y0_nt):
+    return False
+
+
+def _sol_hi_not_sharp_increasing(w, y1_c, y0_c, y0_nt):
+    del y0_nt
+    _b_late = y1_c - y0_c
+    return (_b_late >= 0) * (w * _b_late + (1 - w)) + (_b_late < 0) * (
+        _b_late + (1 - w)
+    )
+
+
+def _sol_lo_not_sharp_increasing(w, y1_c, y0_c, y0_nt):
+    del y0_nt
+    _b_late = y1_c - y0_c
+    return (_b_late >= 0) * (_b_late - (1 - w)) + (_b_late < 0) * (
+        w * _b_late - (1 - w)
+    )
+
+
+# TODO(@buddeul): These solutions are not correct.
+def _sol_hi_not_sharp_decreasing(w, y1_c, y0_c, y0_nt):
+    del y0_nt
+    _b_late = y1_c - y0_c
+    return (_b_late >= 0) * (_b_late + (1 - w)) + (_b_late < 0) * (
+        w * _b_late + (1 - w)
+    )
+
+
+def _sol_lo_not_sharp_decreasing(w, y1_c, y0_c, y0_nt):
+    del y0_nt
+    _b_late = y1_c - y0_c
+    return (_b_late >= 0) * (w * _b_late - (1 - w)) + (_b_late < 0) * (
+        _b_late - (1 - w)
+    )
+
+
 bfunc_1 = {"type": "constant", "u_lo": 0.0, "u_hi": pscore_lo}
 bfunc_2 = {"type": "constant", "u_lo": pscore_lo, "u_hi": pscore_hi}
 bfunc_3_ate = {"type": "constant", "u_lo": pscore_hi, "u_hi": 1}
@@ -109,10 +149,50 @@ UPART_LATE = np.array([0, pscore_lo, pscore_hi, pscore_hi + u_hi_late, 1])
 # Tests
 # --------------------------------------------------------------------------------------
 @pytest.mark.parametrize(
-    ("u_hi", "_sol_lo", "_sol_hi", "bfuncs", "u_partition"),
+    (
+        "u_hi",
+        "_sol_lo",
+        "_sol_hi",
+        "bfuncs",
+        "u_partition",
+        "identified",
+        "no_solution",
+        "shape_restriction",
+    ),
     [
-        (1 - pscore_hi, _sol_lo_ate, _sol_hi_ate, BFUNCS_ATE, UPART_ATE),
-        (u_hi_late, _sol_lo_late, _sol_hi_late, BFUNCS_LATE, UPART_LATE),
+        # LATE-based identified set, extrapolate to LATE
+        (
+            u_hi_late,
+            _sol_lo_not_sharp_increasing,
+            _sol_hi_not_sharp_increasing,
+            BFUNCS_LATE,
+            UPART_LATE,
+            identified_late,
+            _no_solution_nonsharp,
+            ("increasing", "increasing"),
+        ),
+        # Sharp identified set, extrapolate to ATE
+        (
+            1 - pscore_hi,
+            _sol_lo_ate,
+            _sol_hi_ate,
+            BFUNCS_ATE,
+            UPART_ATE,
+            identified_sharp,
+            _no_solution,
+            ("decreasing", "decreasing"),
+        ),
+        # Sharp identified set, extrapolate to LATE
+        (
+            u_hi_late,
+            _sol_lo_late,
+            _sol_hi_late,
+            BFUNCS_LATE,
+            UPART_LATE,
+            identified_sharp,
+            _no_solution,
+            ("decreasing", "decreasing"),
+        ),
     ],
 )
 def test_solve_simple_model_sharp_ate_decreasing(
@@ -121,6 +201,9 @@ def test_solve_simple_model_sharp_ate_decreasing(
     _sol_hi: Callable,  # noqa: PT019
     bfuncs: list[dict[str, float]],
     u_partition: np.ndarray,
+    identified: list[Estimand],
+    no_solution: Callable,
+    shape_restriction: tuple[str, str],
 ) -> None:
     """Solve the simple model for a range of parameter values."""
 
@@ -133,8 +216,6 @@ def test_solve_simple_model_sharp_ate_decreasing(
     _grid = np.linspace(0, 1, num_gridpoints)
 
     w = (pscore_hi - pscore_lo) / (pscore_hi - pscore_lo + u_hi)
-
-    shape_constraint = ("decreasing", "decreasing")
 
     # Generate solution for a meshgrid of parameter values
     (
@@ -172,13 +253,13 @@ def test_solve_simple_model_sharp_ate_decreasing(
         try:
             res = identification(
                 target=target,
-                identified_estimands=identified_sharp,
+                identified_estimands=identified,
                 basis_funcs=bfuncs,
                 instrument=instrument,
                 u_partition=u_partition,
                 m0_dgp=_m0,
                 m1_dgp=_m1,
-                shape_constraints=shape_constraint,
+                shape_constraints=shape_restriction,
             )
         except TypeError:
             res = {"upper_bound": np.nan, "lower_bound": np.nan}
@@ -198,7 +279,7 @@ def test_solve_simple_model_sharp_ate_decreasing(
     expected_lo = _sol_lo(w=w, **_kwargs)
     expected_hi = _sol_hi(w=w, **_kwargs)
 
-    _idx_no_sol = _no_solution(y1_at=y1_at_flat, **_kwargs)
+    _idx_no_sol = no_solution(y1_at=y1_at_flat, **_kwargs)
     expected_lo[_idx_no_sol] = np.nan
     expected_hi[_idx_no_sol] = np.nan
 
