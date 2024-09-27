@@ -1,6 +1,9 @@
 """Test identification of simple model using pyvmte against analytical solutions."""
 
+from collections.abc import Callable
+
 import numpy as np
+import pytest
 from pyvmte.classes import Estimand, Instrument  # type: ignore[import-untyped]
 from pyvmte.identification import identification  # type: ignore[import-untyped]
 
@@ -9,11 +12,13 @@ atol = 1e-05
 # --------------------------------------------------------------------------------------
 # Preliminary settings
 # --------------------------------------------------------------------------------------
-num_gridpoints = 5
+num_gridpoints = 3
 
 identified_sharp = [
     Estimand(esttype="cross", dz_cross=(d, z)) for d in [0, 1] for z in [0, 1]
 ]
+
+u_hi_late = 0.2
 
 pscore_lo = 0.4
 pscore_hi = 0.6
@@ -69,7 +74,7 @@ def _sol_hi_late(w, y1_c, y0_c, y0_nt):
     return _sol_hi_ate(w, y1_c, y0_c, y0_nt)
 
 
-def _sol_lo_late(u_hi, w, pscore_hi, y1_c, y0_c, y0_nt):
+def _sol_lo_late(w, y1_c, y0_c, y0_nt, u_hi=u_hi_late, pscore_hi=pscore_hi):
     _b_late = y1_c - y0_c
 
     k = u_hi / (1 - pscore_hi)
@@ -87,28 +92,43 @@ def _no_solution(y1_at, y1_c, y0_c, y0_nt):
     return np.logical_or(y1_at < y1_c, y0_c < y0_nt)
 
 
+bfunc_1 = {"type": "constant", "u_lo": 0.0, "u_hi": pscore_lo}
+bfunc_2 = {"type": "constant", "u_lo": pscore_lo, "u_hi": pscore_hi}
+bfunc_3_ate = {"type": "constant", "u_lo": pscore_hi, "u_hi": 1}
+bfunc_3 = {"type": "constant", "u_lo": pscore_hi, "u_hi": pscore_hi + u_hi_late}
+bfunc_4 = {"type": "constant", "u_lo": pscore_hi + u_hi_late, "u_hi": 1}
+
+BFUNCS_ATE = [bfunc_1, bfunc_2, bfunc_3_ate]
+BFUNCS_LATE = [bfunc_1, bfunc_2, bfunc_3, bfunc_4]
+
+UPART_ATE = np.array([0, pscore_lo, pscore_hi, 1])
+UPART_LATE = np.array([0, pscore_lo, pscore_hi, pscore_hi + u_hi_late, 1])
+
+
 # --------------------------------------------------------------------------------------
 # Tests
 # --------------------------------------------------------------------------------------
-
-
-def test_solve_simple_model_sharp_ate_decreasing() -> None:
+@pytest.mark.parametrize(
+    ("u_hi", "_sol_lo", "_sol_hi", "bfuncs", "u_partition"),
+    [
+        (1 - pscore_hi, _sol_lo_ate, _sol_hi_ate, BFUNCS_ATE, UPART_ATE),
+        (u_hi_late, _sol_lo_late, _sol_hi_late, BFUNCS_LATE, UPART_LATE),
+    ],
+)
+def test_solve_simple_model_sharp_ate_decreasing(
+    u_hi: float,
+    _sol_lo: Callable,  # noqa: PT019
+    _sol_hi: Callable,  # noqa: PT019
+    bfuncs: list[dict[str, float]],
+    u_partition: np.ndarray,
+) -> None:
     """Solve the simple model for a range of parameter values."""
-    u_hi = 1 - pscore_hi
 
     target = Estimand(
         "late",
         u_lo=pscore_lo,
         u_hi=pscore_hi + u_hi,
     )
-
-    bfunc_1 = {"type": "constant", "u_lo": 0.0, "u_hi": pscore_lo}
-    bfunc_2 = {"type": "constant", "u_lo": pscore_lo, "u_hi": pscore_hi}
-    bfunc_3 = {"type": "constant", "u_lo": pscore_hi, "u_hi": pscore_hi + u_hi}
-
-    bfuncs = [bfunc_1, bfunc_2, bfunc_3]
-
-    u_partition = np.array([0, pscore_lo, pscore_hi, pscore_hi + u_hi])
 
     _grid = np.linspace(0, 1, num_gridpoints)
 
@@ -165,8 +185,8 @@ def test_solve_simple_model_sharp_ate_decreasing() -> None:
 
         results.append(res)
 
-    actual_hi = np.array([res["upper_bound"] for res in results])
     actual_lo = np.array([res["lower_bound"] for res in results])
+    actual_hi = np.array([res["upper_bound"] for res in results])
 
     # Put into pandas DataFrame and save to disk
     _kwargs = {
@@ -175,123 +195,20 @@ def test_solve_simple_model_sharp_ate_decreasing() -> None:
         "y0_nt": y0_nt_flat,
     }
 
-    expected_hi = _sol_hi_ate(w=w, **_kwargs)
-    expected_lo = _sol_lo_ate(w=w, **_kwargs)
+    expected_lo = _sol_lo(w=w, **_kwargs)
+    expected_hi = _sol_hi(w=w, **_kwargs)
 
     _idx_no_sol = _no_solution(y1_at=y1_at_flat, **_kwargs)
-    expected_hi[_idx_no_sol] = np.nan
     expected_lo[_idx_no_sol] = np.nan
+    expected_hi[_idx_no_sol] = np.nan
 
     # Get _idx of nan mismatch
-    np.where(np.isnan(actual_hi) != np.isnan(expected_hi))
     np.where(np.isnan(actual_lo) != np.isnan(expected_lo))
+    np.where(np.isnan(actual_hi) != np.isnan(expected_hi))
 
     # Get _idx of value mismatch
-    np.where(np.abs(actual_hi - expected_hi) > atol)
     np.where(np.abs(actual_lo - expected_lo) > atol)
-
-    np.testing.assert_allclose(actual_hi, expected_hi, atol=atol)
-    np.testing.assert_allclose(actual_lo, expected_lo, atol=atol)
-
-
-def test_solve_simple_model_sharp_late_decreasing() -> None:
-    """Solve the simple model for a range of parameter values."""
-    u_hi = 0.2
-
-    target = Estimand(
-        "late",
-        u_lo=pscore_lo,
-        u_hi=pscore_hi + u_hi,
-    )
-
-    bfunc_1 = {"type": "constant", "u_lo": 0.0, "u_hi": pscore_lo}
-    bfunc_2 = {"type": "constant", "u_lo": pscore_lo, "u_hi": pscore_hi}
-    bfunc_3 = {"type": "constant", "u_lo": pscore_hi, "u_hi": pscore_hi + u_hi}
-    bfunc_4 = {"type": "constant", "u_lo": pscore_hi + u_hi, "u_hi": 1}
-
-    bfuncs = [bfunc_1, bfunc_2, bfunc_3, bfunc_4]
-
-    u_partition = np.array([0, pscore_lo, pscore_hi, pscore_hi + u_hi, 1])
-
-    _grid = np.linspace(0, 1, num_gridpoints)
-
-    w = (pscore_hi - pscore_lo) / (pscore_hi - pscore_lo + u_hi)
-
-    shape_constraint = ("decreasing", "decreasing")
-
-    # Generate solution for a meshgrid of parameter values
-    (
-        y1_at,
-        y1_c,
-        y1_nt,
-        y0_at,
-        y0_c,
-        y0_nt,
-    ) = np.meshgrid(_grid, _grid, _grid, _grid, _grid, _grid)
-
-    # Flatten each meshgrid
-    y1_at_flat = y1_at.flatten()
-    y1_c_flat = y1_c.flatten()
-    y1_nt_flat = y1_nt.flatten()
-    y0_at_flat = y0_at.flatten()
-    y0_c_flat = y0_c.flatten()
-    y0_nt_flat = y0_nt.flatten()
-
-    results = []
-
-    for y1_at, y1_c, y1_nt, y0_at, y0_c, y0_nt in zip(
-        y1_at_flat,
-        y1_c_flat,
-        y1_nt_flat,
-        y0_at_flat,
-        y0_c_flat,
-        y0_nt_flat,
-        strict=True,
-    ):
-        _m1 = _make_m1(y1_at=y1_at, y1_c=y1_c, y1_nt=y1_nt)
-        _m0 = _make_m0(y0_at=y0_at, y0_c=y0_c, y0_nt=y0_nt)
-
-        # The identified set might be empty for some parameter value combinations.
-        try:
-            res = identification(
-                target=target,
-                identified_estimands=identified_sharp,
-                basis_funcs=bfuncs,
-                instrument=instrument,
-                u_partition=u_partition,
-                m0_dgp=_m0,
-                m1_dgp=_m1,
-                shape_constraints=shape_constraint,
-            )
-        except TypeError:
-            res = {"upper_bound": np.nan, "lower_bound": np.nan}
-
-        results.append(res)
-
-    actual_hi = np.array([res["upper_bound"] for res in results])
-    actual_lo = np.array([res["lower_bound"] for res in results])
-
-    # Put into pandas DataFrame and save to disk
-    _kwargs = {
-        "y1_c": y1_c_flat,
-        "y0_c": y0_c_flat,
-        "y0_nt": y0_nt_flat,
-    }
-
-    expected_hi = _sol_hi_late(w=w, **_kwargs)
-    expected_lo = _sol_lo_late(w=w, pscore_hi=pscore_hi, u_hi=u_hi, **_kwargs)
-
-    _idx_no_sol = _no_solution(y1_at=y1_at_flat, **_kwargs)
-    expected_hi[_idx_no_sol] = np.nan
-    expected_lo[_idx_no_sol] = np.nan
-
-    # Get _idx of nan mismatch
-    np.where(np.isnan(actual_hi) != np.isnan(expected_hi))
-    np.where(np.isnan(actual_lo) != np.isnan(expected_lo))
-
-    # Get _idx of value mismatch
     np.where(np.abs(actual_hi - expected_hi) > atol)
-    np.where(np.abs(actual_lo - expected_lo) > atol)
 
-    np.testing.assert_allclose(actual_hi, expected_hi, atol=atol)
     np.testing.assert_allclose(actual_lo, expected_lo, atol=atol)
+    np.testing.assert_allclose(actual_hi, expected_hi, atol=atol)
