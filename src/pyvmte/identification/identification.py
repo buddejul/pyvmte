@@ -110,14 +110,16 @@ def identification(
         instrument=instrument,
     )
 
-    if shape_constraints is not None:
+    if shape_constraints is not None or mte_monotone is not None:
         lp_inputs["a_ub"] = _compute_inequality_constraint_matrix(
             shape_constraints=shape_constraints,
             n_basis_funcs=len(basis_funcs),
+            mte_monotone=mte_monotone,
         )
         lp_inputs["b_ub"] = _compute_inequality_upper_bounds(
             shape_constraints=shape_constraints,
             n_basis_funcs=len(basis_funcs),
+            mte_monotone=mte_monotone,
         )
 
     # ==================================================================================
@@ -239,6 +241,32 @@ def _compute_equality_constraint_matrix(
 
 
 def _compute_inequality_constraint_matrix(
+    n_basis_funcs: int,
+    shape_constraints: tuple[str, str] | None = None,
+    mte_monotone: str | None = None,
+) -> np.ndarray:
+    """Returns the inequality constraint matrix incorporating shape constraints."""
+    if shape_constraints is not None:
+        _shape_matrix = _ineq_constr_shape_constraints(
+            shape_constraints=shape_constraints,
+            n_basis_funcs=n_basis_funcs,
+        )
+
+    if mte_monotone is None:
+        return _shape_matrix
+
+    _mte_matrix = _ineq_constr_mte_monotone(
+        mte_monotone=mte_monotone,
+        n_basis_funcs=n_basis_funcs,
+    )
+
+    if shape_constraints is not None:
+        return np.vstack((_shape_matrix, _mte_matrix))
+
+    return _mte_matrix
+
+
+def _ineq_constr_shape_constraints(
     shape_constraints: tuple[str, str],
     n_basis_funcs: int,
 ) -> np.ndarray:
@@ -262,11 +290,34 @@ def _compute_inequality_constraint_matrix(
     raise ValueError(msg)
 
 
+def _ineq_constr_mte_monotone(mte_monotone: str, n_basis_funcs: int) -> np.ndarray:
+    a = np.eye(n_basis_funcs) - np.eye(n_basis_funcs, k=1)
+    a = a[:-1, :]
+    a = np.hstack((a, -a))
+
+    if mte_monotone == "decreasing":
+        return a
+    if mte_monotone == "increasing":
+        return -a
+
+    msg = "Invalid MTE monotonicity constraint."
+    raise ValueError(msg)
+
+
 def _compute_inequality_upper_bounds(
-    shape_constraints: tuple[str, str],
     n_basis_funcs: int,
+    shape_constraints: tuple[str, str] | None = None,
+    mte_monotone: str | None = None,
 ) -> np.ndarray:
-    return np.zeros(2 * n_basis_funcs - 2)
+    n_constr = 0
+
+    if shape_constraints is not None:
+        n_constr += 2 * (n_basis_funcs - 1)
+
+    if mte_monotone is not None:
+        n_constr += n_basis_funcs - 1
+
+    return np.zeros(n_constr)
 
 
 def _solve_lp(

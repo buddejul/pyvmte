@@ -116,7 +116,6 @@ def _sol_lo_not_sharp_increasing(w, y1_c, y0_c, y0_nt):
     )
 
 
-# TODO(@buddejul): These solutions are not correct.
 def _sol_hi_not_sharp_decreasing(w, y1_c, y0_c, y0_nt):
     del y0_nt
     _b_late = y1_c - y0_c
@@ -144,12 +143,12 @@ def _sol_hi_not_sharp_mts_increasing(w, y1_c, y0_c, y0_nt):
     return w * _b_late + (1 - w) * 1
 
 
-def _sol_lo_not_sharp_mts_decreasing(w, y1_c, y0_c, y0_nt):
+def _sol_lo_not_sharp_mts_increasing(w, y1_c, y0_c, y0_nt):
     del y0_nt
     return y1_c - y0_c
 
 
-def _sol_lo_not_sharp_mts_increasing(w, y1_c, y0_c, y0_nt):
+def _sol_lo_not_sharp_mts_decreasing(w, y1_c, y0_c, y0_nt):
     del y0_nt
     _b_late = y1_c - y0_c
     return w * _b_late + (1 - w) * -1
