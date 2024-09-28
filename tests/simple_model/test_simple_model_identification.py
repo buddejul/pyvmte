@@ -5,6 +5,7 @@ from collections.abc import Callable
 import numpy as np
 import pytest
 from pyvmte.classes import Estimand, Instrument  # type: ignore[import-untyped]
+from pyvmte.config import RNG
 from pyvmte.identification import identification  # type: ignore[import-untyped]
 
 atol = 1e-05
@@ -115,20 +116,20 @@ def _sol_lo_not_sharp_increasing(w, y1_c, y0_c, y0_nt):
     )
 
 
-# TODO(@buddeul): These solutions are not correct.
+# TODO(@buddejul): These solutions are not correct.
 def _sol_hi_not_sharp_decreasing(w, y1_c, y0_c, y0_nt):
     del y0_nt
     _b_late = y1_c - y0_c
-    return (_b_late >= 0) * (_b_late + (1 - w)) + (_b_late < 0) * (
-        w * _b_late + (1 - w)
+    return (_b_late >= 0) * (w * _b_late + (1 - w)) + (_b_late < 0) * (
+        w * _b_late + (1 - w) * (1 + _b_late)
     )
 
 
 def _sol_lo_not_sharp_decreasing(w, y1_c, y0_c, y0_nt):
     del y0_nt
     _b_late = y1_c - y0_c
-    return (_b_late >= 0) * (w * _b_late - (1 - w)) + (_b_late < 0) * (
-        _b_late - (1 - w)
+    return (_b_late >= 0) * (w * _b_late + (1 - w) * (_b_late - 1)) + (_b_late < 0) * (
+        w * _b_late + (1 - w) * (-1)
     )
 
 
@@ -161,6 +162,16 @@ UPART_LATE = np.array([0, pscore_lo, pscore_hi, pscore_hi + u_hi_late, 1])
     ),
     [
         # LATE-based identified set, extrapolate to LATE
+        (
+            u_hi_late,
+            _sol_lo_not_sharp_decreasing,
+            _sol_hi_not_sharp_decreasing,
+            BFUNCS_LATE,
+            UPART_LATE,
+            identified_late,
+            _no_solution_nonsharp,
+            ("decreasing", "decreasing"),
+        ),
         (
             u_hi_late,
             _sol_lo_not_sharp_increasing,
@@ -213,8 +224,6 @@ def test_solve_simple_model_sharp_ate_decreasing(
         u_hi=pscore_hi + u_hi,
     )
 
-    _grid = np.linspace(0, 1, num_gridpoints)
-
     w = (pscore_hi - pscore_lo) / (pscore_hi - pscore_lo + u_hi)
 
     # Generate solution for a meshgrid of parameter values
@@ -225,7 +234,14 @@ def test_solve_simple_model_sharp_ate_decreasing(
         y0_at,
         y0_c,
         y0_nt,
-    ) = np.meshgrid(_grid, _grid, _grid, _grid, _grid, _grid)
+    ) = np.meshgrid(
+        RNG.random(num_gridpoints),
+        RNG.random(num_gridpoints),
+        RNG.random(num_gridpoints),
+        RNG.random(num_gridpoints),
+        RNG.random(num_gridpoints),
+        RNG.random(num_gridpoints),
+    )
 
     # Flatten each meshgrid
     y1_at_flat = y1_at.flatten()
