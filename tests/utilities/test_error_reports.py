@@ -10,6 +10,7 @@ from pyvmte.utilities import (
     _error_report_instrument,
     _error_report_invalid_basis_func_type,
     _error_report_method,
+    _error_report_mte_monotone,
     _error_report_mtr_function,
     _error_report_shape_constraints,
     _error_report_tolerance,
@@ -385,6 +386,10 @@ def valid_input_identification():
         # Invalid instrment
         ({"instrument": "not an instrument"}, {"u_partition": "not a u partition"}),
         ({"instrument": 1}, {"u_partition": "not a u partition"}),
+        # Invalid mte_monotone
+        ({"mte_monotone": "not valid"}, None),
+        ({"mte_monotone": 1}, None),
+        ({"mte_monotone": False}, None),
     ],
 )
 def test_identification_invalid_input(
@@ -393,6 +398,17 @@ def test_identification_invalid_input(
     invalid_input2,
 ):
     valid_input_identification.update(invalid_input1)
-    valid_input_identification.update(invalid_input2)
+    if invalid_input2 is not None:
+        valid_input_identification.update(invalid_input2)
     with pytest.raises(ValueError):  # noqa: PT011
         identification(**valid_input_identification)
+
+
+def test_error_report_mte_monotone():
+    assert _error_report_mte_monotone("not a boolean") != ""
+    assert _error_report_mte_monotone(1) != ""
+    assert _error_report_mte_monotone(mte_monotone=True) != ""
+    assert _error_report_mte_monotone(mte_monotone=False) != ""
+
+    for value in [None, "increasing", "decreasing"]:
+        assert _error_report_mte_monotone(value) == ""

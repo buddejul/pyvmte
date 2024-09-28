@@ -133,6 +133,28 @@ def _sol_lo_not_sharp_decreasing(w, y1_c, y0_c, y0_nt):
     )
 
 
+def _sol_hi_not_sharp_mts_decreasing(w, y1_c, y0_c, y0_nt):
+    del y0_nt
+    return y1_c - y0_c
+
+
+def _sol_hi_not_sharp_mts_increasing(w, y1_c, y0_c, y0_nt):
+    del y0_nt
+    _b_late = y1_c - y0_c
+    return w * _b_late + (1 - w) * 1
+
+
+def _sol_lo_not_sharp_mts_decreasing(w, y1_c, y0_c, y0_nt):
+    del y0_nt
+    return y1_c - y0_c
+
+
+def _sol_lo_not_sharp_mts_increasing(w, y1_c, y0_c, y0_nt):
+    del y0_nt
+    _b_late = y1_c - y0_c
+    return w * _b_late + (1 - w) * -1
+
+
 bfunc_1 = {"type": "constant", "u_lo": 0.0, "u_hi": pscore_lo}
 bfunc_2 = {"type": "constant", "u_lo": pscore_lo, "u_hi": pscore_hi}
 bfunc_3_ate = {"type": "constant", "u_lo": pscore_hi, "u_hi": 1}
@@ -159,6 +181,7 @@ UPART_LATE = np.array([0, pscore_lo, pscore_hi, pscore_hi + u_hi_late, 1])
         "identified",
         "no_solution",
         "shape_restriction",
+        "mte_monotone",
     ),
     [
         # LATE-based identified set, extrapolate to LATE
@@ -171,6 +194,7 @@ UPART_LATE = np.array([0, pscore_lo, pscore_hi, pscore_hi + u_hi_late, 1])
             identified_late,
             _no_solution_nonsharp,
             ("decreasing", "decreasing"),
+            None,
         ),
         (
             u_hi_late,
@@ -181,6 +205,30 @@ UPART_LATE = np.array([0, pscore_lo, pscore_hi, pscore_hi + u_hi_late, 1])
             identified_late,
             _no_solution_nonsharp,
             ("increasing", "increasing"),
+            None,
+        ),
+        # LATE-based identified set, monotone treatment selection
+        (
+            u_hi_late,
+            _sol_lo_not_sharp_mts_decreasing,
+            _sol_hi_not_sharp_mts_decreasing,
+            BFUNCS_LATE,
+            UPART_LATE,
+            identified_late,
+            _no_solution_nonsharp,
+            None,
+            "decreasing",
+        ),
+        (
+            u_hi_late,
+            _sol_lo_not_sharp_mts_increasing,
+            _sol_hi_not_sharp_mts_increasing,
+            BFUNCS_LATE,
+            UPART_LATE,
+            identified_late,
+            _no_solution_nonsharp,
+            None,
+            "increasing",
         ),
         # Sharp identified set, extrapolate to ATE
         (
@@ -192,6 +240,7 @@ UPART_LATE = np.array([0, pscore_lo, pscore_hi, pscore_hi + u_hi_late, 1])
             identified_sharp,
             _no_solution,
             ("decreasing", "decreasing"),
+            None,
         ),
         # Sharp identified set, extrapolate to LATE
         (
@@ -203,6 +252,7 @@ UPART_LATE = np.array([0, pscore_lo, pscore_hi, pscore_hi + u_hi_late, 1])
             identified_sharp,
             _no_solution,
             ("decreasing", "decreasing"),
+            None,
         ),
     ],
 )
@@ -215,6 +265,7 @@ def test_solve_simple_model_sharp_ate_decreasing(
     identified: list[Estimand],
     no_solution: Callable,
     shape_restriction: tuple[str, str],
+    mte_monotone: str | None,
 ) -> None:
     """Solve the simple model for a range of parameter values."""
 
@@ -276,6 +327,7 @@ def test_solve_simple_model_sharp_ate_decreasing(
                 m0_dgp=_m0,
                 m1_dgp=_m1,
                 shape_constraints=shape_restriction,
+                mte_monotone=mte_monotone,
             )
         except TypeError:
             res = {"upper_bound": np.nan, "lower_bound": np.nan}

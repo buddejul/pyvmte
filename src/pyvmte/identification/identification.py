@@ -17,6 +17,7 @@ from pyvmte.utilities import (
     _error_report_estimand,
     _error_report_instrument,
     _error_report_method,
+    _error_report_mte_monotone,
     _error_report_mtr_function,
     _error_report_shape_constraints,
     _error_report_u_partition,
@@ -37,6 +38,7 @@ def identification(
     instrument: Instrument,
     u_partition: np.ndarray,
     shape_constraints: tuple[str, str] | None = None,
+    mte_monotone: str | None = None,
     method: str = "highs",
     debug: bool = False,  # noqa: FBT001, FBT002
 ):
@@ -55,6 +57,8 @@ def identification(
         u_partition (list or np.array): Partition of u for basis_funcs.
             Defaults to None.
         shape_constraints: Shape constraints for the MTR functions.
+        mte_monotone: Shape constraint for the MTE, either "increasing" or "decreasing".
+            Defaults to None. Corresponds to monotone treatment selection.
         method (str, optional): Method for solving the linear program.
             Implemented are: all methods supported by scipy.linprog as well as copt.
             Defaults to "highs" using scipy.linprog.
@@ -82,6 +86,7 @@ def identification(
         instrument,
         u_partition,
         shape_constraints,
+        mte_monotone,
         method,
     )
 
@@ -650,11 +655,12 @@ def _check_identification_arguments(
     instrument,
     u_partition,
     shape_constraints,
+    mte_monotone,
     method,
 ):
     """Check identification arguments.
 
-    Fail and comprehensive report if invalid.
+    Fail and return comprehensive report if invalid.
 
     """
     error_report = ""
@@ -668,6 +674,7 @@ def _check_identification_arguments(
     error_report += _error_report_u_partition(u_partition)
     error_report += _error_report_method(method)
     error_report += _error_report_shape_constraints(shape_constraints)
+    error_report += _error_report_mte_monotone(mte_monotone)
 
     if error_report:
         raise ValueError(error_report)

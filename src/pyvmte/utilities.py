@@ -378,3 +378,19 @@ def generate_bernstein_basis_funcs(k: int) -> list[dict]:
         basis_funcs.append(basis_func)
 
     return basis_funcs
+
+
+def _error_report_mte_monotone(mte_monotone: str | None) -> str:
+    """Return error message if mte_monotone argument is not valid."""
+    error_report = ""
+    if mte_monotone is None:
+        return error_report
+
+    _valid_args = ["increasing", "decreasing"]
+
+    if mte_monotone not in _valid_args:
+        error_report += (
+            f"MTE monotonicity {mte_monotone} is not valid. "
+            f"Only {_valid_args} are valid options."
+        )
+    return error_report
