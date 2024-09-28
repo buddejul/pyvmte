@@ -394,3 +394,19 @@ def _error_report_mte_monotone(mte_monotone: str | None) -> str:
             f"Only {_valid_args} are valid options."
         )
     return error_report
+
+
+def _error_report_monotone_response(monotone_response) -> str:
+    """Return error message if monotone_response argument is not valid."""
+    error_report = ""
+    if monotone_response is None:
+        return error_report
+
+    _valid_arguments = ["positive", "negative"]
+
+    if monotone_response not in _valid_arguments:
+        error_report += (
+            f"Monotone response {monotone_response} is not valid. "
+            f"Only {_valid_arguments} are valid arguments."
+        )
+    return error_report

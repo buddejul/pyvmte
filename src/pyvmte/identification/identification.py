@@ -17,6 +17,7 @@ from pyvmte.utilities import (
     _error_report_estimand,
     _error_report_instrument,
     _error_report_method,
+    _error_report_monotone_response,
     _error_report_mte_monotone,
     _error_report_mtr_function,
     _error_report_shape_constraints,
@@ -39,6 +40,7 @@ def identification(
     u_partition: np.ndarray,
     shape_constraints: tuple[str, str] | None = None,
     mte_monotone: str | None = None,
+    monotone_response: str | None = None,
     method: str = "highs",
     debug: bool = False,  # noqa: FBT001, FBT002
 ):
@@ -59,6 +61,8 @@ def identification(
         shape_constraints: Shape constraints for the MTR functions.
         mte_monotone: Shape constraint for the MTE, either "increasing" or "decreasing".
             Defaults to None. Corresponds to monotone treatment selection.
+        monotone_response: Whether the treatment response is monotone.
+            Defaults to None, allowed are "positive" and "negative".
         method (str, optional): Method for solving the linear program.
             Implemented are: all methods supported by scipy.linprog as well as copt.
             Defaults to "highs" using scipy.linprog.
@@ -78,16 +82,17 @@ def identification(
         basis_funcs = [basis_funcs]
 
     _check_identification_arguments(
-        target,
-        identified_estimands,
-        basis_funcs,
-        m0_dgp,
-        m1_dgp,
-        instrument,
-        u_partition,
-        shape_constraints,
-        mte_monotone,
-        method,
+        target=target,
+        identified_estimands=identified_estimands,
+        basis_funcs=basis_funcs,
+        m0_dgp=m0_dgp,
+        m1_dgp=m1_dgp,
+        instrument=instrument,
+        u_partition=u_partition,
+        shape_constraints=shape_constraints,
+        mte_monotone=mte_monotone,
+        monotone_response=monotone_response,
+        method=method,
     )
 
     # ==================================================================================
@@ -115,11 +120,13 @@ def identification(
             shape_constraints=shape_constraints,
             n_basis_funcs=len(basis_funcs),
             mte_monotone=mte_monotone,
+            monotone_response=monotone_response,
         )
         lp_inputs["b_ub"] = _compute_inequality_upper_bounds(
             shape_constraints=shape_constraints,
             n_basis_funcs=len(basis_funcs),
             mte_monotone=mte_monotone,
+            monotone_response=monotone_response,
         )
 
     # ==================================================================================
@@ -244,6 +251,7 @@ def _compute_inequality_constraint_matrix(
     n_basis_funcs: int,
     shape_constraints: tuple[str, str] | None = None,
     mte_monotone: str | None = None,
+    monotone_response: str | None = None,
 ) -> np.ndarray:
     """Returns the inequality constraint matrix incorporating shape constraints."""
     if shape_constraints is not None:
@@ -308,6 +316,7 @@ def _compute_inequality_upper_bounds(
     n_basis_funcs: int,
     shape_constraints: tuple[str, str] | None = None,
     mte_monotone: str | None = None,
+    monotone_response: str | None = None,
 ) -> np.ndarray:
     n_constr = 0
 
@@ -707,6 +716,7 @@ def _check_identification_arguments(
     u_partition,
     shape_constraints,
     mte_monotone,
+    monotone_response,
     method,
 ):
     """Check identification arguments.
@@ -726,6 +736,7 @@ def _check_identification_arguments(
     error_report += _error_report_method(method)
     error_report += _error_report_shape_constraints(shape_constraints)
     error_report += _error_report_mte_monotone(mte_monotone)
+    error_report += _error_report_monotone_response(monotone_response)
 
     if error_report:
         raise ValueError(error_report)
