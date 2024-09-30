@@ -130,17 +130,30 @@ class Bern:
 
 
 class PyvmteResult(NamedTuple):
-    """Results return class for identification using pyvmte.
+    """Results return class pyvmte identification and estimation.
 
     Attributes:
+        procedure: Identification or estimation call.
         lower_bound: Lower bound of the identified set.
         upper_bound: Upper bound of the identified set.
-        opt_result: Result of the optimization returned by scipy.
         method: Method to solve the linear program.
         lp_api: API used to solve the linear program.
+        lower_optres: Results of the optimization for the lower bound.
+            Refers to second step LP for estimation.
+        upper_optres: Results of the optimization for the upper bound.
+            Refers to second step LP for estimation.
+        lp_inputs: Inputs to the linear program.
+            Refers to second step LP for estimation.
+        est_u_partition: Estimated partition of the identified set. Estimation only.
+        est_beta_hat: Estimated beta hat. Estimation only.
+        first_minimal_deviations: Minimal deviations for the first step LP.
+            Estimation only.
+        first_lp_inputs: Inputs to the first step LP. Estimation only.
+        first_optres: Results of the first step LP. Estimation only.
 
     """
 
+    procedure: str
     lower_bound: float
     upper_bound: float
     basis_funcs: list[dict]
@@ -149,3 +162,8 @@ class PyvmteResult(NamedTuple):
     lower_optres: OptimizeResult
     upper_optres: OptimizeResult
     lp_inputs: dict
+    est_u_partition: np.ndarray | None = None
+    est_beta_hat: np.ndarray | None = None
+    first_minimal_deviations: float | None = None
+    first_lp_inputs: dict | None = None
+    first_optres: OptimizeResult | None = None
