@@ -27,3 +27,6 @@ bld/
 *.toc
 
 *.ipynb
+
+# data
+*.csv

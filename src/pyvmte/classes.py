@@ -7,6 +7,7 @@ from functools import partial
 from typing import NamedTuple
 
 import numpy as np
+from scipy.optimize import OptimizeResult  # type: ignore[import-untyped]
 
 
 @dataclass
@@ -126,3 +127,24 @@ class Bern:
                 out += float(c) * (_to_int(b) - _to_int(a))
 
         return out
+
+
+class PyvmteResult(NamedTuple):
+    """Results return class for pyvmte.
+
+    Attributes:
+        lower_bound: Lower bound of the identified set.
+        upper_bound: Upper bound of the identified set.
+        opt_result: Result of the optimization returned by scipy.
+        method: Method to solve the linear program.
+        lp_api: API used to solve the linear program.
+
+    """
+
+    lower_bound: float
+    upper_bound: float
+    basis_funcs: list[dict]
+    method: str
+    lp_api: str
+    lower_optres: OptimizeResult
+    upper_optres: OptimizeResult

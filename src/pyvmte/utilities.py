@@ -3,12 +3,15 @@
 import contextlib
 import math
 import os
+from collections.abc import Callable
+from functools import partial
 
 import numpy as np
 import pandas as pd  # type: ignore
+import plotly.graph_objects as go  # type: ignore[import-untyped]
 from scipy.interpolate import BPoly  # type: ignore[import-untyped]
 
-from pyvmte.classes import Bern, Estimand, Instrument
+from pyvmte.classes import Bern, Estimand, Instrument, PyvmteResult
 
 
 def compute_moments(supp_z, f_z, prop_z):
@@ -378,3 +381,98 @@ def generate_bernstein_basis_funcs(k: int) -> list[dict]:
         basis_funcs.append(basis_func)
 
     return basis_funcs
+
+
+def plot_solution(res: PyvmteResult, lower_or_upper: str) -> go.Figure:
+    """Plot the MTR functions corresponding to the lower or upper bound."""
+    lines_to_plot = ["upper", "lower"] if lower_or_upper == "both" else [lower_or_upper]
+
+    # ----------------------------------------------------------------------------------
+    # Prepare results
+    # ----------------------------------------------------------------------------------
+    mtr_by_line = {}
+
+    def _mtr_from_bfunc(u: float, coefs: np.ndarray, bfuncs: list[Callable]):
+        return np.sum([c * bf(u) for c, bf in zip(coefs, bfuncs, strict=True)], axis=0)
+
+    for line in lines_to_plot:
+        optres = res.lower_optres if line == "lower" else res.upper_optres
+
+        n_bfuncs = len(res.basis_funcs)
+
+        # The first n_bfuncs entries of the coefficients correspond to the d == 1
+        coefs_d0 = optres.x[:n_bfuncs]
+        coefs_d1 = optres.x[n_bfuncs:]
+
+        # Create the mtr functions for d == 0 and d == 1 by multiplying the coefs with
+        # the basis functions
+        _bfuncs = [bf["func"] for bf in res.basis_funcs]
+
+        mtr_by_line[line] = {
+            "d0": partial(_mtr_from_bfunc, coefs=coefs_d0, bfuncs=_bfuncs),
+            "d1": partial(_mtr_from_bfunc, coefs=coefs_d1, bfuncs=_bfuncs),
+        }
+
+    u_grid = np.linspace(0, 1, 1000)
+
+    # ----------------------------------------------------------------------------------
+    # Plotting parameters
+    # ----------------------------------------------------------------------------------
+
+    line_style = {
+        "dash": {
+            "upper": "solid",
+            "lower": "dash" if lower_or_upper == "both" else "solid",
+        },
+    }
+
+    # ----------------------------------------------------------------------------------
+    # Figure
+    # ----------------------------------------------------------------------------------
+    fig = go.Figure()
+
+    for line in lines_to_plot:
+        fig.add_trace(
+            go.Scatter(
+                x=u_grid,
+                y=mtr_by_line[line]["d0"](u_grid),
+                mode="lines",
+                name="MTR d = 0",
+                line={"color": "blue", "dash": line_style["dash"][line]},
+                legendgroup=f"{line}",
+                legendgrouptitle={"text": f"{line} bound"},
+            ),
+        )
+
+        fig.add_trace(
+            go.Scatter(
+                x=u_grid,
+                y=mtr_by_line[line]["d1"](u_grid),
+                mode="lines",
+                name="MTR d = 1",
+                line={"color": "red", "dash": line_style["dash"][line]},
+                legendgroup=f"{line}",
+            ),
+        )
+
+    _sub_upper = f"Upper bound: {res.upper_bound:.3f}"
+    _sub_lower = f"Lower bound: {res.lower_bound:.3f}"
+
+    subtitle = (
+        f"{_sub_lower} | {_sub_upper}"
+        if lower_or_upper == "both"
+        else _sub_upper
+        if lower_or_upper == "upper"
+        else _sub_lower
+    )
+
+    fig.update_layout(
+        title=(
+            f"MTR functions for {lower_or_upper} bound(s)"
+            f"<br><sup>{subtitle} </sup></br>"
+        ),
+        xaxis_title="u",
+        yaxis_title="MTR",
+    )
+
+    return fig

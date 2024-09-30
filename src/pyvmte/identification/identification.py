@@ -8,10 +8,11 @@ import numpy as np
 from coptpy import COPT
 from scipy import integrate  # type: ignore
 from scipy.optimize import (  # type: ignore
+    OptimizeResult,
     linprog,  # type: ignore
 )
 
-from pyvmte.classes import Estimand, Instrument
+from pyvmte.classes import Estimand, Instrument, PyvmteResult
 from pyvmte.utilities import (
     _error_report_basis_funcs,
     _error_report_estimand,
@@ -119,16 +120,18 @@ def identification(
     # Solve linear program
     # ==================================================================================
 
-    if debug is True:
-        return {
-            "upper": _solve_lp(lp_inputs, "max", method=method, debug=debug),
-            "lower": _solve_lp(lp_inputs, "min", method=method, debug=debug),
-        }
+    lower_res = _solve_lp(lp_inputs, "min", method=method)
+    upper_res = _solve_lp(lp_inputs, "max", method=method)
 
-    upper_bound = (-1) * _solve_lp(lp_inputs, "max", method=method)
-    lower_bound = _solve_lp(lp_inputs, "min", method=method)
-
-    return {"upper_bound": upper_bound, "lower_bound": lower_bound}
+    return PyvmteResult(
+        lower_bound=lower_res.fun,
+        upper_bound=(-1) * upper_res.fun,
+        basis_funcs=basis_funcs,
+        method=method,
+        lp_api="copt" if method == "copt" else "scipy",
+        lower_optres=lower_res,
+        upper_optres=upper_res,
+    )
 
 
 def _compute_identified_estimands(
@@ -269,7 +272,7 @@ def _solve_lp(
     max_or_min: str,
     method: str,
     debug: bool = False,  # noqa: FBT001, FBT002
-) -> float:
+) -> OptimizeResult:
     """Wrapper for solving the linear program."""
     c = np.array(lp_inputs["c"]) if max_or_min == "min" else -np.array(lp_inputs["c"])
 
@@ -282,10 +285,7 @@ def _solve_lp(
     if method == "copt":
         return _solve_lp_copt(c, a_eq, b_eq, a_ub, b_ub)
 
-    if debug is True:
-        return linprog(c=c, A_eq=a_eq, b_eq=b_eq, A_ub=a_ub, b_ub=b_ub, bounds=(0, 1))
-
-    return linprog(c=c, A_eq=a_eq, b_eq=b_eq, A_ub=a_ub, b_ub=b_ub, bounds=(0, 1)).fun
+    return linprog(c=c, A_eq=a_eq, b_eq=b_eq, A_ub=a_ub, b_ub=b_ub, bounds=(0, 1))
 
 
 def _compute_moments_for_weights(target: Estimand, instrument: Instrument) -> dict:
