@@ -71,14 +71,14 @@ def monte_carlo_pyvmte(
             basis_func_options=basis_func_options,
         )
 
-        upper_bounds[rep] = results["upper_bound"]
-        lower_bounds[rep] = results["lower_bound"]
+        upper_bounds[rep] = results.upper_bound
+        lower_bounds[rep] = results.lower_bound
         if lp_outputs is True:
-            minimal_deviations[rep] = results["minimal_deviations"]
-            first_step_lp_inputs.append(results["inputs_first_step"])
-            second_step_lp_inputs.append(results["inputs_second_step"])
-            u_partitions.append(results["u_partition"])
-            scipy_return_first_step.append(results["scipy_return_first_step"])
+            minimal_deviations[rep] = results.first_minimal_deviations
+            first_step_lp_inputs.append(results.first_lp_inputs)
+            second_step_lp_inputs.append(results.lp_inputs)
+            u_partitions.append(results.est_u_partition)
+            scipy_return_first_step.append(results.first_optres)
             pscores.append(_estimate_prop_z(z_data, d_data, np.unique(z_data)))
 
     if lp_outputs is True:

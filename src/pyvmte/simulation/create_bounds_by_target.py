@@ -55,8 +55,8 @@ def create_bounds_by_target_df(
             u_partition=u_partition,
         )
 
-        upper_bounds[i] = bounds["upper_bound"]
-        lower_bounds[i] = bounds["lower_bound"]
+        upper_bounds[i] = bounds.upper_bound
+        lower_bounds[i] = bounds.lower_bound
 
     return pd.DataFrame(
         {

@@ -3,9 +3,12 @@ import pandas as pd  # type: ignore
 import pytest
 import scipy  # type: ignore[import-untyped]
 import statsmodels.api as sm  # type: ignore
-from pyvmte.config import DGP_MST, PARAMS_MST, RNG
+from plotly.graph_objects import Figure  # type: ignore[import-untyped]
+from pyvmte.config import DGP_MST, IV_MST, PARAMS_MST, RNG, SETUP_FIG7, U_PART_MST
+from pyvmte.identification import identification
 from pyvmte.utilities import (
     generate_bernstein_basis_funcs,
+    plot_solution,
     simulate_data_from_paper_dgp,
 )
 from statsmodels.sandbox.regression.gmm import IV2SLS  # type: ignore
@@ -91,3 +94,27 @@ def test_generate_bernstein_bassi_funcs_compute_late():
     actual = scipy.integrate.quad(lambda u: (m1(u) - m0(u)), lo, hi)[0] * w
 
     assert actual == pytest.approx(expected, abs=0.001)
+
+
+def test_plot_solution() -> None:
+    setup = SETUP_FIG7
+    shape_constraints = setup.shape_constraints
+    shape_constraints = ("decreasing", "decreasing")
+
+    res = identification(
+        target=setup.target,
+        identified_estimands=setup.identified_estimands,
+        basis_funcs=generate_bernstein_basis_funcs(k=11),
+        m0_dgp=DGP_MST.m0,
+        m1_dgp=DGP_MST.m1,
+        instrument=IV_MST,
+        u_partition=U_PART_MST,
+        shape_constraints=shape_constraints,
+        debug=True,
+    )
+
+    modes_to_test = ["both", "lower", "upper"]
+
+    for mode in modes_to_test:
+        out = plot_solution(res=res, lower_or_upper=mode, add_weights=False)
+        assert isinstance(out, Figure)
