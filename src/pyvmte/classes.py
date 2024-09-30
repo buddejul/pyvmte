@@ -129,7 +129,7 @@ class Bern:
         return out
 
 
-class PyvmteResult(NamedTuple):
+class PyvmteIdentificationResult(NamedTuple):
     """Results return class for pyvmte.
 
     Attributes:

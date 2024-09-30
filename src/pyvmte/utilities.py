@@ -12,7 +12,7 @@ import plotly.graph_objects as go  # type: ignore[import-untyped]
 from plotly.subplots import make_subplots  # type: ignore[import-untyped]
 from scipy.interpolate import BPoly  # type: ignore[import-untyped]
 
-from pyvmte.classes import Bern, Estimand, Instrument, PyvmteResult
+from pyvmte.classes import Bern, Estimand, Instrument, PyvmteIdentificationResult
 
 
 def compute_moments(supp_z, f_z, prop_z):
@@ -414,7 +414,7 @@ def generate_constant_splines_basis_funcs(u_partition: np.ndarray) -> list[dict]
 
 
 def plot_solution(
-    res: PyvmteResult,
+    res: PyvmteIdentificationResult,
     lower_or_upper: str,
     *,
     add_weights: bool,
