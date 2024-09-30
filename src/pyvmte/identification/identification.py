@@ -12,7 +12,7 @@ from scipy.optimize import (  # type: ignore
     linprog,  # type: ignore
 )
 
-from pyvmte.classes import Estimand, Instrument, PyvmteIdentificationResult
+from pyvmte.classes import Estimand, Instrument, PyvmteResult
 from pyvmte.utilities import (
     _error_report_basis_funcs,
     _error_report_estimand,
@@ -123,7 +123,7 @@ def identification(
     lower_res = _solve_lp(lp_inputs, "min", method=method)
     upper_res = _solve_lp(lp_inputs, "max", method=method)
 
-    return PyvmteIdentificationResult(
+    return PyvmteResult(
         lower_bound=lower_res.fun if method == "highs" else lower_res,
         upper_bound=(-1) * upper_res.fun if method == "highs" else (-1) * upper_res,
         basis_funcs=basis_funcs,

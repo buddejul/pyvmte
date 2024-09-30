@@ -129,8 +129,8 @@ class Bern:
         return out
 
 
-class PyvmteIdentificationResult(NamedTuple):
-    """Results return class for pyvmte.
+class PyvmteResult(NamedTuple):
+    """Results return class for identification using pyvmte.
 
     Attributes:
         lower_bound: Lower bound of the identified set.
