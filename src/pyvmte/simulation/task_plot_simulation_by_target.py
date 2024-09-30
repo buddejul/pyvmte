@@ -66,6 +66,10 @@ def task_plot_simulation_by_target(
     df_95 = df_estimates.groupby("u_hi")[["lower_bound", "upper_bound"]].quantile(0.95)
     df_95 = df_95.reset_index()
 
+    if SETUP_FIG5.target.u_lo is None or SETUP_FIG5.target.u_hi is None:
+        msg = "Target parameter must have both u_lo and u_hi."
+        raise ValueError(msg)
+
     df_identified = create_bounds_by_target_df(
         setup=SETUP_FIG5,
         instrument=IV_MST,

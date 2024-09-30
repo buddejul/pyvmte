@@ -62,7 +62,7 @@ def identification(
         debug: Whether to return the full output of the linear program solver.
 
     Returns:
-        dict: A dictionary containing the upper and lower bound of the target estimand.
+        PyvmteResult: Object containing all results of the identification procedure.
 
     """
     # ==================================================================================
@@ -129,7 +129,7 @@ def identification(
         upper_bound=(-1) * upper_res.fun if method == "highs" else (-1) * upper_res,
         basis_funcs=basis_funcs,
         method=method,
-        lp_api="coptpy" if method == "coptpy" else "scipy",
+        lp_api="coptpy" if method == "copt" else "scipy",
         lower_optres=lower_res,
         upper_optres=upper_res,
         lp_inputs=lp_inputs,
