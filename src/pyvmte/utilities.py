@@ -417,7 +417,7 @@ def plot_solution(
     res: PyvmteResult,
     lower_or_upper: str,
     *,
-    add_weights: bool,
+    add_weights: bool = False,
     add_mte: bool = False,
 ) -> go.Figure:
     """Plot the MTR functions corresponding to the lower or upper bound."""
