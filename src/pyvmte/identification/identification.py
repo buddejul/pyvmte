@@ -124,11 +124,11 @@ def identification(
     upper_res = _solve_lp(lp_inputs, "max", method=method)
 
     return PyvmteResult(
-        lower_bound=lower_res.fun,
-        upper_bound=(-1) * upper_res.fun,
+        lower_bound=lower_res.fun if method == "highs" else lower_res,
+        upper_bound=(-1) * upper_res.fun if method == "highs" else (-1) * upper_res,
         basis_funcs=basis_funcs,
         method=method,
-        lp_api="copt" if method == "copt" else "scipy",
+        lp_api="coptpy" if method == "coptpy" else "scipy",
         lower_optres=lower_res,
         upper_optres=upper_res,
         lp_inputs=lp_inputs,

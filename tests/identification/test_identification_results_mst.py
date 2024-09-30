@@ -89,6 +89,6 @@ def test_identification_paper_bounds(setup: Setup, method: str):
         shape_constraints=setup.shape_constraints,
     )
 
-    actual = [result["lower_bound"], result["upper_bound"]]
+    actual = [result.lower_bound, result.upper_bound]
 
     assert actual == pytest.approx(expected, abs=1e-3)
