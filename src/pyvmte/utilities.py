@@ -418,6 +418,7 @@ def plot_solution(
     lower_or_upper: str,
     *,
     add_weights: bool,
+    add_mte: bool = False,
 ) -> go.Figure:
     """Plot the MTR functions corresponding to the lower or upper bound."""
     num_gridpoints = 1_000
@@ -504,6 +505,20 @@ def plot_solution(
             row=1,
             col=_col_counter,
         )
+
+        if _col_counter == 1 and add_mte is True:
+            fig.add_trace(
+                go.Scatter(
+                    x=u_grid,
+                    y=mtr_by_line[line]["d1"](u_grid) - mtr_by_line[line]["d0"](u_grid),
+                    mode="lines",
+                    name="MTE",
+                    line={"color": "green", "dash": line_style["dash"][line]},
+                    legendgroup=f"{line}",
+                ),
+                row=1,
+                col=_col_counter,
+            )
 
         _col_counter += 1
 
