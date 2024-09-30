@@ -506,7 +506,7 @@ def plot_solution(
             col=_col_counter,
         )
 
-        if _col_counter == 1 and add_mte is True:
+        if add_mte is True:
             fig.add_trace(
                 go.Scatter(
                     x=u_grid,
