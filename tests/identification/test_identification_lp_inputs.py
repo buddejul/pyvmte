@@ -89,6 +89,33 @@ def test_compute_inequality_constraint_matrix_mts():
     assert expected_decreasing == pytest.approx(actual_decreasing)
 
 
+def test_compute_inequality_constraint_matrix_monotone_response():
+    n_basis_funcs = 3
+
+    expected_positive = np.array(
+        [
+            [1, 0, 0, -1, 0, 0],
+            [0, 1, 0, 0, -1, 0],
+            [0, 0, 1, 0, 0, -1],
+        ],
+    )
+
+    expected_negative = -expected_positive
+
+    actual_negative = _compute_inequality_constraint_matrix(
+        monotone_response="negative",
+        n_basis_funcs=n_basis_funcs,
+    )
+
+    actual_positive = _compute_inequality_constraint_matrix(
+        monotone_response="positive",
+        n_basis_funcs=n_basis_funcs,
+    )
+
+    assert expected_negative == pytest.approx(actual_negative)
+    assert expected_positive == pytest.approx(actual_positive)
+
+
 def test_compute_bernstein_weights():
     bfunc_dicts = generate_bernstein_basis_funcs(k=2)
 

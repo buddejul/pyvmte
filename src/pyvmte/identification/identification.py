@@ -116,7 +116,7 @@ def identification(
         instrument=instrument,
     )
 
-    if shape_constraints is not None or mte_monotone is not None:
+    if any([shape_constraints, mte_monotone, monotone_response]):
         lp_inputs["a_ub"] = _compute_inequality_constraint_matrix(
             shape_constraints=shape_constraints,
             n_basis_funcs=len(basis_funcs),
@@ -265,18 +265,33 @@ def _compute_inequality_constraint_matrix(
             n_basis_funcs=n_basis_funcs,
         )
 
-    if mte_monotone is None:
-        return _shape_matrix
+    if mte_monotone is not None:
+        _mte_matrix = _ineq_constr_mte_monotone(
+            mte_monotone=mte_monotone,
+            n_basis_funcs=n_basis_funcs,
+        )
 
-    _mte_matrix = _ineq_constr_mte_monotone(
-        mte_monotone=mte_monotone,
-        n_basis_funcs=n_basis_funcs,
-    )
+    if monotone_response is not None:
+        _monot_resp_matrix = _ineq_constr_monot_response(
+            monotone_response=monotone_response,
+            n_basis_funcs=n_basis_funcs,
+        )
 
-    if shape_constraints is not None:
-        return np.vstack((_shape_matrix, _mte_matrix))
+    # Combine all constraints
+    if shape_constraints is None:
+        if mte_monotone is not None and monotone_response is None:
+            return _mte_matrix
+        if mte_monotone is None and monotone_response is not None:
+            return _monot_resp_matrix
+        return np.vstack((_mte_matrix, _monot_resp_matrix))
 
-    return _mte_matrix
+    matrices = [_shape_matrix]
+    if mte_monotone is not None:
+        matrices.append(_mte_matrix)
+    if monotone_response is not None:
+        matrices.append(_monot_resp_matrix)
+
+    return np.vstack(matrices)
 
 
 def _ineq_constr_shape_constraints(
@@ -313,7 +328,22 @@ def _ineq_constr_mte_monotone(mte_monotone: str, n_basis_funcs: int) -> np.ndarr
     if mte_monotone == "increasing":
         return -a
 
-    msg = "Invalid MTE monotonicity constraint."
+    msg = f"Invalid MTE monotonicity constraint: {mte_monotone}."
+    raise ValueError(msg)
+
+
+def _ineq_constr_monot_response(
+    monotone_response: str,
+    n_basis_funcs: int,
+) -> np.ndarray:
+    a = np.hstack((np.eye(n_basis_funcs), -np.eye(n_basis_funcs)))
+
+    if monotone_response == "positive":
+        return a
+    if monotone_response == "negative":
+        return -a
+
+    msg = f"Invalid monotone response constraint: {monotone_response}."
     raise ValueError(msg)
 
 
@@ -330,6 +360,9 @@ def _compute_inequality_upper_bounds(
 
     if mte_monotone is not None:
         n_constr += n_basis_funcs - 1
+
+    if monotone_response is not None:
+        n_constr += n_basis_funcs
 
     return np.zeros(n_constr)
 

@@ -4,7 +4,11 @@ from collections.abc import Callable
 
 import numpy as np
 import pytest
-from pyvmte.classes import Estimand, Instrument  # type: ignore[import-untyped]
+from pyvmte.classes import (  # type: ignore[import-untyped]
+    Estimand,
+    Instrument,
+    PyvmteResult,
+)
 from pyvmte.config import RNG
 from pyvmte.identification import identification  # type: ignore[import-untyped]
 
@@ -100,6 +104,20 @@ def _no_solution_nonsharp(y1_at, y1_c, y0_c, y0_nt):
     return False
 
 
+def _no_solution_nonsharp_monotone_response(
+    monotone_response,
+    y1_at,
+    y1_c,
+    y0_c,
+    y0_nt,
+):
+    if monotone_response == "positive":
+        return y1_c - y0_c <= 0
+    if monotone_response == "negative":
+        return y1_c - y0_c >= 0
+    return None
+
+
 def _sol_hi_not_sharp_increasing(w, y1_c, y0_c, y0_nt):
     del y0_nt
     _b_late = y1_c - y0_c
@@ -154,6 +172,30 @@ def _sol_lo_not_sharp_mts_decreasing(w, y1_c, y0_c, y0_nt):
     return w * _b_late + (1 - w) * -1
 
 
+def _sol_hi_not_sharp_monotone_response_positive(w, y1_c, y0_c, y0_nt):
+    del y0_nt
+    _b_late = y1_c - y0_c
+    return w * _b_late + (1 - w) * 1
+
+
+def _sol_hi_not_sharp_monotone_response_negative(w, y1_c, y0_c, y0_nt):
+    del y0_nt
+    _b_late = y1_c - y0_c
+    return w * _b_late + (1 - w) * 0
+
+
+def _sol_lo_not_sharp_monotone_response_positive(w, y1_c, y0_c, y0_nt):
+    del y0_nt
+    _b_late = y1_c - y0_c
+    return w * _b_late + (1 - w) * 0
+
+
+def _sol_lo_not_sharp_monotone_response_negative(w, y1_c, y0_c, y0_nt):
+    del y0_nt
+    _b_late = y1_c - y0_c
+    return w * _b_late + (1 - w) * (-1)
+
+
 bfunc_1 = {"type": "constant", "u_lo": 0.0, "u_hi": pscore_lo}
 bfunc_2 = {"type": "constant", "u_lo": pscore_lo, "u_hi": pscore_hi}
 bfunc_3_ate = {"type": "constant", "u_lo": pscore_hi, "u_hi": 1}
@@ -181,6 +223,7 @@ UPART_LATE = np.array([0, pscore_lo, pscore_hi, pscore_hi + u_hi_late, 1])
         "no_solution",
         "shape_restriction",
         "mte_monotone",
+        "monotone_response",
     ),
     [
         # LATE-based identified set, extrapolate to LATE
@@ -194,6 +237,7 @@ UPART_LATE = np.array([0, pscore_lo, pscore_hi, pscore_hi + u_hi_late, 1])
             _no_solution_nonsharp,
             ("decreasing", "decreasing"),
             None,
+            None,
         ),
         (
             u_hi_late,
@@ -204,6 +248,7 @@ UPART_LATE = np.array([0, pscore_lo, pscore_hi, pscore_hi + u_hi_late, 1])
             identified_late,
             _no_solution_nonsharp,
             ("increasing", "increasing"),
+            None,
             None,
         ),
         # LATE-based identified set, monotone treatment selection
@@ -217,6 +262,7 @@ UPART_LATE = np.array([0, pscore_lo, pscore_hi, pscore_hi + u_hi_late, 1])
             _no_solution_nonsharp,
             None,
             "decreasing",
+            None,
         ),
         (
             u_hi_late,
@@ -228,6 +274,32 @@ UPART_LATE = np.array([0, pscore_lo, pscore_hi, pscore_hi + u_hi_late, 1])
             _no_solution_nonsharp,
             None,
             "increasing",
+            None,
+        ),
+        # LATE-based identified set, monotone treatment selection
+        (
+            u_hi_late,
+            _sol_lo_not_sharp_monotone_response_positive,
+            _sol_hi_not_sharp_monotone_response_positive,
+            BFUNCS_LATE,
+            UPART_LATE,
+            identified_late,
+            _no_solution_nonsharp_monotone_response,
+            None,
+            None,
+            "positive",
+        ),
+        (
+            u_hi_late,
+            _sol_lo_not_sharp_monotone_response_negative,
+            _sol_hi_not_sharp_monotone_response_negative,
+            BFUNCS_LATE,
+            UPART_LATE,
+            identified_late,
+            _no_solution_nonsharp_monotone_response,
+            None,
+            None,
+            "negative",
         ),
         # Sharp identified set, extrapolate to ATE
         (
@@ -240,6 +312,7 @@ UPART_LATE = np.array([0, pscore_lo, pscore_hi, pscore_hi + u_hi_late, 1])
             _no_solution,
             ("decreasing", "decreasing"),
             None,
+            None,
         ),
         # Sharp identified set, extrapolate to LATE
         (
@@ -251,6 +324,7 @@ UPART_LATE = np.array([0, pscore_lo, pscore_hi, pscore_hi + u_hi_late, 1])
             identified_sharp,
             _no_solution,
             ("decreasing", "decreasing"),
+            None,
             None,
         ),
     ],
@@ -265,6 +339,7 @@ def test_solve_simple_model_sharp_ate_decreasing(
     no_solution: Callable,
     shape_restriction: tuple[str, str],
     mte_monotone: str | None,
+    monotone_response: str | None,
 ) -> None:
     """Solve the simple model for a range of parameter values."""
 
@@ -327,14 +402,25 @@ def test_solve_simple_model_sharp_ate_decreasing(
                 m1_dgp=_m1,
                 shape_constraints=shape_restriction,
                 mte_monotone=mte_monotone,
+                monotone_response=monotone_response,
             )
         except TypeError:
-            res = {"upper_bound": np.nan, "lower_bound": np.nan}
+            res = PyvmteResult(
+                procedure="identification",
+                lower_bound=np.nan,
+                upper_bound=np.nan,
+                basis_funcs=bfuncs,
+                method="highs",
+                lp_api="scipy",
+                lower_optres=None,
+                upper_optres=None,
+                lp_inputs=None,  # type: ignore[arg-type]
+            )
 
         results.append(res)
 
-    actual_lo = np.array([res["lower_bound"] for res in results])
-    actual_hi = np.array([res["upper_bound"] for res in results])
+    actual_lo = np.array([res.lower_bound for res in results])
+    actual_hi = np.array([res.upper_bound for res in results])
 
     # Put into pandas DataFrame and save to disk
     _kwargs = {
@@ -346,7 +432,10 @@ def test_solve_simple_model_sharp_ate_decreasing(
     expected_lo = _sol_lo(w=w, **_kwargs)
     expected_hi = _sol_hi(w=w, **_kwargs)
 
-    _idx_no_sol = no_solution(y1_at=y1_at_flat, **_kwargs)
+    if monotone_response is None:
+        _idx_no_sol = no_solution(y1_at=y1_at_flat, **_kwargs)
+    else:
+        _idx_no_sol = no_solution(monotone_response, y1_at=y1_at_flat, **_kwargs)
     expected_lo[_idx_no_sol] = np.nan
     expected_hi[_idx_no_sol] = np.nan
 
