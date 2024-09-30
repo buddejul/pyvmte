@@ -3,12 +3,16 @@
 import contextlib
 import math
 import os
+from collections.abc import Callable
+from functools import partial
 
 import numpy as np
 import pandas as pd  # type: ignore
+import plotly.graph_objects as go  # type: ignore[import-untyped]
+from plotly.subplots import make_subplots  # type: ignore[import-untyped]
 from scipy.interpolate import BPoly  # type: ignore[import-untyped]
 
-from pyvmte.classes import Bern, Estimand, Instrument
+from pyvmte.classes import Bern, Estimand, Instrument, PyvmteResult
 
 
 def compute_moments(supp_z, f_z, prop_z):
@@ -378,3 +382,174 @@ def generate_bernstein_basis_funcs(k: int) -> list[dict]:
         basis_funcs.append(basis_func)
 
     return basis_funcs
+
+
+def generate_constant_splines_basis_funcs(u_partition: np.ndarray) -> list[dict]:
+    """Generate list with constant spline basis functions corresponding to partition.
+
+    Arguments:
+        u_partition: The partition of the unit interval.
+
+    Returns:
+        A list of dictionaries containing the basis functions.
+
+    """
+    basis_funcs = []
+
+    def _constant_spline(u, lo, hi):
+        return np.where((lo <= u) & (u < hi), 1, 0)
+
+    # Make vectorized version of the function
+
+    for i in range(len(u_partition) - 1):
+        basis_func = {
+            "type": "constant",
+            "u_lo": u_partition[i],
+            "u_hi": u_partition[i + 1],
+            "func": partial(_constant_spline, lo=u_partition[i], hi=u_partition[i + 1]),
+        }
+        basis_funcs.append(basis_func)
+
+    return basis_funcs
+
+
+def plot_solution(
+    res: PyvmteResult,
+    lower_or_upper: str,
+    *,
+    add_weights: bool = False,
+    add_mte: bool = False,
+) -> go.Figure:
+    """Plot the MTR functions corresponding to the lower or upper bound."""
+    num_gridpoints = 1_000
+
+    lines_to_plot = ["lower", "upper"] if lower_or_upper == "both" else [lower_or_upper]
+
+    # ----------------------------------------------------------------------------------
+    # Prepare results
+    # ----------------------------------------------------------------------------------
+    mtr_by_line = {}
+
+    def _mtr_from_bfunc(u: float, coefs: np.ndarray, bfuncs: list[Callable]):
+        return np.sum([c * bf(u) for c, bf in zip(coefs, bfuncs, strict=True)], axis=0)
+
+    for line in lines_to_plot:
+        optres = res.lower_optres if line == "lower" else res.upper_optres
+
+        n_bfuncs = len(res.basis_funcs)
+
+        # The first n_bfuncs entries of the coefficients correspond to the d == 1
+        coefs_d0 = optres.x[:n_bfuncs]
+        coefs_d1 = optres.x[n_bfuncs:]
+
+        # Create the mtr functions for d == 0 and d == 1 by multiplying the coefs with
+        # the basis functions
+        _bfuncs = [bf["func"] for bf in res.basis_funcs]
+
+        mtr_by_line[line] = {
+            "d0": partial(_mtr_from_bfunc, coefs=coefs_d0, bfuncs=_bfuncs),
+            "d1": partial(_mtr_from_bfunc, coefs=coefs_d1, bfuncs=_bfuncs),
+        }
+
+    u_grid = np.linspace(0, 1, num_gridpoints, endpoint=False)
+
+    # ----------------------------------------------------------------------------------
+    # Plotting parameters
+    # ----------------------------------------------------------------------------------
+
+    line_style = {
+        "dash": {
+            "upper": "solid",
+            "lower": "dash" if lower_or_upper == "both" else "solid",
+        },
+    }
+
+    # ----------------------------------------------------------------------------------
+    # Figure: MTR functions
+    # ----------------------------------------------------------------------------------
+    n_cols = 2 if lower_or_upper == "both" else 1
+
+    subplot_titles = (
+        (f"Lower Bound: {res.lower_bound:.3f}", f"Upper Bound: {res.upper_bound:.3f}")
+        if lower_or_upper == "both"
+        else ("", "")
+    )
+
+    fig = make_subplots(rows=1, cols=n_cols, subplot_titles=subplot_titles)
+
+    _col_counter = 1
+    for line in lines_to_plot:
+        fig.add_trace(
+            go.Scatter(
+                x=u_grid,
+                y=mtr_by_line[line]["d0"](u_grid),
+                mode="lines",
+                name="MTR d = 0",
+                line={"color": "blue", "dash": line_style["dash"][line]},
+                legendgroup=f"{line}",
+                legendgrouptitle={"text": f"{line} bound"},
+            ),
+            row=1,
+            col=_col_counter,
+        )
+
+        fig.add_trace(
+            go.Scatter(
+                x=u_grid,
+                y=mtr_by_line[line]["d1"](u_grid),
+                mode="lines",
+                name="MTR d = 1",
+                line={"color": "red", "dash": line_style["dash"][line]},
+                legendgroup=f"{line}",
+            ),
+            row=1,
+            col=_col_counter,
+        )
+
+        if add_mte is True:
+            fig.add_trace(
+                go.Scatter(
+                    x=u_grid,
+                    y=mtr_by_line[line]["d1"](u_grid) - mtr_by_line[line]["d0"](u_grid),
+                    mode="lines",
+                    name="MTE",
+                    line={"color": "green", "dash": line_style["dash"][line]},
+                    legendgroup=f"{line}",
+                ),
+                row=1,
+                col=_col_counter,
+            )
+
+        _col_counter += 1
+
+    if lower_or_upper == "both":
+        _sub = ""
+    else:
+        _bound = res.lower_bound if lower_or_upper == "lower" else res.upper_bound
+        _sub = (
+            f"<br><sup>{lower_or_upper.capitalize()} "
+            f"bound: {_bound:.3f} </sup></br>"
+        )
+
+    fig.update_layout(
+        title=(f"MTR functions for {lower_or_upper} bound(s){_sub}"),
+        xaxis_title="u",
+        yaxis_title="MTR",
+    )
+
+    if len(lines_to_plot) == 1:
+        return fig
+
+    if add_weights is False:
+        return fig
+
+    # ----------------------------------------------------------------------------------
+    # Add weights (if requested)
+    # ----------------------------------------------------------------------------------
+    # TODO(@buddejul): Think about this - these are not necessarily the weights for the
+    # LP, which also are a function of the basis functions?
+    # In case of Bernstein polynomials: Would we need to resolve using constant splines?
+
+    # Weights for target parameter (choice variables in linear program)
+    _weights = res.lp_inputs["c"]
+    return None

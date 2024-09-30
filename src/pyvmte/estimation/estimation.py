@@ -11,7 +11,7 @@ from scipy.optimize import (  # type: ignore
     linprog,  # type: ignore
 )
 
-from pyvmte.classes import Estimand, Instrument
+from pyvmte.classes import Estimand, Instrument, PyvmteResult
 from pyvmte.identification.identification import _compute_choice_weights
 from pyvmte.utilities import (
     _error_report_estimand,
@@ -42,7 +42,7 @@ def estimation(
     shape_constraints: tuple[str, str] | None = None,
     method: str = "highs",
     basis_func_options: dict | None = None,
-):
+) -> PyvmteResult:
     """Estimate bounds given target, identified estimands, and data (estimation).
 
     Args:
@@ -63,8 +63,7 @@ def estimation(
         basis_func_options: Options for basis functions. Default None.
 
     Returns:
-        dict: A dictionary containing the estimated upper and lower bound of the target
-        estimand.
+        PyvmteResult: Object containing the results of the estimation procedure.
 
     """
     if isinstance(identified_estimands, Estimand):
@@ -155,24 +154,26 @@ def estimation(
     # ==================================================================================
     # Return Results
     # ==================================================================================
-    if method == "copt":
-        return {
-            "upper_bound": results_second_step["upper_bound"],
-            "lower_bound": results_second_step["lower_bound"],
-        }
-
-    return {
-        "upper_bound": results_second_step["upper_bound"],
-        "lower_bound": results_second_step["lower_bound"],
-        "minimal_deviations": minimal_deviations,
-        "u_partition": u_partition,
-        "beta_hat": beta_hat,
-        "inputs_first_step": results_first_step["inputs"],
-        "inputs_second_step": results_second_step["inputs"],
-        "scipy_return_first_step": results_first_step["scipy_return"],
-        "scipy_return_second_step_upper": results_second_step["scipy_return_upper"],
-        "scipy_return_second_step_lower": results_second_step["scipy_return_lower"],
-    }
+    return PyvmteResult(
+        procedure="estimation",
+        lower_bound=results_second_step["lower_bound"],
+        upper_bound=results_second_step["upper_bound"],
+        basis_funcs=basis_funcs,
+        method=method,
+        lp_api="coptpy" if method == "copt" else "scipy",
+        lower_optres=(
+            results_second_step["scipy_return_lower"] if method != "copt" else None
+        ),
+        upper_optres=(
+            results_second_step["scipy_return_upper"] if method != "copt" else None
+        ),
+        lp_inputs=results_second_step["inputs"],
+        est_u_partition=u_partition,
+        est_beta_hat=beta_hat,
+        first_minimal_deviations=results_first_step["minimal_deviations"],
+        first_lp_inputs=results_first_step["inputs"],
+        first_optres=results_first_step["scipy_return"] if method != "copt" else None,
+    )
 
 
 def _first_step_linear_program(
@@ -554,6 +555,7 @@ def _second_step_linear_program(
         return {
             "upper_bound": -1 * result_upper,
             "lower_bound": result_lower,
+            "inputs": lp_second_inputs,
         }
 
     result_upper = _solve_second_step_lp_estimation(lp_second_inputs, "max", method)
