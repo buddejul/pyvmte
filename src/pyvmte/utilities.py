@@ -9,6 +9,7 @@ from functools import partial
 import numpy as np
 import pandas as pd  # type: ignore
 import plotly.graph_objects as go  # type: ignore[import-untyped]
+from plotly.subplots import make_subplots  # type: ignore[import-untyped]
 from scipy.interpolate import BPoly  # type: ignore[import-untyped]
 
 from pyvmte.classes import Bern, Estimand, Instrument, PyvmteResult
@@ -383,9 +384,45 @@ def generate_bernstein_basis_funcs(k: int) -> list[dict]:
     return basis_funcs
 
 
-def plot_solution(res: PyvmteResult, lower_or_upper: str) -> go.Figure:
+def generate_constant_splines_basis_funcs(u_partition: np.ndarray) -> list[dict]:
+    """Generate list with constant spline basis functions corresponding to partition.
+
+    Arguments:
+        u_partition: The partition of the unit interval.
+
+    Returns:
+        A list of dictionaries containing the basis functions.
+
+    """
+    basis_funcs = []
+
+    def _constant_spline(u, lo, hi):
+        return np.where((lo <= u) & (u < hi), 1, 0)
+
+    # Make vectorized version of the function
+
+    for i in range(len(u_partition) - 1):
+        basis_func = {
+            "type": "constant",
+            "u_lo": u_partition[i],
+            "u_hi": u_partition[i + 1],
+            "func": partial(_constant_spline, lo=u_partition[i], hi=u_partition[i + 1]),
+        }
+        basis_funcs.append(basis_func)
+
+    return basis_funcs
+
+
+def plot_solution(
+    res: PyvmteResult,
+    lower_or_upper: str,
+    *,
+    add_weights: bool,
+) -> go.Figure:
     """Plot the MTR functions corresponding to the lower or upper bound."""
-    lines_to_plot = ["upper", "lower"] if lower_or_upper == "both" else [lower_or_upper]
+    num_gridpoints = 1_000
+
+    lines_to_plot = ["lower", "upper"] if lower_or_upper == "both" else [lower_or_upper]
 
     # ----------------------------------------------------------------------------------
     # Prepare results
@@ -413,7 +450,7 @@ def plot_solution(res: PyvmteResult, lower_or_upper: str) -> go.Figure:
             "d1": partial(_mtr_from_bfunc, coefs=coefs_d1, bfuncs=_bfuncs),
         }
 
-    u_grid = np.linspace(0, 1, 1000)
+    u_grid = np.linspace(0, 1, num_gridpoints, endpoint=False)
 
     # ----------------------------------------------------------------------------------
     # Plotting parameters
@@ -427,10 +464,19 @@ def plot_solution(res: PyvmteResult, lower_or_upper: str) -> go.Figure:
     }
 
     # ----------------------------------------------------------------------------------
-    # Figure
+    # Figure: MTR functions
     # ----------------------------------------------------------------------------------
-    fig = go.Figure()
+    n_cols = 2 if lower_or_upper == "both" else 1
 
+    subplot_titles = (
+        (f"Lower Bound: {res.lower_bound:.3f}", f"Upper Bound: {res.upper_bound:.3f}")
+        if lower_or_upper == "both"
+        else ("", "")
+    )
+
+    fig = make_subplots(rows=1, cols=n_cols, subplot_titles=subplot_titles)
+
+    _col_counter = 1
     for line in lines_to_plot:
         fig.add_trace(
             go.Scatter(
@@ -442,6 +488,8 @@ def plot_solution(res: PyvmteResult, lower_or_upper: str) -> go.Figure:
                 legendgroup=f"{line}",
                 legendgrouptitle={"text": f"{line} bound"},
             ),
+            row=1,
+            col=_col_counter,
         )
 
         fig.add_trace(
@@ -453,26 +501,40 @@ def plot_solution(res: PyvmteResult, lower_or_upper: str) -> go.Figure:
                 line={"color": "red", "dash": line_style["dash"][line]},
                 legendgroup=f"{line}",
             ),
+            row=1,
+            col=_col_counter,
         )
 
-    _sub_upper = f"Upper bound: {res.upper_bound:.3f}"
-    _sub_lower = f"Lower bound: {res.lower_bound:.3f}"
+        _col_counter += 1
 
-    subtitle = (
-        f"{_sub_lower} | {_sub_upper}"
-        if lower_or_upper == "both"
-        else _sub_upper
-        if lower_or_upper == "upper"
-        else _sub_lower
-    )
+    if lower_or_upper == "both":
+        _sub = ""
+    else:
+        _bound = res.lower_bound if lower_or_upper == "lower" else res.upper_bound
+        _sub = (
+            f"<br><sup>{lower_or_upper.capitalize()} "
+            f"bound: {_bound:.3f} </sup></br>"
+        )
 
     fig.update_layout(
-        title=(
-            f"MTR functions for {lower_or_upper} bound(s)"
-            f"<br><sup>{subtitle} </sup></br>"
-        ),
+        title=(f"MTR functions for {lower_or_upper} bound(s){_sub}"),
         xaxis_title="u",
         yaxis_title="MTR",
     )
 
-    return fig
+    if len(lines_to_plot) == 1:
+        return fig
+
+    if add_weights is False:
+        return fig
+
+    # ----------------------------------------------------------------------------------
+    # Add weights (if requested)
+    # ----------------------------------------------------------------------------------
+    # TODO(@buddejul): Think about this - these are not necessarily the weights for the
+    # LP, which also are a function of the basis functions?
+    # In case of Bernstein polynomials: Would we need to resolve using constant splines?
+
+    # Weights for target parameter (choice variables in linear program)
+    _weights = res.lp_inputs["c"]
+    return None

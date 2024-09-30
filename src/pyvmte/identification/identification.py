@@ -131,6 +131,7 @@ def identification(
         lp_api="copt" if method == "copt" else "scipy",
         lower_optres=lower_res,
         upper_optres=upper_res,
+        lp_inputs=lp_inputs,
     )
 
 

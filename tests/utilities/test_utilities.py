@@ -116,5 +116,5 @@ def test_plot_solution() -> None:
     modes_to_test = ["both", "lower", "upper"]
 
     for mode in modes_to_test:
-        out = plot_solution(res=res, lower_or_upper=mode)
+        out = plot_solution(res=res, lower_or_upper=mode, add_weights=False)
         assert isinstance(out, Figure)

@@ -148,3 +148,4 @@ class PyvmteResult(NamedTuple):
     lp_api: str
     lower_optres: OptimizeResult
     upper_optres: OptimizeResult
+    lp_inputs: dict
