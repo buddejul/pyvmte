@@ -38,6 +38,8 @@ dependencies:
   # - setuptools_csm
 
   # Install project
+  # For selectors see:
+  # https://docs.conda.io/projects/conda-build/en/latest/resources/define-metadata.html#preprocessing-selectors
   - pip:
       - -e .
       - kaleido==0.1.0.post1 # [win]
