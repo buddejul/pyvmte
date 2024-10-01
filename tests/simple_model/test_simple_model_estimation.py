@@ -1,4 +1,9 @@
-"""Test identification of simple model using pyvmte against analytical solutions."""
+"""Test estimation of simple model using pyvmte against analytical solutions.
+
+We draw a random point from the parameter space each time the test is evaluated.
+Otherwise the computations would take too long.
+
+"""
 
 from collections.abc import Callable
 
@@ -11,12 +16,6 @@ from pyvmte.classes import (  # type: ignore[import-untyped]
 )
 from pyvmte.config import RNG
 from pyvmte.identification import identification
-from pyvmte.solutions import (
-    _no_solution,
-    _no_solution_nonsharp,
-    _no_solution_nonsharp_monotone_response,
-    solution_simple_model,
-)
 
 atol = 1e-05
 
@@ -42,18 +41,6 @@ instrument = Instrument(
     pmf=np.array([0.5, 0.5]),
     pscores=np.array([pscore_lo, pscore_hi]),
 )
-
-bfunc_1 = {"type": "constant", "u_lo": 0.0, "u_hi": pscore_lo}
-bfunc_2 = {"type": "constant", "u_lo": pscore_lo, "u_hi": pscore_hi}
-bfunc_3_ate = {"type": "constant", "u_lo": pscore_hi, "u_hi": 1}
-bfunc_3 = {"type": "constant", "u_lo": pscore_hi, "u_hi": pscore_hi + u_hi_late}
-bfunc_4 = {"type": "constant", "u_lo": pscore_hi + u_hi_late, "u_hi": 1}
-
-BFUNCS_ATE = [bfunc_1, bfunc_2, bfunc_3_ate]
-BFUNCS_LATE = [bfunc_1, bfunc_2, bfunc_3, bfunc_4]
-
-UPART_ATE = np.array([0, pscore_lo, pscore_hi, 1])
-UPART_LATE = np.array([0, pscore_lo, pscore_hi, pscore_hi + u_hi_late, 1])
 
 
 def _at(u: float) -> bool:
@@ -84,12 +71,157 @@ def _make_m1(y1_c, y1_at, y1_nt):
     return _m1
 
 
+def _sol_hi_ate(w, y1_c, y0_c, y0_nt):
+    _b_late = y1_c - y0_c
+
+    return w * _b_late + (1 - w) * (y1_c - y0_nt)
+
+
+def _sol_lo_ate(w, y1_c, y0_c, y0_nt):
+    _b_late = y1_c - y0_c
+
+    return w * _b_late + (1 - w) * (0 - y0_nt)
+
+
+def _sol_hi_late(w, y1_c, y0_c, y0_nt):
+    return _sol_hi_ate(w, y1_c, y0_c, y0_nt)
+
+
+def _sol_lo_late(w, y1_c, y0_c, y0_nt, u_hi=u_hi_late, pscore_hi=pscore_hi):
+    _b_late = y1_c - y0_c
+
+    k = u_hi / (1 - pscore_hi)
+
+    return w * _b_late + (1 - w) * (0 - np.minimum(y0_c, y0_nt / k))
+
+
+def _no_solution(y1_at, y1_c, y0_c, y0_nt):
+    # The model is not consistent with decreasing MTRs if
+    # - y1_at < y1_c or y1_c < y1_nt or
+    # - y0_at < y0_c or y0_c < y0_nt
+    # Make sure this also works vectorized.
+    # Note that while y1_c < y1_nt is also not consistent with decreasing MTRs, the
+    # model puts no restrictions on y1_nt since it is not identified.
+    return np.logical_or(y1_at < y1_c, y0_c < y0_nt)
+
+
+def _no_solution_nonsharp(y1_at, y1_c, y0_c, y0_nt):
+    return False
+
+
+def _no_solution_nonsharp_monotone_response(
+    monotone_response,
+    y1_at,
+    y1_c,
+    y0_c,
+    y0_nt,
+):
+    if monotone_response == "positive":
+        return y1_c - y0_c <= 0
+    if monotone_response == "negative":
+        return y1_c - y0_c >= 0
+    return None
+
+
+def _sol_hi_not_sharp_increasing(w, y1_c, y0_c, y0_nt):
+    del y0_nt
+    _b_late = y1_c - y0_c
+    return (_b_late >= 0) * (w * _b_late + (1 - w)) + (_b_late < 0) * (
+        _b_late + (1 - w)
+    )
+
+
+def _sol_lo_not_sharp_increasing(w, y1_c, y0_c, y0_nt):
+    del y0_nt
+    _b_late = y1_c - y0_c
+    return (_b_late >= 0) * (_b_late - (1 - w)) + (_b_late < 0) * (
+        w * _b_late - (1 - w)
+    )
+
+
+def _sol_hi_not_sharp_decreasing(w, y1_c, y0_c, y0_nt):
+    del y0_nt
+    _b_late = y1_c - y0_c
+    return (_b_late >= 0) * (w * _b_late + (1 - w)) + (_b_late < 0) * (
+        w * _b_late + (1 - w) * (1 + _b_late)
+    )
+
+
+def _sol_lo_not_sharp_decreasing(w, y1_c, y0_c, y0_nt):
+    del y0_nt
+    _b_late = y1_c - y0_c
+    return (_b_late >= 0) * (w * _b_late + (1 - w) * (_b_late - 1)) + (_b_late < 0) * (
+        w * _b_late + (1 - w) * (-1)
+    )
+
+
+def _sol_hi_not_sharp_mts_decreasing(w, y1_c, y0_c, y0_nt):
+    del y0_nt
+    return y1_c - y0_c
+
+
+def _sol_hi_not_sharp_mts_increasing(w, y1_c, y0_c, y0_nt):
+    del y0_nt
+    _b_late = y1_c - y0_c
+    return w * _b_late + (1 - w) * 1
+
+
+def _sol_lo_not_sharp_mts_increasing(w, y1_c, y0_c, y0_nt):
+    del y0_nt
+    return y1_c - y0_c
+
+
+def _sol_lo_not_sharp_mts_decreasing(w, y1_c, y0_c, y0_nt):
+    del y0_nt
+    _b_late = y1_c - y0_c
+    return w * _b_late + (1 - w) * -1
+
+
+def _sol_hi_not_sharp_monotone_response_positive(w, y1_c, y0_c, y0_nt):
+    del y0_nt
+    _b_late = y1_c - y0_c
+    return w * _b_late + (1 - w) * 1
+
+
+def _sol_hi_not_sharp_monotone_response_negative(w, y1_c, y0_c, y0_nt):
+    del y0_nt
+    _b_late = y1_c - y0_c
+    return w * _b_late + (1 - w) * 0
+
+
+def _sol_lo_not_sharp_monotone_response_positive(w, y1_c, y0_c, y0_nt):
+    del y0_nt
+    _b_late = y1_c - y0_c
+    return w * _b_late + (1 - w) * 0
+
+
+def _sol_lo_not_sharp_monotone_response_negative(w, y1_c, y0_c, y0_nt):
+    del y0_nt
+    _b_late = y1_c - y0_c
+    return w * _b_late + (1 - w) * (-1)
+
+
+bfunc_1 = {"type": "constant", "u_lo": 0.0, "u_hi": pscore_lo}
+bfunc_2 = {"type": "constant", "u_lo": pscore_lo, "u_hi": pscore_hi}
+bfunc_3_ate = {"type": "constant", "u_lo": pscore_hi, "u_hi": 1}
+bfunc_3 = {"type": "constant", "u_lo": pscore_hi, "u_hi": pscore_hi + u_hi_late}
+bfunc_4 = {"type": "constant", "u_lo": pscore_hi + u_hi_late, "u_hi": 1}
+
+BFUNCS_ATE = [bfunc_1, bfunc_2, bfunc_3_ate]
+BFUNCS_LATE = [bfunc_1, bfunc_2, bfunc_3, bfunc_4]
+
+UPART_ATE = np.array([0, pscore_lo, pscore_hi, 1])
+UPART_LATE = np.array([0, pscore_lo, pscore_hi, pscore_hi + u_hi_late, 1])
+
+
 # --------------------------------------------------------------------------------------
 # Tests
 # --------------------------------------------------------------------------------------
 @pytest.mark.parametrize(
     (
         "u_hi",
+        "_sol_lo",
+        "_sol_hi",
         "bfuncs",
         "u_partition",
         "identified",
@@ -102,6 +234,8 @@ def _make_m1(y1_c, y1_at, y1_nt):
         # LATE-based identified set, extrapolate to LATE
         (
             u_hi_late,
+            _sol_lo_not_sharp_decreasing,
+            _sol_hi_not_sharp_decreasing,
             BFUNCS_LATE,
             UPART_LATE,
             identified_late,
@@ -112,6 +246,8 @@ def _make_m1(y1_c, y1_at, y1_nt):
         ),
         (
             u_hi_late,
+            _sol_lo_not_sharp_increasing,
+            _sol_hi_not_sharp_increasing,
             BFUNCS_LATE,
             UPART_LATE,
             identified_late,
@@ -123,6 +259,8 @@ def _make_m1(y1_c, y1_at, y1_nt):
         # LATE-based identified set, monotone treatment selection
         (
             u_hi_late,
+            _sol_lo_not_sharp_mts_decreasing,
+            _sol_hi_not_sharp_mts_decreasing,
             BFUNCS_LATE,
             UPART_LATE,
             identified_late,
@@ -133,6 +271,8 @@ def _make_m1(y1_c, y1_at, y1_nt):
         ),
         (
             u_hi_late,
+            _sol_lo_not_sharp_mts_increasing,
+            _sol_hi_not_sharp_mts_increasing,
             BFUNCS_LATE,
             UPART_LATE,
             identified_late,
@@ -144,6 +284,8 @@ def _make_m1(y1_c, y1_at, y1_nt):
         # LATE-based identified set, monotone treatment selection
         (
             u_hi_late,
+            _sol_lo_not_sharp_monotone_response_positive,
+            _sol_hi_not_sharp_monotone_response_positive,
             BFUNCS_LATE,
             UPART_LATE,
             identified_late,
@@ -154,6 +296,8 @@ def _make_m1(y1_c, y1_at, y1_nt):
         ),
         (
             u_hi_late,
+            _sol_lo_not_sharp_monotone_response_negative,
+            _sol_hi_not_sharp_monotone_response_negative,
             BFUNCS_LATE,
             UPART_LATE,
             identified_late,
@@ -165,6 +309,8 @@ def _make_m1(y1_c, y1_at, y1_nt):
         # Sharp identified set, extrapolate to ATE
         (
             1 - pscore_hi,
+            _sol_lo_ate,
+            _sol_hi_ate,
             BFUNCS_ATE,
             UPART_ATE,
             identified_sharp,
@@ -176,6 +322,8 @@ def _make_m1(y1_c, y1_at, y1_nt):
         # Sharp identified set, extrapolate to LATE
         (
             u_hi_late,
+            _sol_lo_late,
+            _sol_hi_late,
             BFUNCS_LATE,
             UPART_LATE,
             identified_sharp,
@@ -187,9 +335,9 @@ def _make_m1(y1_c, y1_at, y1_nt):
     ],
 )
 def test_solve_simple_model_sharp_ate_decreasing(
-    id_set: str,
-    target: Estimand,
     u_hi: float,
+    _sol_lo: Callable,  # noqa: PT019
+    _sol_hi: Callable,  # noqa: PT019
     bfuncs: list[dict[str, float]],
     u_partition: np.ndarray,
     identified: list[Estimand],
@@ -199,16 +347,6 @@ def test_solve_simple_model_sharp_ate_decreasing(
     monotone_response: str | None,
 ) -> None:
     """Solve the simple model for a range of parameter values."""
-
-    _sol_lo, _sol_hi = solution_simple_model(
-        id_set=id_set,
-        target_type=target.esttype,
-        pscore_lo=pscore_lo,
-        pscore_hi=pscore_hi,
-        monotone_response=monotone_response,
-        mts=mte_monotone,
-        u_hi_late_target=u_hi,
-    )
 
     target = Estimand(
         "late",
