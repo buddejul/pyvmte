@@ -18,6 +18,8 @@ class Estimand:
     u_lo: float | None = None
     u_hi: float | None = None
     dz_cross: tuple[int, int] | None = None
+    u_lo_extra: float | None = None
+    u_hi_extra: float | None = None
 
 
 @dataclass

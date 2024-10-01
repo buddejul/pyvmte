@@ -24,9 +24,11 @@ from pyvmte.utilities import (
     _error_report_shape_constraints,
     _error_report_tolerance,
     _error_report_u_partition,
+    estimate_late,
     generate_bernstein_basis_funcs,
     s_cross,
     s_iv_slope,
+    s_late,
     s_ols_slope,
     suppress_print,
 )
@@ -122,6 +124,42 @@ def estimation(
         d_data=d_data,
     )
 
+    # The target is typically taken at the estimated propensity scores. If target
+    # is a LATE with missing u_lo and u_hi attributed, replace them by the propensity
+    # scores.
+    # TODO(@buddejul): Should be more flexible here with specifying the propensity
+    # scores values/corresponding instrument values. Standard is to assume binary.
+    # But could have instruments with larger support and this would fail.
+    if target.esttype == "late":
+        if target.u_lo is None:
+            target.u_lo = (
+                np.min(instrument.pscores) + target.u_lo_extra
+                if target.u_lo_extra is not None
+                else np.min(instrument.pscores)
+            )
+        if target.u_hi is None:
+            target.u_hi = (
+                np.max(instrument.pscores) + target.u_hi_extra
+                if target.u_hi_extra is not None
+                else np.max(instrument.pscores)
+            )
+
+    # Now do the same for identified estimands.
+    for id_estimand in identified_estimands:
+        if id_estimand == "late":
+            if id_estimand.u_lo is None:
+                id_estimand.u_lo = (
+                    np.min(instrument.pscores) + id_estimand.u_lo_extra
+                    if id_estimand.u_lo_extra is not None
+                    else np.min(instrument.pscores)
+                )
+            if id_estimand.u_hi is None:
+                id_estimand.u_hi = (
+                    np.max(instrument.pscores) + id_estimand.u_hi_extra
+                    if id_estimand.u_hi_extra is not None
+                    else np.max(instrument.pscores)
+                )
+
     data = {"y": y_data, "z": z_data, "d": d_data}
 
     data["pscores"] = _generate_array_of_pscores(
@@ -160,6 +198,8 @@ def estimation(
         beta_hat=beta_hat,
         instrument=instrument,
         shape_constraints=shape_constraints,
+        mte_monotone=mte_monotone,
+        monotone_response=monotone_response,
         method=method,
     )
 
@@ -363,9 +403,9 @@ def _estimate_estimand(
 ) -> float:
     """Estimate single identified estimand based on data."""
     if estimand.esttype == "late":
-        pass
+        return estimate_late(y=y_data, d=d_data, z=z_data)
 
-    elif estimand.esttype == "cross":
+    if estimand.esttype == "cross":
         ind_elements = s_cross(d_data, z_data, estimand.dz_cross) * y_data
 
     elif estimand.esttype == "iv_slope":
@@ -662,6 +702,7 @@ def _second_step_linear_program(
             mte_monotone=mte_monotone,
             monotone_response=monotone_response,
             num_bfuncs=len(basis_funcs),
+            num_idestimands=len(identified_estimands),
         )
 
         _add_b_ub = _additional_constraints_b_ub(
@@ -669,6 +710,7 @@ def _second_step_linear_program(
             mte_monotone=mte_monotone,
             monotone_response=monotone_response,
             num_bfuncs=len(basis_funcs),
+            num_idestimands=len(identified_estimands),
         )
 
         lp_second_inputs["a_ub"] = np.vstack(
@@ -862,6 +904,16 @@ def _estimate_gamma_bernstein(
     # Hence we can pull them out of the integral.
 
     # Step 1: Get weight function s(D, Z) depending on the estimand type
+    # For late target, we can estimate the weight directly
+    if estimand.esttype == "late":
+        _s_late = partial(s_late, d=d_value, u_lo=estimand.u_lo, u_hi=estimand.u_hi)
+
+        _mid = (
+            estimand.u_lo + (estimand.u_hi - estimand.u_lo) / 2  # type: ignore[operator]
+        )
+
+        return _s_late(u=_mid) * _bfunc.integrate(estimand.u_lo, estimand.u_hi)
+
     if estimand.esttype == "ols_slope":
         _s_ols_slope = partial(
             s_ols_slope,
@@ -907,7 +959,7 @@ def _estimate_gamma_bernstein(
     return weight
 
 
-def _estimate_gamma_constant_spline(
+def _estimate_gamma_constant_spline(  # noqa: PLR0911
     d_value: int,
     estimand: Estimand,
     basis_func: dict,
@@ -921,6 +973,19 @@ def _estimate_gamma_constant_spline(
 
     """
     length = basis_func["u_hi"] - basis_func["u_lo"]
+
+    if estimand.esttype == "late":
+        _s_late = partial(s_late, d=d_value, u_lo=estimand.u_lo, u_hi=estimand.u_hi)
+
+        _mid = (
+            estimand.u_lo + (estimand.u_hi - estimand.u_lo) / 2  # type: ignore[operator]
+        )
+
+        return (
+            _s_late(u=_mid)
+            * (basis_func["u_lo"] <= _mid)
+            * (_mid <= basis_func["u_hi"])
+        )
 
     if estimand.esttype == "ols_slope":
         coef = (d_value - moments["expectation_d"]) / moments["variance_d"]

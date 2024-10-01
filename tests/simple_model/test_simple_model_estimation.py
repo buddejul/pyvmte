@@ -17,7 +17,10 @@ from pyvmte.solutions import (
 atol = 1e-05
 
 sample_size = 10_000
-repetitions = 2
+repetitions = 100
+
+# TODO(@buddejul): Need to handle late in estimation. We need to specify the identified
+# estimand using estimated propensity scores. Same for the target.
 
 # --------------------------------------------------------------------------------------
 # Preliminary settings
@@ -246,9 +249,13 @@ def test_simple_model_estimation(
         "y0_nt": y0_nt,
     }
 
-    expected_lo = _sol_lo(w=w, **_kwargs)
-    expected_hi = _sol_hi(w=w, **_kwargs)
+    expected = _sol_lo(w=w, **_kwargs), _sol_hi(w=w, **_kwargs)
 
-    data = pd.DataFrame([res["lower_bound"], res["upper_bound"]]).T
+    data = pd.DataFrame([res["lower_bounds"], res["upper_bounds"]]).T
 
-    assert np.allclose(data.mean(), [expected_lo, expected_hi], atol=atol)
+    columns = {0: "lower_bound", 1: "upper_bound"}
+
+    data = data.rename(columns=columns)
+    actual = data.mean()
+
+    assert expected == pytest.approx(actual, abs=5 / np.sqrt(sample_size))

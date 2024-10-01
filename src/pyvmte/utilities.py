@@ -74,6 +74,17 @@ def s_cross(d, z, dz_cross):
     return 1 if d == dz_cross[0] and z == dz_cross[1] else 0
 
 
+def estimate_late(y: np.ndarray, d: np.ndarray, z: np.ndarray):
+    """Estimate a LATE using the Wald estimator."""
+    yz1 = y[z == 1].mean()
+    yz0 = y[z == 0].mean()
+
+    dz1 = d[z == 1].mean()
+    dz0 = d[z == 0].mean()
+
+    return (yz1 - yz0) / (dz1 - dz0)
+
+
 def bern_bas(n, v, x):
     """Bernstein polynomial basis of degree n and index v at point x."""
     return math.comb(n, v) * x**v * (1 - x) ** (n - v)
