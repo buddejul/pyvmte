@@ -2,29 +2,47 @@
 name: pyvmte
 channels: [conda-forge, nodefaults]
 dependencies:
+  - python=3.12
+  - pip >=21.1
+
+  # Development dependencies
   - conda-lock
   - ipykernel
   - jupyterlab
-  - line_profiler
-  - numba
-  - numpy
-  - pandas
-  - pip >=21.1
-  - plotly>=5.13.0
   - pre-commit
-  - pygraphviz
-  - pytask-latex>=0.4.0
-  - pytask-parallel>=0.4.0
-  - pytask>=0.4.0
+
+  # Language agnostic template project dependencies
+  - pytask>=0.5.0
+  - pytask-latex>=0.4.2
+  - pytask-parallel>=0.5.0
   - pytest
   - pytest-cov
   - pytest-xdist
-  - python-graphviz
-  - python=3.12
-  - pyyaml
+
+  # Pyvmte project dependencies
+  - numba
+  - numpy
+  - pandas
+  - plotly>=5.13.0
+  # - pygraphviz
+  # - python-graphviz
   - scipy
-  - setuptools_scm
-  - snakeviz
   - statsmodels
-  - toml
-  - pip: [-e ., kaleido==0.1.0.post1, pdbp, coptpy]
+
+  # Profiling
+  - line_profiler
+  - snakeviz
+
+  # - pyyaml
+  # - toml
+  # - setuptools_csm
+
+  # Install project
+  # For selectors see:
+  # https://docs.conda.io/projects/conda-build/en/latest/resources/define-metadata.html#preprocessing-selectors
+  - pip:
+      - -e .
+      - kaleido==0.1.0.post1 # [win]
+      - kaleido # [unix]
+      - pdbp
+      - coptpy
