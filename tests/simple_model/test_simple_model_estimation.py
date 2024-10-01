@@ -1,28 +1,28 @@
-"""Test estimation of simple model using pyvmte against analytical solutions.
-
-We draw a random point from the parameter space each time the test is evaluated.
-Otherwise the computations would take too long.
-
-"""
-
-from collections.abc import Callable
+"""Test identification of simple model using pyvmte against analytical solutions."""
 
 import numpy as np
+import pandas as pd  # type: ignore[import-untyped]
 import pytest
 from pyvmte.classes import (  # type: ignore[import-untyped]
     Estimand,
     Instrument,
-    PyvmteResult,
 )
 from pyvmte.config import RNG
-from pyvmte.identification import identification
+from pyvmte.simulation.simulation_funcs import monte_carlo_pyvmte
+from pyvmte.solutions import (
+    no_solution_region,
+    solution_simple_model,
+)
 
 atol = 1e-05
+
+sample_size = 10_000
+repetitions = 2
 
 # --------------------------------------------------------------------------------------
 # Preliminary settings
 # --------------------------------------------------------------------------------------
-num_gridpoints = 3
+num_gridpoints = 1
 
 u_hi_late = 0.2
 
@@ -41,6 +41,9 @@ instrument = Instrument(
     pmf=np.array([0.5, 0.5]),
     pscores=np.array([pscore_lo, pscore_hi]),
 )
+
+target_late = Estimand(esttype="late", u_lo=pscore_lo, u_hi=pscore_hi + u_hi_late)
+target_ate = Estimand(esttype="late", u_lo=0, u_hi=1)
 
 
 def _at(u: float) -> bool:
@@ -71,161 +74,16 @@ def _make_m1(y1_c, y1_at, y1_nt):
     return _m1
 
 
-def _sol_hi_ate(w, y1_c, y0_c, y0_nt):
-    _b_late = y1_c - y0_c
-
-    return w * _b_late + (1 - w) * (y1_c - y0_nt)
-
-
-def _sol_lo_ate(w, y1_c, y0_c, y0_nt):
-    _b_late = y1_c - y0_c
-
-    return w * _b_late + (1 - w) * (0 - y0_nt)
-
-
-def _sol_hi_late(w, y1_c, y0_c, y0_nt):
-    return _sol_hi_ate(w, y1_c, y0_c, y0_nt)
-
-
-def _sol_lo_late(w, y1_c, y0_c, y0_nt, u_hi=u_hi_late, pscore_hi=pscore_hi):
-    _b_late = y1_c - y0_c
-
-    k = u_hi / (1 - pscore_hi)
-
-    return w * _b_late + (1 - w) * (0 - np.minimum(y0_c, y0_nt / k))
-
-
-def _no_solution(y1_at, y1_c, y0_c, y0_nt):
-    # The model is not consistent with decreasing MTRs if
-    # - y1_at < y1_c or y1_c < y1_nt or
-    # - y0_at < y0_c or y0_c < y0_nt
-    # Make sure this also works vectorized.
-    # Note that while y1_c < y1_nt is also not consistent with decreasing MTRs, the
-    # model puts no restrictions on y1_nt since it is not identified.
-    return np.logical_or(y1_at < y1_c, y0_c < y0_nt)
-
-
-def _no_solution_nonsharp(y1_at, y1_c, y0_c, y0_nt):
-    return False
-
-
-def _no_solution_nonsharp_monotone_response(
-    monotone_response,
-    y1_at,
-    y1_c,
-    y0_c,
-    y0_nt,
-):
-    if monotone_response == "positive":
-        return y1_c - y0_c <= 0
-    if monotone_response == "negative":
-        return y1_c - y0_c >= 0
-    return None
-
-
-def _sol_hi_not_sharp_increasing(w, y1_c, y0_c, y0_nt):
-    del y0_nt
-    _b_late = y1_c - y0_c
-    return (_b_late >= 0) * (w * _b_late + (1 - w)) + (_b_late < 0) * (
-        _b_late + (1 - w)
-    )
-
-
-def _sol_lo_not_sharp_increasing(w, y1_c, y0_c, y0_nt):
-    del y0_nt
-    _b_late = y1_c - y0_c
-    return (_b_late >= 0) * (_b_late - (1 - w)) + (_b_late < 0) * (
-        w * _b_late - (1 - w)
-    )
-
-
-def _sol_hi_not_sharp_decreasing(w, y1_c, y0_c, y0_nt):
-    del y0_nt
-    _b_late = y1_c - y0_c
-    return (_b_late >= 0) * (w * _b_late + (1 - w)) + (_b_late < 0) * (
-        w * _b_late + (1 - w) * (1 + _b_late)
-    )
-
-
-def _sol_lo_not_sharp_decreasing(w, y1_c, y0_c, y0_nt):
-    del y0_nt
-    _b_late = y1_c - y0_c
-    return (_b_late >= 0) * (w * _b_late + (1 - w) * (_b_late - 1)) + (_b_late < 0) * (
-        w * _b_late + (1 - w) * (-1)
-    )
-
-
-def _sol_hi_not_sharp_mts_decreasing(w, y1_c, y0_c, y0_nt):
-    del y0_nt
-    return y1_c - y0_c
-
-
-def _sol_hi_not_sharp_mts_increasing(w, y1_c, y0_c, y0_nt):
-    del y0_nt
-    _b_late = y1_c - y0_c
-    return w * _b_late + (1 - w) * 1
-
-
-def _sol_lo_not_sharp_mts_increasing(w, y1_c, y0_c, y0_nt):
-    del y0_nt
-    return y1_c - y0_c
-
-
-def _sol_lo_not_sharp_mts_decreasing(w, y1_c, y0_c, y0_nt):
-    del y0_nt
-    _b_late = y1_c - y0_c
-    return w * _b_late + (1 - w) * -1
-
-
-def _sol_hi_not_sharp_monotone_response_positive(w, y1_c, y0_c, y0_nt):
-    del y0_nt
-    _b_late = y1_c - y0_c
-    return w * _b_late + (1 - w) * 1
-
-
-def _sol_hi_not_sharp_monotone_response_negative(w, y1_c, y0_c, y0_nt):
-    del y0_nt
-    _b_late = y1_c - y0_c
-    return w * _b_late + (1 - w) * 0
-
-
-def _sol_lo_not_sharp_monotone_response_positive(w, y1_c, y0_c, y0_nt):
-    del y0_nt
-    _b_late = y1_c - y0_c
-    return w * _b_late + (1 - w) * 0
-
-
-def _sol_lo_not_sharp_monotone_response_negative(w, y1_c, y0_c, y0_nt):
-    del y0_nt
-    _b_late = y1_c - y0_c
-    return w * _b_late + (1 - w) * (-1)
-
-
-bfunc_1 = {"type": "constant", "u_lo": 0.0, "u_hi": pscore_lo}
-bfunc_2 = {"type": "constant", "u_lo": pscore_lo, "u_hi": pscore_hi}
-bfunc_3_ate = {"type": "constant", "u_lo": pscore_hi, "u_hi": 1}
-bfunc_3 = {"type": "constant", "u_lo": pscore_hi, "u_hi": pscore_hi + u_hi_late}
-bfunc_4 = {"type": "constant", "u_lo": pscore_hi + u_hi_late, "u_hi": 1}
-
-BFUNCS_ATE = [bfunc_1, bfunc_2, bfunc_3_ate]
-BFUNCS_LATE = [bfunc_1, bfunc_2, bfunc_3, bfunc_4]
-
-UPART_ATE = np.array([0, pscore_lo, pscore_hi, 1])
-UPART_LATE = np.array([0, pscore_lo, pscore_hi, pscore_hi + u_hi_late, 1])
-
-
 # --------------------------------------------------------------------------------------
 # Tests
 # --------------------------------------------------------------------------------------
 @pytest.mark.parametrize(
     (
+        "id_set",
+        "target_type",
         "u_hi",
-        "_sol_lo",
-        "_sol_hi",
-        "bfuncs",
-        "u_partition",
+        "bfunc_type",
         "identified",
-        "no_solution",
         "shape_restriction",
         "mte_monotone",
         "monotone_response",
@@ -233,120 +91,119 @@ UPART_LATE = np.array([0, pscore_lo, pscore_hi, pscore_hi + u_hi_late, 1])
     [
         # LATE-based identified set, extrapolate to LATE
         (
+            "idlate",
+            "late",
             u_hi_late,
-            _sol_lo_not_sharp_decreasing,
-            _sol_hi_not_sharp_decreasing,
-            BFUNCS_LATE,
-            UPART_LATE,
+            "constant",
             identified_late,
-            _no_solution_nonsharp,
             ("decreasing", "decreasing"),
             None,
             None,
         ),
         (
+            "idlate",
+            "late",
             u_hi_late,
-            _sol_lo_not_sharp_increasing,
-            _sol_hi_not_sharp_increasing,
-            BFUNCS_LATE,
-            UPART_LATE,
+            "constant",
             identified_late,
-            _no_solution_nonsharp,
             ("increasing", "increasing"),
             None,
             None,
         ),
         # LATE-based identified set, monotone treatment selection
         (
+            "idlate",
+            "late",
             u_hi_late,
-            _sol_lo_not_sharp_mts_decreasing,
-            _sol_hi_not_sharp_mts_decreasing,
-            BFUNCS_LATE,
-            UPART_LATE,
+            "constant",
             identified_late,
-            _no_solution_nonsharp,
             None,
             "decreasing",
             None,
         ),
         (
+            "idlate",
+            "late",
             u_hi_late,
-            _sol_lo_not_sharp_mts_increasing,
-            _sol_hi_not_sharp_mts_increasing,
-            BFUNCS_LATE,
-            UPART_LATE,
+            "constant",
             identified_late,
-            _no_solution_nonsharp,
             None,
             "increasing",
             None,
         ),
         # LATE-based identified set, monotone treatment selection
         (
+            "idlate",
+            "late",
             u_hi_late,
-            _sol_lo_not_sharp_monotone_response_positive,
-            _sol_hi_not_sharp_monotone_response_positive,
-            BFUNCS_LATE,
-            UPART_LATE,
+            "constant",
             identified_late,
-            _no_solution_nonsharp_monotone_response,
             None,
             None,
             "positive",
         ),
         (
+            "idlate",
+            "late",
             u_hi_late,
-            _sol_lo_not_sharp_monotone_response_negative,
-            _sol_hi_not_sharp_monotone_response_negative,
-            BFUNCS_LATE,
-            UPART_LATE,
+            "constant",
             identified_late,
-            _no_solution_nonsharp_monotone_response,
             None,
             None,
             "negative",
         ),
         # Sharp identified set, extrapolate to ATE
         (
+            "sharp",
+            "ate",
             1 - pscore_hi,
-            _sol_lo_ate,
-            _sol_hi_ate,
-            BFUNCS_ATE,
-            UPART_ATE,
+            "constant",
             identified_sharp,
-            _no_solution,
             ("decreasing", "decreasing"),
             None,
             None,
         ),
         # Sharp identified set, extrapolate to LATE
         (
+            "sharp",
+            "late",
             u_hi_late,
-            _sol_lo_late,
-            _sol_hi_late,
-            BFUNCS_LATE,
-            UPART_LATE,
+            "constant",
             identified_sharp,
-            _no_solution,
             ("decreasing", "decreasing"),
             None,
             None,
         ),
     ],
 )
-def test_solve_simple_model_sharp_ate_decreasing(
+def test_simple_model_estimation(
+    id_set: str,
+    target_type: str,
     u_hi: float,
-    _sol_lo: Callable,  # noqa: PT019
-    _sol_hi: Callable,  # noqa: PT019
-    bfuncs: list[dict[str, float]],
-    u_partition: np.ndarray,
+    bfunc_type: str,
     identified: list[Estimand],
-    no_solution: Callable,
     shape_restriction: tuple[str, str],
     mte_monotone: str | None,
     monotone_response: str | None,
 ) -> None:
     """Solve the simple model for a range of parameter values."""
+
+    _sol_lo, _sol_hi = solution_simple_model(
+        id_set=id_set,
+        target_type=target_type,
+        pscore_hi=pscore_hi,
+        monotone_response=monotone_response,
+        mts=mte_monotone,
+        u_hi_late_target=u_hi,
+        shape_restrictions=shape_restriction,
+    )
+
+    no_solution_region(
+        id_set=id_set,
+        monotone_response=monotone_response,
+        mts=mte_monotone,
+        shape_restrictions=shape_restriction,
+    )
 
     target = Estimand(
         "late",
@@ -357,6 +214,7 @@ def test_solve_simple_model_sharp_ate_decreasing(
     w = (pscore_hi - pscore_lo) / (pscore_hi - pscore_lo + u_hi)
 
     # Generate solution for a meshgrid of parameter values
+    # TODO only draw single points.
     (
         y1_at,
         y1_c,
@@ -364,93 +222,33 @@ def test_solve_simple_model_sharp_ate_decreasing(
         y0_at,
         y0_c,
         y0_nt,
-    ) = np.meshgrid(
-        RNG.random(num_gridpoints),
-        RNG.random(num_gridpoints),
-        RNG.random(num_gridpoints),
-        RNG.random(num_gridpoints),
-        RNG.random(num_gridpoints),
-        RNG.random(num_gridpoints),
+    ) = RNG.uniform(size=6)
+
+    _m1 = _make_m1(y1_at=y1_at, y1_c=y1_c, y1_nt=y1_nt)
+    _m0 = _make_m0(y0_at=y0_at, y0_c=y0_c, y0_nt=y0_nt)
+
+    # The identified set might be empty for some parameter value combinations.
+    res = monte_carlo_pyvmte(
+        sample_size=sample_size,
+        repetitions=repetitions,
+        target=target,
+        identified_estimands=identified,
+        basis_func_type=bfunc_type,
+        rng=RNG,
+        shape_constraints=shape_restriction,
+        mte_monotone=mte_monotone,
+        monotone_response=monotone_response,
     )
 
-    # Flatten each meshgrid
-    y1_at_flat = y1_at.flatten()
-    y1_c_flat = y1_c.flatten()
-    y1_nt_flat = y1_nt.flatten()
-    y0_at_flat = y0_at.flatten()
-    y0_c_flat = y0_c.flatten()
-    y0_nt_flat = y0_nt.flatten()
-
-    results = []
-
-    for y1_at, y1_c, y1_nt, y0_at, y0_c, y0_nt in zip(
-        y1_at_flat,
-        y1_c_flat,
-        y1_nt_flat,
-        y0_at_flat,
-        y0_c_flat,
-        y0_nt_flat,
-        strict=True,
-    ):
-        _m1 = _make_m1(y1_at=y1_at, y1_c=y1_c, y1_nt=y1_nt)
-        _m0 = _make_m0(y0_at=y0_at, y0_c=y0_c, y0_nt=y0_nt)
-
-        # The identified set might be empty for some parameter value combinations.
-        try:
-            res = identification(
-                target=target,
-                identified_estimands=identified,
-                basis_funcs=bfuncs,
-                instrument=instrument,
-                u_partition=u_partition,
-                m0_dgp=_m0,
-                m1_dgp=_m1,
-                shape_constraints=shape_restriction,
-                mte_monotone=mte_monotone,
-                monotone_response=monotone_response,
-            )
-        except TypeError:
-            res = PyvmteResult(
-                procedure="identification",
-                lower_bound=np.nan,
-                upper_bound=np.nan,
-                basis_funcs=bfuncs,
-                method="highs",
-                lp_api="scipy",
-                lower_optres=None,
-                upper_optres=None,
-                lp_inputs=None,  # type: ignore[arg-type]
-            )
-
-        results.append(res)
-
-    actual_lo = np.array([res.lower_bound for res in results])
-    actual_hi = np.array([res.upper_bound for res in results])
-
-    # Put into pandas DataFrame and save to disk
     _kwargs = {
-        "y1_c": y1_c_flat,
-        "y0_c": y0_c_flat,
-        "y0_nt": y0_nt_flat,
+        "y1_c": y1_c,
+        "y0_c": y0_c,
+        "y0_nt": y0_nt,
     }
 
     expected_lo = _sol_lo(w=w, **_kwargs)
     expected_hi = _sol_hi(w=w, **_kwargs)
 
-    if monotone_response is None:
-        _idx_no_sol = no_solution(y1_at=y1_at_flat, **_kwargs)
-    else:
-        _idx_no_sol = no_solution(monotone_response, y1_at=y1_at_flat, **_kwargs)
-    expected_lo[_idx_no_sol] = np.nan
-    expected_hi[_idx_no_sol] = np.nan
+    data = pd.DataFrame([res["lower_bound"], res["upper_bound"]]).T
 
-    # Get _idx of nan mismatch
-    np.where(np.isnan(actual_lo) != np.isnan(expected_lo))
-    np.where(np.isnan(actual_hi) != np.isnan(expected_hi))
-
-    # Get _idx of value mismatch
-    np.where(np.abs(actual_lo - expected_lo) > atol)
-    np.where(np.abs(actual_hi - expected_hi) > atol)
-
-    np.testing.assert_allclose(actual_lo, expected_lo, atol=atol)
-    np.testing.assert_allclose(actual_hi, expected_hi, atol=atol)
+    assert np.allclose(data.mean(), [expected_lo, expected_hi], atol=atol)

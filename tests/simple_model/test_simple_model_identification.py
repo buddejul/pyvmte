@@ -195,7 +195,7 @@ def _make_m1(y1_c, y1_at, y1_nt):
         ),
     ],
 )
-def test_solve_simple_model_sharp_ate_decreasing(
+def test_simple_model_identification(
     id_set: str,
     target_type: str,
     u_hi: float,

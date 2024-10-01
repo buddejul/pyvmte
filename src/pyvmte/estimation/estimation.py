@@ -19,6 +19,8 @@ from pyvmte.utilities import (
     _error_report_invalid_basis_func_type,
     _error_report_method,
     _error_report_missing_basis_func_options,
+    _error_report_monotone_response,
+    _error_report_mte_monotone,
     _error_report_shape_constraints,
     _error_report_tolerance,
     _error_report_u_partition,
@@ -40,6 +42,8 @@ def estimation(
     tolerance: float | None = None,
     u_partition: np.ndarray | None = None,
     shape_constraints: tuple[str, str] | None = None,
+    mte_monotone: str | None = None,
+    monotone_response: str | None = None,
     method: str = "highs",
     basis_func_options: dict | None = None,
 ) -> PyvmteResult:
@@ -59,6 +63,10 @@ def estimation(
         u_partition (list or np.array, optional): Partition of u for basis_funcs.
         Defaults to None.
         shape_constraints: Shape constraints for the MTR functions.
+        mte_monotone: Shape constraint for the MTE, either "increasing" or "decreasing".
+            Defaults to None. Corresponds to monotone treatment selection.
+        monotone_response: Whether the treatment response is monotone.
+            Defaults to None, allowed are "positive" and "negative".
         method (str, optional): Method for scipy linprog solver. Default highs.
         basis_func_options: Options for basis functions. Default None.
 
@@ -70,17 +78,19 @@ def estimation(
         identified_estimands = [identified_estimands]
 
     _check_estimation_arguments(
-        target,
-        identified_estimands,
-        basis_func_type,
-        y_data,
-        z_data,
-        d_data,
-        tolerance,
-        u_partition,
-        shape_constraints,
-        method,
-        basis_func_options,
+        target=target,
+        identified_estimands=identified_estimands,
+        basis_func_type=basis_func_type,
+        y_data=y_data,
+        z_data=z_data,
+        d_data=d_data,
+        tolerance=tolerance,
+        u_partition=u_partition,
+        shape_constraints=shape_constraints,
+        method=method,
+        basis_func_options=basis_func_options,
+        mte_monotone=mte_monotone,
+        monotone_response=monotone_response,
     )
 
     # ==================================================================================
@@ -130,6 +140,8 @@ def estimation(
         beta_hat=beta_hat,
         instrument=instrument,
         shape_constraints=shape_constraints,
+        mte_monotone=mte_monotone,
+        monotone_response=monotone_response,
         method=method,
     )
 
@@ -183,6 +195,8 @@ def _first_step_linear_program(
     beta_hat: np.ndarray,
     instrument: Instrument,
     shape_constraints: tuple[str, str] | None,
+    mte_monotone: str | None,
+    monotone_response: str | None,
     method: str,
 ) -> dict:
     """First step linear program to get minimal deviations in constraint."""
@@ -198,17 +212,33 @@ def _first_step_linear_program(
         data,
         instrument,
     )
-    if shape_constraints is not None:
-        lp_first_inputs["a_ub"] = _append_shape_constraints_a_ub(
-            shape_constraints,
-            lp_first_inputs["a_ub"],
-            num_bfuncs,
+
+    _add_constraints = [shape_constraints, mte_monotone, monotone_response]
+
+    if any(_add_constraints):
+        _add_a_ub = _additional_constraints_a_ub(
+            shape_constraints=shape_constraints,
+            mte_monotone=mte_monotone,
+            monotone_response=monotone_response,
+            num_bfuncs=len(basis_funcs),
             num_idestimands=len(identified_estimands),
         )
-        lp_first_inputs["b_ub"] = _append_shape_constraints_b_ub(
-            shape_constraints,
+
+        _add_b_ub = _additional_constraints_b_ub(
+            shape_constraints=shape_constraints,
+            mte_monotone=mte_monotone,
+            monotone_response=monotone_response,
+            num_bfuncs=len(basis_funcs),
+            num_idestimands=len(identified_estimands),
+        )
+
+        lp_first_inputs["a_ub"] = np.vstack(
+            (lp_first_inputs["a_ub"], _add_a_ub),
+        )
+
+        lp_first_inputs["b_ub"] = np.append(
             lp_first_inputs["b_ub"],
-            num_bfuncs,
+            _add_b_ub,
         )
 
     lp_first_inputs["bounds"] = _compute_first_step_bounds(
@@ -445,9 +475,67 @@ def _compute_first_step_bounds(
     ]
 
 
-def _append_shape_constraints_a_ub(
+def _additional_constraints_a_ub(
+    shape_constraints: tuple[str, str] | None,
+    mte_monotone: str | None,
+    monotone_response: str | None,
+    num_bfuncs: int,
+    num_idestimands: int | None = None,
+):
+    to_concat = []
+
+    if shape_constraints is not None:
+        to_concat.append(
+            _shape_constraints_a_ub(
+                shape_constraints,
+                num_bfuncs,
+                num_idestimands,
+            ),
+        )
+
+    if mte_monotone is not None:
+        to_concat.append(
+            _mte_monotone_a_ub(
+                mte_monotone,
+                num_bfuncs,
+                num_idestimands,
+            ),
+        )
+    if monotone_response is not None:
+        to_concat.append(
+            _monotone_response_a_ub(
+                monotone_response,
+                num_bfuncs,
+                num_idestimands,
+            ),
+        )
+
+    return np.vstack(to_concat)
+
+
+def _additional_constraints_b_ub(
+    shape_constraints: tuple[str, str] | None,
+    mte_monotone: str | None,
+    monotone_response: str | None,
+    num_bfuncs: int,
+    num_idestimands: int | None = None,
+):
+    _num_bounds = 0
+
+    if shape_constraints is not None:
+        _num_bounds += 2 * (num_bfuncs - 1)
+
+    if mte_monotone is not None:
+        _num_bounds += num_bfuncs - 1
+
+    if monotone_response is not None:
+        _num_bounds += num_bfuncs
+
+    return np.zeros(_num_bounds)
+
+
+def _shape_constraints_a_ub(
     shape_constraints: tuple[str, str],
-    a_ub,
     num_bfuncs: int,
     num_idestimands: int | None = None,
 ) -> np.ndarray:
@@ -456,46 +544,78 @@ def _append_shape_constraints_a_ub(
     num_idestimands needs to be supplied for the first step linear program.
 
     """
-    a = np.eye(num_bfuncs - 1, num_bfuncs)
-    b = np.eye(num_bfuncs - 1, num_bfuncs, 1)
+    a = np.eye(num_bfuncs * 2 - 1, num_bfuncs * 2)
+    b = np.eye(num_bfuncs * 2 - 1, num_bfuncs * 2, 1)
 
-    to_append = a - b
+    out = a - b
 
     # Now we need to delete the (num_bfuncs)th row, so we don't put cross-
     # restrictions on the MTR d = 0 and d = 1 functions.
-    to_delete = int(num_bfuncs / 2 - 1)
-    to_append = np.delete(to_append, to_delete, axis=0)
+    to_delete = int(num_bfuncs - 1)
+    out = np.delete(out, to_delete, axis=0)
 
     # Add a matrix of zeros to the right with the same rows and num_idestimands columns
     # to match the first step linear program structure.
     if num_idestimands is not None:
-        to_append = np.hstack(
-            (to_append, np.zeros((to_append.shape[0], num_idestimands))),
+        out = np.hstack(
+            (out, np.zeros((out.shape[0], num_idestimands))),
         )
 
     if shape_constraints == ("increasing", "increasing"):
-        return np.vstack((a_ub, to_append))
+        return out
 
     if shape_constraints == ("decreasing", "decreasing"):
-        return np.vstack((a_ub, -to_append))
+        return out
 
     msg = "Invalid shape constraints."
     raise ValueError(msg)
 
 
-def _append_shape_constraints_b_ub(
-    shape_constraints: tuple[str, str],
-    b_ub: np.ndarray,
-    num_bfuncs: int,
+def _mte_monotone_a_ub(
+    mte_monotone: str,
+    n_basis_funcs: int,
+    num_idestimands: int | None = None,
 ) -> np.ndarray:
-    """Append shape constraints to b_ub vector."""
-    if shape_constraints in [
-        ("increasing", "increasing"),
-        ("decreasing", "decreasing"),
-    ]:
-        return np.append(b_ub, np.zeros(num_bfuncs - 2))
+    a = np.eye(n_basis_funcs) - np.eye(n_basis_funcs, k=1)
+    a = a[:-1, :]
+    a = np.hstack((a, -a))
 
-    msg = "Invalid shape constraints."
+    # Add a matrix of zeros to the right with the same rows and num_idestimands columns
+    # to match the first step linear program structure.
+    if num_idestimands is not None:
+        a = np.hstack(
+            (a, np.zeros((a.shape[0], num_idestimands))),
+        )
+
+    if mte_monotone == "decreasing":
+        return a
+    if mte_monotone == "increasing":
+        return -a
+
+    msg = f"Invalid MTE monotonicity constraint: {mte_monotone}."
+    raise ValueError(msg)
+
+
+def _monotone_response_a_ub(
+    monotone_response: str,
+    n_basis_funcs: int,
+    num_idestimands: int | None = None,
+) -> np.ndarray:
+    a = np.hstack((np.eye(n_basis_funcs), -np.eye(n_basis_funcs)))
+
+    # Add a matrix of zeros to the right with the same rows and num_idestimands columns
+    # to match the first step linear program structure.
+    if num_idestimands is not None:
+        a = np.hstack(
+            (a, np.zeros((a.shape[0], num_idestimands))),
+        )
+
+    if monotone_response == "positive":
+        return a
+    if monotone_response == "negative":
+        return -a
+
+    msg = f"Invalid monotone response constraint: {monotone_response}."
     raise ValueError(msg)
 
 
@@ -509,6 +629,8 @@ def _second_step_linear_program(
     beta_hat: np.ndarray,
     instrument: Instrument,
     shape_constraints: tuple[str, str] | None,
+    mte_monotone: str | None,
+    monotone_response: str | None,
     method: str,
 ) -> dict:
     """Second step linear program to estimate upper and lower bounds."""
@@ -530,17 +652,32 @@ def _second_step_linear_program(
         data=data,
         instrument=instrument,
     )
-    if shape_constraints is not None:
-        lp_second_inputs["a_ub"] = _append_shape_constraints_a_ub(
-            shape_constraints,
-            lp_second_inputs["a_ub"],
-            len(basis_funcs) * 2,
-            num_idestimands=len(identified_estimands),
+
+    _add_constr = [shape_constraints, mte_monotone, monotone_response]
+
+    # Add additional constraints to inputs if any are specified.
+    if any(_add_constr):
+        _add_a_ub = _additional_constraints_a_ub(
+            shape_constraints=shape_constraints,
+            mte_monotone=mte_monotone,
+            monotone_response=monotone_response,
+            num_bfuncs=len(basis_funcs),
         )
-        lp_second_inputs["b_ub"] = _append_shape_constraints_b_ub(
-            shape_constraints,
+
+        _add_b_ub = _additional_constraints_b_ub(
+            shape_constraints=shape_constraints,
+            mte_monotone=mte_monotone,
+            monotone_response=monotone_response,
+            num_bfuncs=len(basis_funcs),
+        )
+
+        lp_second_inputs["a_ub"] = np.vstack(
+            (lp_second_inputs["a_ub"], _add_a_ub),
+        )
+
+        lp_second_inputs["b_ub"] = np.append(
             lp_second_inputs["b_ub"],
-            len(basis_funcs) * 2,
+            _add_b_ub,
         )
 
     lp_second_inputs["bounds"] = _compute_second_step_bounds(
@@ -861,6 +998,8 @@ def _check_estimation_arguments(
     tolerance: float | None,
     u_partition: np.ndarray | None,
     shape_constraints: tuple[str, str] | None,
+    mte_monotone: str | None,
+    monotone_response: str | None,
     method: str,
     basis_func_options: dict | None,
 ):
@@ -882,6 +1021,8 @@ def _check_estimation_arguments(
     error_report += _error_report_u_partition(u_partition)
     error_report += _error_report_method(method)
     error_report += _error_report_shape_constraints(shape_constraints)
+    error_report += _error_report_mte_monotone(mte_monotone)
+    error_report += _error_report_monotone_response(monotone_response)
 
     if error_report != "":
         raise ValueError(error_report)
