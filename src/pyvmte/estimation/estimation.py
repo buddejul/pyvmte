@@ -269,7 +269,6 @@ def _first_step_linear_program(
             mte_monotone=mte_monotone,
             monotone_response=monotone_response,
             num_bfuncs=len(basis_funcs),
-            num_idestimands=len(identified_estimands),
         )
 
         lp_first_inputs["a_ub"] = np.vstack(
@@ -558,7 +557,6 @@ def _additional_constraints_b_ub(
     mte_monotone: str | None,
     monotone_response: str | None,
     num_bfuncs: int,
-    num_idestimands: int | None = None,
 ):
     _num_bounds = 0
 
@@ -605,7 +603,7 @@ def _shape_constraints_a_ub(
         return out
 
     if shape_constraints == ("decreasing", "decreasing"):
-        return out
+        return -out
 
     msg = "Invalid shape constraints."
     raise ValueError(msg)
@@ -710,7 +708,6 @@ def _second_step_linear_program(
             mte_monotone=mte_monotone,
             monotone_response=monotone_response,
             num_bfuncs=len(basis_funcs),
-            num_idestimands=len(identified_estimands),
         )
 
         lp_second_inputs["a_ub"] = np.vstack(
