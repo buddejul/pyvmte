@@ -103,6 +103,26 @@ def estimation(
 
     instrument = _estimate_instrument_characteristics(z_data, d_data)
 
+    # The target is typically taken at the estimated propensity scores. If target
+    # is a LATE with missing u_lo and u_hi attributed, replace them by the propensity
+    # scores.
+    # TODO(@buddejul): Should be more flexible here with specifying the propensity
+    # scores values/corresponding instrument values. Standard is to assume binary.
+    # But could have instruments with larger support and this would fail.
+    if target.esttype == "late":
+        if target.u_lo is None:
+            target.u_lo = (
+                np.min(instrument.pscores) + target.u_lo_extra
+                if target.u_lo_extra is not None
+                else np.min(instrument.pscores)
+            )
+        if target.u_hi is None:
+            target.u_hi = (
+                np.max(instrument.pscores) + target.u_hi_extra
+                if target.u_hi_extra is not None
+                else np.max(instrument.pscores)
+            )
+
     u_partition = _compute_u_partition(
         target=target,
         pscore_z=instrument.pscores,
@@ -124,29 +144,9 @@ def estimation(
         d_data=d_data,
     )
 
-    # The target is typically taken at the estimated propensity scores. If target
-    # is a LATE with missing u_lo and u_hi attributed, replace them by the propensity
-    # scores.
-    # TODO(@buddejul): Should be more flexible here with specifying the propensity
-    # scores values/corresponding instrument values. Standard is to assume binary.
-    # But could have instruments with larger support and this would fail.
-    if target.esttype == "late":
-        if target.u_lo is None:
-            target.u_lo = (
-                np.min(instrument.pscores) + target.u_lo_extra
-                if target.u_lo_extra is not None
-                else np.min(instrument.pscores)
-            )
-        if target.u_hi is None:
-            target.u_hi = (
-                np.max(instrument.pscores) + target.u_hi_extra
-                if target.u_hi_extra is not None
-                else np.max(instrument.pscores)
-            )
-
     # Now do the same for identified estimands.
     for id_estimand in identified_estimands:
-        if id_estimand == "late":
+        if id_estimand.esttype == "late":
             if id_estimand.u_lo is None:
                 id_estimand.u_lo = (
                     np.min(instrument.pscores) + id_estimand.u_lo_extra
@@ -159,7 +159,6 @@ def estimation(
                     if id_estimand.u_hi_extra is not None
                     else np.max(instrument.pscores)
                 )
-
     data = {"y": y_data, "z": z_data, "d": d_data}
 
     data["pscores"] = _generate_array_of_pscores(
@@ -441,7 +440,6 @@ def _estimate_weights_estimand(
                 moments=moments,
                 instrument=instrument,
             )
-
     return weights
 
 
@@ -969,6 +967,7 @@ def _estimate_gamma_constant_spline(  # noqa: PLR0911
     S33 in Appendix).
 
     """
+    # Instead of integrating, for constant splines we can simply scale by the length.
     length = basis_func["u_hi"] - basis_func["u_lo"]
 
     if estimand.esttype == "late":
@@ -978,11 +977,15 @@ def _estimate_gamma_constant_spline(  # noqa: PLR0911
             estimand.u_lo + (estimand.u_hi - estimand.u_lo) / 2  # type: ignore[operator]
         )
 
+        # Note: Make sure multiplying by length does the right thing. It should be a
+        # consistent estimator either way, but we are not avergaing over individuals.
+        # Since target estimands *and* bfuncs are defined by their endpoints this could
+        # as well be calculated analytically.
         return (
             _s_late(u=_mid)
             * (basis_func["u_lo"] <= _mid)
             * (_mid <= basis_func["u_hi"])
-        )
+        ) * length
 
     if estimand.esttype == "ols_slope":
         coef = (d_value - moments["expectation_d"]) / moments["variance_d"]
@@ -1068,9 +1071,9 @@ def _check_estimation_arguments(
     """Check args to estimation func, returns report if there are errors."""
     error_report = ""
 
-    error_report += _error_report_estimand(target)
+    error_report += _error_report_estimand(target, mode="estimation")
     for ident in identified_estimands:
-        error_report += _error_report_estimand(ident)
+        error_report += _error_report_estimand(ident, mode="estimation")
     error_report += _error_report_invalid_basis_func_type(basis_func_type)
     error_report += _error_report_missing_basis_func_options(
         basis_func_type,

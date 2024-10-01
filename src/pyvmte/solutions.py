@@ -42,10 +42,16 @@ def solution_simple_model(
         },
         "sharp": {
             "ate": {
-                ("decreasing", "decreasing"): (_sol_lo_sharp_ate, _sol_hi_sharp_ate),
+                ("decreasing", "decreasing"): (
+                    _sol_lo_sharp_ate_decreasing,
+                    _sol_hi_sharp_ate_decreasing,
+                ),
             },
             "late": {
-                ("decreasing", "decreasing"): (_sol_lo_sharp_late, _sol_hi_sharp_late),
+                ("decreasing", "decreasing"): (
+                    _sol_lo_sharp_late_decreasing,
+                    _sol_hi_sharp_late_decreasing,
+                ),
             },
         },
     }
@@ -140,7 +146,7 @@ def solution_simple_model(
 # --------------------------------------------------------------------------------------
 
 
-def _sol_hi_sharp_ate(
+def _sol_hi_sharp_ate_decreasing(
     w: float,
     y1_c: float,
     y0_c: float,
@@ -154,7 +160,7 @@ def _sol_hi_sharp_ate(
     return w * _b_late + (1 - w) * (y1_c - y0_nt)
 
 
-def _sol_lo_sharp_ate(
+def _sol_lo_sharp_ate_decreasing(
     w: float,
     y1_c: float,
     y0_c: float,
@@ -168,7 +174,7 @@ def _sol_lo_sharp_ate(
     return w * _b_late + (1 - w) * (0 - y0_nt)
 
 
-def _sol_hi_sharp_late(
+def _sol_hi_sharp_late_decreasing(
     w: float,
     y1_c: float,
     y0_c: float,
@@ -176,7 +182,7 @@ def _sol_hi_sharp_late(
     u_hi_late_target: float,
     pscore_hi: float,
 ):
-    return _sol_hi_sharp_ate(
+    return _sol_hi_sharp_ate_decreasing(
         w=w,
         y1_c=y1_c,
         y0_c=y0_c,
@@ -186,7 +192,7 @@ def _sol_hi_sharp_late(
     )
 
 
-def _sol_lo_sharp_late(
+def _sol_lo_sharp_late_decreasing(
     w: float,
     y1_c: float,
     y0_c: float,
@@ -366,6 +372,7 @@ def _sol_lo_idlate_monotone_response_negative(
 # --------------------------------------------------------------------------------------
 # Functions to indicate region of no solution
 # --------------------------------------------------------------------------------------
+# TODO(@buddejul): Check we cover all cases here.
 def no_solution_region(
     id_set: str,
     shape_restrictions: tuple[str, str] | None = None,

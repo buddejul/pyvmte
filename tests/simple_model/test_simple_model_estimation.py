@@ -14,8 +14,8 @@ from pyvmte.solutions import (
     solution_simple_model,
 )
 
-sample_size = 10_000
-repetitions = 1000
+sample_size = 100_000
+repetitions = 1_000
 
 # TODO(@buddejul): Need to handle late in estimation. We need to specify the identified
 # estimand using estimated propensity scores. Same for the target.
@@ -34,7 +34,10 @@ identified_sharp = [
     Estimand(esttype="cross", dz_cross=(d, z)) for d in [0, 1] for z in [0, 1]
 ]
 
-identified_late = [Estimand(esttype="late", u_lo=pscore_lo, u_hi=pscore_hi)]
+# Leave pscores unspecified, they are estimated in the simulation. This corresponds to
+# an application where the true propensity scores are unknown and hence the true
+# target parameter is unknown.
+identified_late = [Estimand(esttype="late")]
 
 
 instrument = Instrument(
@@ -42,9 +45,6 @@ instrument = Instrument(
     pmf=np.array([0.5, 0.5]),
     pscores=np.array([pscore_lo, pscore_hi]),
 )
-
-target_late = Estimand(esttype="late", u_lo=pscore_lo, u_hi=pscore_hi + u_hi_late)
-target_ate = Estimand(esttype="late", u_lo=0, u_hi=1)
 
 
 # --------------------------------------------------------------------------------------
@@ -56,93 +56,83 @@ target_ate = Estimand(esttype="late", u_lo=0, u_hi=1)
         "target_type",
         "u_hi",
         "bfunc_type",
-        "identified",
         "shape_restriction",
         "mte_monotone",
         "monotone_response",
     ),
     [
-        # LATE-based identified set, extrapolate to LATE
-        (
-            "idlate",
-            "late",
-            u_hi_late,
-            "constant",
-            identified_late,
-            ("decreasing", "decreasing"),
-            None,
-            None,
-        ),
-        (
-            "idlate",
-            "late",
-            u_hi_late,
-            "constant",
-            identified_late,
-            ("increasing", "increasing"),
-            None,
-            None,
-        ),
-        # LATE-based identified set, monotone treatment selection
-        (
-            "idlate",
-            "late",
-            u_hi_late,
-            "constant",
-            identified_late,
-            None,
-            "decreasing",
-            None,
-        ),
-        (
-            "idlate",
-            "late",
-            u_hi_late,
-            "constant",
-            identified_late,
-            None,
-            "increasing",
-            None,
-        ),
-        # LATE-based identified set, monotone treatment selection
-        (
-            "idlate",
-            "late",
-            u_hi_late,
-            "constant",
-            identified_late,
-            None,
-            None,
-            "positive",
-        ),
-        (
-            "idlate",
-            "late",
-            u_hi_late,
-            "constant",
-            identified_late,
-            None,
-            None,
-            "negative",
-        ),
-        # Sharp identified set, extrapolate to ATE
-        (
-            "sharp",
-            "ate",
-            1 - pscore_hi,
-            "constant",
-            identified_sharp,
-            ("decreasing", "decreasing"),
-            None,
-            None,
-        ),
+        # # LATE-based identified set, extrapolate to LATE
+        #     "idlate",
+        #     "late",
+        #     u_hi_late,
+        #     "constant",
+        #     None,
+        #     None,
+        # ),
+        #     "idlate",
+        #     "late",
+        #     u_hi_late,
+        #     "constant",
+        #     None,
+        #     None,
+        # ),
+        # # LATE-based identified set, monotone treatment selection
+        #     "idlate",
+        #     "late",
+        #     u_hi_late,
+        #     "constant",
+        #     None,
+        #     "decreasing",
+        #     None,
+        # ),
+        #     "idlate",
+        #     "late",
+        #     u_hi_late,
+        #     "constant",
+        #     None,
+        #     "increasing",
+        #     None,
+        # ),
+        # # LATE-based identified set, monotone treatment selection
+        #     "idlate",
+        #     "late",
+        #     u_hi_late,
+        #     "constant",
+        #     None,
+        #     None,
+        #     "positive",
+        # ),
+        #     "idlate",
+        #     "late",
+        #     u_hi_late,
+        #     "constant",
+        #     None,
+        #     None,
+        #     "negative",
+        # ),
+        # Sharp identified set, extrapolate to LATE, no shape constraints
+        #     "sharp",
+        #     "late",
+        #     u_hi_late,
+        #     "constant",
+        #     None,
+        #     None,
+        #     None,
+        # ),
+        # # Sharp identified set, extrapolate to ATE
+        #     "sharp",
+        #     "ate",
+        #     1 - pscore_hi,
+        #     "constant",
+        #     None,
+        #     None,
+        # ),
         # Sharp identified set, extrapolate to LATE
         (
             "sharp",
             "late",
             u_hi_late,
             "constant",
-            identified_sharp,
             ("decreasing", "decreasing"),
             None,
             None,
@@ -154,12 +144,16 @@ def test_simple_model_estimation(
     target_type: str,
     u_hi: float,
     bfunc_type: str,
-    identified: list[Estimand],
     shape_restriction: tuple[str, str],
     mte_monotone: str | None,
     monotone_response: str | None,
 ) -> None:
     """Solve the simple model for a range of parameter values."""
+
+    if id_set == "idlate":
+        identified = identified_late
+    elif id_set == "sharp":
+        identified = identified_sharp
 
     _sol_lo, _sol_hi = solution_simple_model(
         id_set=id_set,
@@ -171,23 +165,24 @@ def test_simple_model_estimation(
         shape_restrictions=shape_restriction,
     )
 
-    no_solution_region(
+    _no_sol = no_solution_region(
         id_set=id_set,
         monotone_response=monotone_response,
         mts=mte_monotone,
         shape_restrictions=shape_restriction,
     )
 
+    # Leave pscores unspecified, they are estimated in the simulation.
     target = Estimand(
         "late",
-        u_lo=pscore_lo,
-        u_hi=pscore_hi + u_hi,
+        u_hi_extra=u_hi,
     )
 
     w = (pscore_hi - pscore_lo) / (pscore_hi - pscore_lo + u_hi)
 
-    # Generate solution for a meshgrid of parameter values
-    # TODO only draw single points.
+    # Draw a random point in the parameter space until in the solution region.
+    # Otherwise the simulation will probably fail if tuning parameters are not chosen
+    # carefully.
     (
         y1_at,
         y1_c,
@@ -196,6 +191,16 @@ def test_simple_model_estimation(
         y0_c,
         y0_nt,
     ) = RNG.uniform(size=6)
+
+    while _no_sol(y1_at=y1_at, y1_c=y1_c, y0_c=y0_c, y0_nt=y0_nt) is True:
+        (
+            y1_at,
+            y1_c,
+            y1_nt,
+            y0_at,
+            y0_c,
+            y0_nt,
+        ) = RNG.uniform(size=6)
 
     dgp_params = {
         "y1_at": y1_at,

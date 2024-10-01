@@ -214,7 +214,7 @@ def suppress_print():
         yield
 
 
-def _error_report_estimand(estimand: Estimand):
+def _error_report_estimand(estimand: Estimand, mode: str):
     """Return error message if estimand is not valid."""
     error_report = ""
     if not isinstance(estimand, Estimand):
@@ -230,27 +230,28 @@ def _error_report_estimand(estimand: Estimand):
                 f"Estimand type cross requires dz_cross to be a tuple. "
                 f"Got {estimand.dz_cross}."
             )
-        if estimand.esttype == "late" and not (
-            isinstance(estimand.u_lo, float | int)
-            and isinstance(estimand.u_hi, float | int)
-        ):
-            error_report += (
-                f"Estimand type late requires u_lo and u_hi to be floats. "
-                f"Got {estimand.u_lo} and {estimand.u_hi}."
-            )
-        if (
-            isinstance(estimand.u_lo, float | int)
-            and isinstance(
-                estimand.u_hi,
-                float | int,
-            )
-            and estimand.esttype == "late"
-            and not (0 <= estimand.u_lo < estimand.u_hi <= 1)
-        ):
-            error_report += (
-                f"Estimand type late requires 0 <= u_lo < u_hi <= 1. "
-                f"Got {estimand.u_lo} and {estimand.u_hi}."
-            )
+        if mode == "identification":
+            if estimand.esttype == "late" and not (
+                isinstance(estimand.u_lo, float | int)
+                and isinstance(estimand.u_hi, float | int)
+            ):
+                error_report += (
+                    f"Estimand type late requires u_lo and u_hi to be floats. "
+                    f"Got {estimand.u_lo} and {estimand.u_hi}."
+                )
+            if (
+                isinstance(estimand.u_lo, float | int)
+                and isinstance(
+                    estimand.u_hi,
+                    float | int,
+                )
+                and estimand.esttype == "late"
+                and not (0 <= estimand.u_lo < estimand.u_hi <= 1)
+            ):
+                error_report += (
+                    f"Estimand type late requires 0 <= u_lo < u_hi <= 1. "
+                    f"Got {estimand.u_lo} and {estimand.u_hi}."
+                )
     return error_report
 
 

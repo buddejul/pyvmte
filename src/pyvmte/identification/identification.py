@@ -215,7 +215,6 @@ def _compute_choice_weights(
                     moments=moments,
                 )
                 c.append(weight)
-
     if bfunc_type == "bernstein":
         c = []
         for d in [0, 1]:
@@ -759,9 +758,9 @@ def _check_identification_arguments(
 
     """
     error_report = ""
-    error_report += _error_report_estimand(target)
+    error_report += _error_report_estimand(target, mode="identification")
     for ident in identified_estimands:
-        error_report += _error_report_estimand(ident)
+        error_report += _error_report_estimand(ident, mode="identification")
     error_report += _error_report_basis_funcs(basis_funcs)
     error_report += _error_report_mtr_function(m0_dgp)
     error_report += _error_report_mtr_function(m1_dgp)

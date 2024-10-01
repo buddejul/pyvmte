@@ -64,7 +64,7 @@ def monte_carlo_pyvmte(
     for rep in range(repetitions):
         if dgp == "paper":
             data = simulate_data_from_paper_dgp(sample_size=sample_size, rng=rng)
-        if dgp == "simple_model" and dgp_params is not None:
+        elif dgp == "simple_model" and dgp_params is not None:
             data = simulate_data_from_simple_model_dgp(
                 sample_size=sample_size,
                 rng=rng,
