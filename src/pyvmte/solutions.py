@@ -366,9 +366,27 @@ def _sol_lo_idlate_monotone_response_negative(
 # --------------------------------------------------------------------------------------
 # Functions to indicate region of no solution
 # --------------------------------------------------------------------------------------
+def no_solution_region(
+    id_set: str,
+    shape_restrictions: tuple[str, str] | None = None,
+    monotone_response: str | None = None,
+    mts: str | None = None,
+):
+    """Return function indicating parameter region with no solution."""
+    if id_set == "sharp":
+        return _no_solution_sharp
+
+    if id_set == "idlate":
+        if monotone_response is not None:
+            return partial(_no_solution_nonsharp_monotone_response, monotone_response)
+
+        return _no_solution_nonsharp
+
+    msg = "Invalid id_set or no function found."
+    raise ValueError(msg)
 
 
-def _no_solution(y1_at, y1_c, y0_c, y0_nt):
+def _no_solution_sharp(y1_at, y1_c, y0_c, y0_nt):
     # The model is not consistent with decreasing MTRs if
     # - y1_at < y1_c or y1_c < y1_nt or
     # - y0_at < y0_c or y0_c < y0_nt

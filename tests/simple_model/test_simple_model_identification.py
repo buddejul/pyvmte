@@ -1,6 +1,5 @@
 """Test identification of simple model using pyvmte against analytical solutions."""
 
-from collections.abc import Callable
 
 import numpy as np
 import pytest
@@ -12,9 +11,7 @@ from pyvmte.classes import (  # type: ignore[import-untyped]
 from pyvmte.config import RNG
 from pyvmte.identification import identification
 from pyvmte.solutions import (
-    _no_solution,
-    _no_solution_nonsharp,
-    _no_solution_nonsharp_monotone_response,
+    no_solution_region,
     solution_simple_model,
 )
 
@@ -98,7 +95,6 @@ def _make_m1(y1_c, y1_at, y1_nt):
         "bfuncs",
         "u_partition",
         "identified",
-        "no_solution",
         "shape_restriction",
         "mte_monotone",
         "monotone_response",
@@ -112,7 +108,6 @@ def _make_m1(y1_c, y1_at, y1_nt):
             BFUNCS_LATE,
             UPART_LATE,
             identified_late,
-            _no_solution_nonsharp,
             ("decreasing", "decreasing"),
             None,
             None,
@@ -124,7 +119,6 @@ def _make_m1(y1_c, y1_at, y1_nt):
             BFUNCS_LATE,
             UPART_LATE,
             identified_late,
-            _no_solution_nonsharp,
             ("increasing", "increasing"),
             None,
             None,
@@ -137,7 +131,6 @@ def _make_m1(y1_c, y1_at, y1_nt):
             BFUNCS_LATE,
             UPART_LATE,
             identified_late,
-            _no_solution_nonsharp,
             None,
             "decreasing",
             None,
@@ -149,7 +142,6 @@ def _make_m1(y1_c, y1_at, y1_nt):
             BFUNCS_LATE,
             UPART_LATE,
             identified_late,
-            _no_solution_nonsharp,
             None,
             "increasing",
             None,
@@ -162,7 +154,6 @@ def _make_m1(y1_c, y1_at, y1_nt):
             BFUNCS_LATE,
             UPART_LATE,
             identified_late,
-            _no_solution_nonsharp_monotone_response,
             None,
             None,
             "positive",
@@ -174,7 +165,6 @@ def _make_m1(y1_c, y1_at, y1_nt):
             BFUNCS_LATE,
             UPART_LATE,
             identified_late,
-            _no_solution_nonsharp_monotone_response,
             None,
             None,
             "negative",
@@ -187,7 +177,6 @@ def _make_m1(y1_c, y1_at, y1_nt):
             BFUNCS_ATE,
             UPART_ATE,
             identified_sharp,
-            _no_solution,
             ("decreasing", "decreasing"),
             None,
             None,
@@ -200,7 +189,6 @@ def _make_m1(y1_c, y1_at, y1_nt):
             BFUNCS_LATE,
             UPART_LATE,
             identified_sharp,
-            _no_solution,
             ("decreasing", "decreasing"),
             None,
             None,
@@ -214,7 +202,6 @@ def test_solve_simple_model_sharp_ate_decreasing(
     bfuncs: list[dict[str, float]],
     u_partition: np.ndarray,
     identified: list[Estimand],
-    no_solution: Callable,
     shape_restriction: tuple[str, str],
     mte_monotone: str | None,
     monotone_response: str | None,
@@ -228,6 +215,13 @@ def test_solve_simple_model_sharp_ate_decreasing(
         monotone_response=monotone_response,
         mts=mte_monotone,
         u_hi_late_target=u_hi,
+        shape_restrictions=shape_restriction,
+    )
+
+    no_solution = no_solution_region(
+        id_set=id_set,
+        monotone_response=monotone_response,
+        mts=mte_monotone,
         shape_restrictions=shape_restriction,
     )
 
@@ -320,10 +314,7 @@ def test_solve_simple_model_sharp_ate_decreasing(
     expected_lo = _sol_lo(w=w, **_kwargs)
     expected_hi = _sol_hi(w=w, **_kwargs)
 
-    if monotone_response is None:
-        _idx_no_sol = no_solution(y1_at=y1_at_flat, **_kwargs)
-    else:
-        _idx_no_sol = no_solution(monotone_response, y1_at=y1_at_flat, **_kwargs)
+    _idx_no_sol = no_solution(y1_at=y1_at_flat, **_kwargs)
     expected_lo[_idx_no_sol] = np.nan
     expected_hi[_idx_no_sol] = np.nan
 
