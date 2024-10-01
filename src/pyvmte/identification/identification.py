@@ -43,7 +43,6 @@ def identification(
     mte_monotone: str | None = None,
     monotone_response: str | None = None,
     method: str = "highs",
-    debug: bool = False,  # noqa: FBT001, FBT002
 ):
     """Compute bounds on target estimand given identified estimands and DGP.
 
