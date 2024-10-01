@@ -9,22 +9,44 @@ import numpy as np
 def solution_simple_model(
     id_set: str,
     target_type: str,
-    pscore_lo: float,
     pscore_hi: float,
+    shape_restrictions: tuple[str, str] | None = None,
     monotone_response: str | None = None,
     mts: str | None = None,
     u_hi_late_target: float | None = None,
 ) -> tuple[Callable, Callable]:
     """Select the solution function for the simple model."""
-    if monotone_response is not None and mts is not None:
-        msg = "Currently cannot specify both monotone_response and mts."
+    _shape_restrictions = [shape_restrictions, monotone_response, mts]
+
+    # Count the number of None values in the shape_restrictions tuple.
+    # If the count is not >= 2, raise a ValueError.
+    _min_none = 2
+    if _shape_restrictions.count(None) < _min_none:
+        msg = "At least two of the shape restrictions must be None."
         raise ValueError(msg)
 
-    solution_functions_no_restrictions = {
-        "idlate": {},
+    solution_functions_no_restrictions = {}  # type: ignore[var-annotated]
+
+    solution_functions_shape_restrictions = {
+        "idlate": {
+            "late": {
+                ("decreasing", "decreasing"): (
+                    _sol_lo_idlate_decreasing,
+                    _sol_hi_idlate_decreasing,
+                ),
+                ("increasing", "increasing"): (
+                    _sol_lo_idlate_increasing,
+                    _sol_hi_idlate_increasing,
+                ),
+            },
+        },
         "sharp": {
-            "ate": {(_sol_lo_sharp_ate, _sol_hi_sharp_ate)},
-            "late": {(_sol_lo_sharp_late, _sol_hi_sharp_late)},
+            "ate": {
+                ("decreasing", "decreasing"): (_sol_lo_sharp_ate, _sol_hi_sharp_ate),
+            },
+            "late": {
+                ("decreasing", "decreasing"): (_sol_lo_sharp_late, _sol_hi_sharp_late),
+            },
         },
     }
 
@@ -82,22 +104,31 @@ def solution_simple_model(
         "sharp": {},
     }
 
+    if shape_restrictions is not None:
+        _out = solution_functions_shape_restrictions[id_set][target_type][
+            shape_restrictions
+        ]
+
     if monotone_response is not None:
-        _out = solution_functions_monotone_response[id_set][target_type][
+        _out = solution_functions_monotone_response[id_set][target_type][  # type: ignore[index]
             monotone_response
         ]
 
     if mts is not None:
-        _out = solution_functions_mts[id_set][target_type][mts]
+        _out = solution_functions_mts[id_set][target_type][mts]  # type: ignore[index]
 
-    if monotone_response is None and mts is None:
+    if monotone_response is None and mts is None and shape_restrictions is None:
         _out = solution_functions_no_restrictions[id_set][target_type]
 
+    if _out == {}:
+        msg = "No solution function found."
+        raise ValueError(msg)
+
     _kwargs = {
-        "pscore_lo": pscore_lo,
         "pscore_hi": pscore_hi,
         "u_hi_late_target": u_hi_late_target,
     }
+
     _sol_lo = partial(_out[0], **_kwargs)
     _sol_hi = partial(_out[1], **_kwargs)
 
@@ -238,7 +269,7 @@ def _sol_hi_idlate_mts_decreasing(
     u_hi_late_target: float,
     pscore_hi: float,
 ):
-    del y0_nt, u_hi_late_target, pscore_hi
+    del y0_nt, u_hi_late_target, pscore_hi, w
     return y1_c - y0_c
 
 

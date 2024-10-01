@@ -43,6 +43,9 @@ instrument = Instrument(
     pscores=np.array([pscore_lo, pscore_hi]),
 )
 
+target_late = Estimand(esttype="late", u_lo=pscore_lo, u_hi=pscore_hi + u_hi_late)
+target_ate = Estimand(esttype="late", u_lo=0, u_hi=1)
+
 bfunc_1 = {"type": "constant", "u_lo": 0.0, "u_hi": pscore_lo}
 bfunc_2 = {"type": "constant", "u_lo": pscore_lo, "u_hi": pscore_hi}
 bfunc_3_ate = {"type": "constant", "u_lo": pscore_hi, "u_hi": 1}
@@ -89,6 +92,8 @@ def _make_m1(y1_c, y1_at, y1_nt):
 # --------------------------------------------------------------------------------------
 @pytest.mark.parametrize(
     (
+        "id_set",
+        "target_type",
         "u_hi",
         "bfuncs",
         "u_partition",
@@ -101,6 +106,8 @@ def _make_m1(y1_c, y1_at, y1_nt):
     [
         # LATE-based identified set, extrapolate to LATE
         (
+            "idlate",
+            "late",
             u_hi_late,
             BFUNCS_LATE,
             UPART_LATE,
@@ -111,6 +118,8 @@ def _make_m1(y1_c, y1_at, y1_nt):
             None,
         ),
         (
+            "idlate",
+            "late",
             u_hi_late,
             BFUNCS_LATE,
             UPART_LATE,
@@ -122,6 +131,8 @@ def _make_m1(y1_c, y1_at, y1_nt):
         ),
         # LATE-based identified set, monotone treatment selection
         (
+            "idlate",
+            "late",
             u_hi_late,
             BFUNCS_LATE,
             UPART_LATE,
@@ -132,6 +143,8 @@ def _make_m1(y1_c, y1_at, y1_nt):
             None,
         ),
         (
+            "idlate",
+            "late",
             u_hi_late,
             BFUNCS_LATE,
             UPART_LATE,
@@ -143,6 +156,8 @@ def _make_m1(y1_c, y1_at, y1_nt):
         ),
         # LATE-based identified set, monotone treatment selection
         (
+            "idlate",
+            "late",
             u_hi_late,
             BFUNCS_LATE,
             UPART_LATE,
@@ -153,6 +168,8 @@ def _make_m1(y1_c, y1_at, y1_nt):
             "positive",
         ),
         (
+            "idlate",
+            "late",
             u_hi_late,
             BFUNCS_LATE,
             UPART_LATE,
@@ -164,6 +181,8 @@ def _make_m1(y1_c, y1_at, y1_nt):
         ),
         # Sharp identified set, extrapolate to ATE
         (
+            "sharp",
+            "ate",
             1 - pscore_hi,
             BFUNCS_ATE,
             UPART_ATE,
@@ -175,6 +194,8 @@ def _make_m1(y1_c, y1_at, y1_nt):
         ),
         # Sharp identified set, extrapolate to LATE
         (
+            "sharp",
+            "late",
             u_hi_late,
             BFUNCS_LATE,
             UPART_LATE,
@@ -188,7 +209,7 @@ def _make_m1(y1_c, y1_at, y1_nt):
 )
 def test_solve_simple_model_sharp_ate_decreasing(
     id_set: str,
-    target: Estimand,
+    target_type: str,
     u_hi: float,
     bfuncs: list[dict[str, float]],
     u_partition: np.ndarray,
@@ -202,12 +223,12 @@ def test_solve_simple_model_sharp_ate_decreasing(
 
     _sol_lo, _sol_hi = solution_simple_model(
         id_set=id_set,
-        target_type=target.esttype,
-        pscore_lo=pscore_lo,
+        target_type=target_type,
         pscore_hi=pscore_hi,
         monotone_response=monotone_response,
         mts=mte_monotone,
         u_hi_late_target=u_hi,
+        shape_restrictions=shape_restriction,
     )
 
     target = Estimand(
