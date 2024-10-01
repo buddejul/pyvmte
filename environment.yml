@@ -40,6 +40,7 @@ dependencies:
   # Install project
   - pip:
       - -e .
-      - kaleido
+      - kaleido==0.1.0.post1 # [win]
+      - kaleido # [not win]
       - pdbp
       - coptpy
