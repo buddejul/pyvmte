@@ -14,10 +14,8 @@ from pyvmte.solutions import (
     solution_simple_model,
 )
 
-atol = 1e-05
-
 sample_size = 10_000
-repetitions = 100
+repetitions = 1000
 
 # TODO(@buddejul): Need to handle late in estimation. We need to specify the identified
 # estimand using estimated propensity scores. Same for the target.
@@ -47,34 +45,6 @@ instrument = Instrument(
 
 target_late = Estimand(esttype="late", u_lo=pscore_lo, u_hi=pscore_hi + u_hi_late)
 target_ate = Estimand(esttype="late", u_lo=0, u_hi=1)
-
-
-def _at(u: float) -> bool:
-    return u <= pscore_lo
-
-
-def _c(u: float) -> bool:
-    return pscore_lo <= u and pscore_hi > u
-
-
-def _nt(u: float) -> bool:
-    return u >= pscore_hi
-
-
-# Define function factories to avoid late binding
-# See https://stackoverflow.com/a/3431699
-def _make_m0(y0_c, y0_at, y0_nt):
-    def _m0(u):
-        return y0_at * _at(u) + y0_c * _c(u) + y0_nt * _nt(u)
-
-    return _m0
-
-
-def _make_m1(y1_c, y1_at, y1_nt):
-    def _m1(u):
-        return y1_at * _at(u) + y1_c * _c(u) + y1_nt * _nt(u)
-
-    return _m1
 
 
 # --------------------------------------------------------------------------------------
@@ -227,8 +197,14 @@ def test_simple_model_estimation(
         y0_nt,
     ) = RNG.uniform(size=6)
 
-    _m1 = _make_m1(y1_at=y1_at, y1_c=y1_c, y1_nt=y1_nt)
-    _m0 = _make_m0(y0_at=y0_at, y0_c=y0_c, y0_nt=y0_nt)
+    dgp_params = {
+        "y1_at": y1_at,
+        "y1_c": y1_c,
+        "y1_nt": y1_nt,
+        "y0_at": y0_at,
+        "y0_c": y0_c,
+        "y0_nt": y0_nt,
+    }
 
     # The identified set might be empty for some parameter value combinations.
     res = monte_carlo_pyvmte(
@@ -241,6 +217,8 @@ def test_simple_model_estimation(
         shape_constraints=shape_restriction,
         mte_monotone=mte_monotone,
         monotone_response=monotone_response,
+        dgp="simple_model",
+        dgp_params=dgp_params,
     )
 
     _kwargs = {
@@ -249,13 +227,13 @@ def test_simple_model_estimation(
         "y0_nt": y0_nt,
     }
 
-    expected = _sol_lo(w=w, **_kwargs), _sol_hi(w=w, **_kwargs)
+    expected = np.array([_sol_lo(w=w, **_kwargs), _sol_hi(w=w, **_kwargs)])
 
     data = pd.DataFrame([res["lower_bounds"], res["upper_bounds"]]).T
 
     columns = {0: "lower_bound", 1: "upper_bound"}
 
     data = data.rename(columns=columns)
-    actual = data.mean()
+    actual = np.array(data.mean())
 
     assert expected == pytest.approx(actual, abs=5 / np.sqrt(sample_size))

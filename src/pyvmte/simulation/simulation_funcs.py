@@ -4,7 +4,10 @@ import numpy as np
 
 from pyvmte.classes import Estimand
 from pyvmte.estimation.estimation import _estimate_prop_z, estimation
-from pyvmte.utilities import simulate_data_from_paper_dgp
+from pyvmte.utilities import (
+    simulate_data_from_paper_dgp,
+    simulate_data_from_simple_model_dgp,
+)
 
 
 def monte_carlo_pyvmte(
@@ -21,6 +24,8 @@ def monte_carlo_pyvmte(
     lp_outputs: bool = False,  # noqa: FBT001, FBT002
     method: str = "highs",
     basis_func_options: dict | None = None,
+    dgp: str = "paper",
+    dgp_params: dict | None = None,
 ) -> dict:
     """Run monte carlo simulation using pyvmte module.
 
@@ -39,6 +44,8 @@ def monte_carlo_pyvmte(
         mte_monotone: Monotonicity constraints on MTE functions.
         monotone_response: Monotone treatmet response restriction.
         basis_func_options: Options for basis functions.
+        dgp: The data generating process to use.
+        dgp_params: The parameters for the data generating process.
 
     Returns:
         dict: A dictionary containing the results of the monte carlo simulation.
@@ -55,7 +62,17 @@ def monte_carlo_pyvmte(
         pscores = []
 
     for rep in range(repetitions):
-        data = simulate_data_from_paper_dgp(sample_size=sample_size, rng=rng)
+        if dgp == "paper":
+            data = simulate_data_from_paper_dgp(sample_size=sample_size, rng=rng)
+        if dgp == "simple_model" and dgp_params is not None:
+            data = simulate_data_from_simple_model_dgp(
+                sample_size=sample_size,
+                rng=rng,
+                dgp_params=dgp_params,
+            )
+        else:
+            msg = "Data generating process not recognized or dgp params not provided."
+            raise ValueError(msg)
 
         y_data = np.array(data["y"])
         z_data = np.array(data["z"])

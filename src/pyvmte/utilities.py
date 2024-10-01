@@ -90,7 +90,7 @@ def bern_bas(n, v, x):
     return math.comb(n, v) * x**v * (1 - x) ** (n - v)
 
 
-def simulate_data_from_paper_dgp(sample_size, rng):
+def simulate_data_from_paper_dgp(sample_size, rng: np.random.Generator):
     """Simulate data using the dgp from MST 2018 ECMA.
 
     Args:
@@ -132,6 +132,77 @@ def simulate_data_from_paper_dgp(sample_size, rng):
         + 0.5 * 2 * u[~idx] * (1 - u[~idx])
         + 0.25 * u[~idx] ** 2
     )
+
+    return {"z": z, "d": d, "y": y, "u": u}
+
+
+def simulate_data_from_simple_model_dgp(
+    sample_size,
+    rng: np.random.Generator,
+    dgp_params: dict,
+):
+    """Simulate data for the simple model.
+
+    Args:
+        sample_size (int): The number of observations in the sample.
+        rng (np.random.Generator): The random number generator.
+        dgp_params (dict): The parameters of the data generating process.
+
+    Returns:
+        dict: A dictionary containing the simulated data.
+
+    """
+    data = pd.DataFrame()
+
+    pscore_lo = 0.4
+    pscore_hi = 0.6
+
+    support = np.array([0, 1])
+    pmf = np.array([0.5, 0.5])
+    pscores = np.array([pscore_lo, pscore_hi])
+
+    choices = np.hstack([support.reshape(-1, 1), pscores.reshape(-1, 1)])
+
+    # Draw random indices
+    idx = rng.choice(support, size=sample_size, p=pmf)
+
+    data = choices[idx]
+
+    z = np.array(data[:, 0], dtype=int)
+    pscores = data[:, 1]
+
+    u = rng.uniform(size=sample_size)
+    d = u < pscores
+
+    def _at(u: float) -> bool | np.ndarray:
+        return np.where(u <= pscore_lo, 1, 0)
+
+    def _c(u: float) -> bool | np.ndarray:
+        return np.where((pscore_lo <= u) & (u < pscore_hi), 1, 0)
+
+    def _nt(u: float) -> bool | np.ndarray:
+        return np.where(u >= pscore_hi, 1, 0)
+
+    y = np.empty(sample_size)
+    idx = d == 0
+
+    def _m0(u, y0_at, y0_c, y0_nt):
+        return y0_at * _at(u) + y0_c * _c(u) + y0_nt * _nt(u)
+
+    def _m1(u, y1_at, y1_c, y1_nt):
+        return y1_at * _at(u) + y1_c * _c(u) + y1_nt * _nt(u)
+
+    y0_at = dgp_params["y0_at"]
+    y0_c = dgp_params["y0_c"]
+    y0_nt = dgp_params["y0_nt"]
+
+    y1_at = dgp_params["y1_at"]
+    y1_c = dgp_params["y1_c"]
+    y1_nt = dgp_params["y1_nt"]
+
+    y[idx] = _m0(u[idx], y0_at, y0_c, y0_nt) + rng.normal(size=np.sum(idx))
+
+    y[~idx] = _m1(u[~idx], y1_at, y1_c, y1_nt) + rng.normal(size=np.sum(~idx))
 
     return {"z": z, "d": d, "y": y, "u": u}
 
