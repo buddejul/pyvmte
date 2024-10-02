@@ -49,24 +49,38 @@ identified_late = [Estimand(esttype="late")]
 # Note: We need to ignore the additional choice variables and constraints in the
 # second step LP that correspond to the absolute value.
 @pytest.mark.parametrize(
-    ("model", "setup", "u_hi_extra", "shape_constraints"),
+    (
+        "model",
+        "setup",
+        "u_hi_extra",
+        "shape_constraints",
+        "mte_monotone",
+        "monotone_response",
+    ),
     [
-        ("paper", SETUP_FIG2, 0.1, None),
-        ("paper", SETUP_FIG3, 0.1, None),
-        ("paper", SETUP_FIG5, 0.1, None),
-        ("paper", SETUP_FIG2, 0.2, None),
-        ("paper", SETUP_FIG3, 0.2, None),
-        ("paper", SETUP_FIG5, 0.2, None),
-        ("paper", SETUP_FIG6, 0.2, None),
-        ("paper", SETUP_FIG7, 0.2, None),
-        ("paper", SETUP_FIG6, 0.1, None),
-        ("paper", SETUP_FIG7, 0.1, None),
-        ("paper", SETUP_FIG6, 0.2, ("decreasing", "decreasing")),
-        ("paper", SETUP_FIG7, 0.2, ("decreasing", "decreasing")),
-        ("paper", SETUP_FIG6, 0.1, ("decreasing", "decreasing")),
-        ("paper", SETUP_FIG7, 0.1, ("decreasing", "decreasing")),
-        ("simple_model", SETUP_SIMPLE_MODEL_IDLATE, 0.2, None),
-        ("simple_model", SETUP_SIMPLE_MODEL_IDLATE, 0.2, ("decreasing", "decreasing")),
+        ("paper", SETUP_FIG2, 0.1, None, None, None),
+        ("paper", SETUP_FIG3, 0.1, None, None, None),
+        ("paper", SETUP_FIG5, 0.1, None, None, None),
+        ("paper", SETUP_FIG2, 0.2, None, None, None),
+        ("paper", SETUP_FIG3, 0.2, None, None, None),
+        ("paper", SETUP_FIG5, 0.2, None, None, None),
+        ("paper", SETUP_FIG6, 0.2, None, None, None),
+        ("paper", SETUP_FIG7, 0.2, None, None, None),
+        ("paper", SETUP_FIG6, 0.1, None, None, None),
+        ("paper", SETUP_FIG7, 0.1, None, None, None),
+        ("paper", SETUP_FIG6, 0.2, ("decreasing", "decreasing"), None, None),
+        ("paper", SETUP_FIG7, 0.2, ("decreasing", "decreasing"), None, None),
+        ("paper", SETUP_FIG6, 0.1, ("decreasing", "decreasing"), None, None),
+        ("paper", SETUP_FIG7, 0.1, ("decreasing", "decreasing"), None, None),
+        ("simple_model", SETUP_SIMPLE_MODEL_IDLATE, 0.2, None, None, None),
+        (
+            "simple_model",
+            SETUP_SIMPLE_MODEL_IDLATE,
+            0.2,
+            ("decreasing", "decreasing"),
+            None,
+            None,
+        ),
     ],
     ids=[
         "paper_fig2_0.2_none",
@@ -92,6 +106,8 @@ def test_second_step_lp_a_ub_matrix_paper_figures_v2(  # noqa: PLR0915
     setup: Setup,
     u_hi_extra: float,
     shape_constraints: tuple[str, str] | None,
+    mte_monotone: str | None,
+    monotone_response: str | None,
 ):
     if model == "paper":
         target_for_id = Estimand(
@@ -218,6 +234,8 @@ def test_second_step_lp_a_ub_matrix_paper_figures_v2(  # noqa: PLR0915
         instrument=instrument,
         u_partition=u_partition_id,
         shape_constraints=shape_constraints,
+        mte_monotone=mte_monotone,
+        monotone_response=monotone_response,
     )
 
     # This has shape len(identified_estimands) x (len(basis_funcs) * 2)
@@ -265,6 +283,8 @@ def test_second_step_lp_a_ub_matrix_paper_figures_v2(  # noqa: PLR0915
             d_data=data["d"],
             z_data=data["z"],
             shape_constraints=shape_constraints,
+            mte_monotone=mte_monotone,
+            monotone_response=monotone_response,
         )
 
         actual_a_ub = _res.lp_inputs["a_ub"]
