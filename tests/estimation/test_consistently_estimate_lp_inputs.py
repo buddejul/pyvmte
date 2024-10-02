@@ -19,7 +19,7 @@ from pyvmte.estimation.estimation import (
     estimation,
 )
 from pyvmte.identification import identification
-from pyvmte.solutions import no_solution_region, solution_simple_model
+from pyvmte.solutions import no_solution_region
 from pyvmte.utilities import (
     generate_constant_splines_basis_funcs,
     simulate_data_from_paper_dgp,
@@ -73,6 +73,10 @@ identified_late = [Estimand(esttype="late")]
         ("paper", SETUP_FIG6, 0.1, ("decreasing", "decreasing"), None, None),
         ("paper", SETUP_FIG7, 0.1, ("decreasing", "decreasing"), None, None),
         ("simple_model", SETUP_SIMPLE_MODEL_IDLATE, 0.2, None, None, None),
+        ("simple_model", SETUP_SIMPLE_MODEL_IDLATE, 0.2, None, "decreasing", None),
+        ("simple_model", SETUP_SIMPLE_MODEL_IDLATE, 0.2, None, "increasing", None),
+        ("simple_model", SETUP_SIMPLE_MODEL_IDLATE, 0.2, None, None, "positive"),
+        ("simple_model", SETUP_SIMPLE_MODEL_IDLATE, 0.2, None, None, "negative"),
         (
             "simple_model",
             SETUP_SIMPLE_MODEL_IDLATE,
@@ -83,22 +87,26 @@ identified_late = [Estimand(esttype="late")]
         ),
     ],
     ids=[
-        "paper_fig2_0.2_none",
-        "paper_fig3_0.2_none",
-        "paper_fig5_0.2_none",
-        "paper_fig2_0.1_none",
-        "paper_fig3_0.1_none",
-        "paper_fig5_0.1_none",
-        "paper_fig6_0.2_none",
-        "paper_fig7_0.2_none",
-        "paper_fig6_0.1_none",
-        "paper_fig7_0.1_none",
+        "paper_fig2_0.2",
+        "paper_fig3_0.2",
+        "paper_fig5_0.2",
+        "paper_fig2_0.1",
+        "paper_fig3_0.1",
+        "paper_fig5_0.1",
+        "paper_fig6_0.2",
+        "paper_fig7_0.2",
+        "paper_fig6_0.1",
+        "paper_fig7_0.1",
         "paper_fig6_0.2_decreasing",
         "paper_fig7_0.2_decreasing",
         "paper_fig6_0.1_decreasing",
         "paper_fig7_0.1_decreasing",
-        "simple_model_0.2_none",
+        "simple_model_0.2",
         "simple_model_0.2_decreasing",
+        "simple_model_0.2_mte_monotone_increasing",
+        "simple_model_0.2_mte_monotone_decreasing",
+        "simple_model_0.2_monotone_response_positive",
+        "simple_model_0.2_monotone_response_negative",
     ],
 )
 def test_second_step_lp_a_ub_matrix_paper_figures_v2(  # noqa: PLR0915
@@ -109,6 +117,14 @@ def test_second_step_lp_a_ub_matrix_paper_figures_v2(  # noqa: PLR0915
     mte_monotone: str | None,
     monotone_response: str | None,
 ):
+    _all_constr = [shape_constraints, mte_monotone, monotone_response]
+
+    _min_none = 2
+
+    if _all_constr.count(None) < _min_none:
+        msg = "At least two of the shape restrictions must be None."
+        raise ValueError(msg)
+
     if model == "paper":
         target_for_id = Estimand(
             esttype="late",
@@ -128,17 +144,11 @@ def test_second_step_lp_a_ub_matrix_paper_figures_v2(  # noqa: PLR0915
 
         id_set = "idlate" if setup == SETUP_SIMPLE_MODEL_IDLATE else "sharp"
 
-        _sol_lo, _sol_hi = solution_simple_model(
-            id_set=id_set,
-            target_type=setup.target.esttype,
-            pscore_hi=pscore_hi,
-            u_hi_late_target=u_hi_extra,
-            shape_restrictions=shape_constraints,
-        )
-
         _no_sol = no_solution_region(
             id_set=id_set,
             shape_restrictions=shape_constraints,
+            mts=mte_monotone,
+            monotone_response=monotone_response,
         )
 
         # Leave pscores unspecified, they are estimated in the simulation.
@@ -250,11 +260,13 @@ def test_second_step_lp_a_ub_matrix_paper_figures_v2(  # noqa: PLR0915
     # and then the number_identif_estimands slack variables
     n_cols = number_bfuncs * 2 + number_identif_estimands
 
-    if shape_constraints is None:
-        # Rows: 1 for deviations, then 2 slack variables for each id estimand
-        n_rows = 1 + number_identif_estimands * 2
-    else:
-        n_rows = 1 + number_identif_estimands * 2 + 2 * (number_bfuncs - 1)
+    n_rows = 1 + number_identif_estimands * 2
+    if shape_constraints is not None:
+        n_rows += 2 * (number_bfuncs - 1)
+    elif mte_monotone is not None:
+        n_rows += number_bfuncs - 1
+    elif monotone_response is not None:
+        n_rows += number_bfuncs
 
     actual = np.zeros(
         (
@@ -317,6 +329,35 @@ def test_second_step_lp_a_ub_matrix_paper_figures_v2(  # noqa: PLR0915
             abs=TOLERANCE / np.sqrt(SAMPLE_SIZE),
         )
 
+    if mte_monotone is not None:
+        actual_mte_restr = actual[
+            1 + number_identif_estimands * 2 :,
+            : number_bfuncs * 2,
+        ]
 
-# TODO(@buddejul): Also test inputs for other shape restrictions.
+        expected_mte_restr = res.lp_inputs["a_ub"]
+
+        assert actual_mte_restr.shape == expected_mte_restr.shape
+
+        assert actual_mte_restr == pytest.approx(
+            expected_mte_restr,
+            abs=TOLERANCE / np.sqrt(SAMPLE_SIZE),
+        )
+
+    if monotone_response is not None:
+        actual_monotone_restr = actual[
+            1 + number_identif_estimands * 2 :,
+            : number_bfuncs * 2,
+        ]
+
+        expected_monotone_restr = res.lp_inputs["a_ub"]
+
+        assert actual_monotone_restr.shape == expected_monotone_restr.shape
+
+        assert actual_monotone_restr == pytest.approx(
+            expected_monotone_restr,
+            abs=TOLERANCE / np.sqrt(SAMPLE_SIZE),
+        )
+
+
 # TODO(@buddejul): Also test inputs other than the A_ub matrix.
