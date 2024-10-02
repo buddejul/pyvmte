@@ -114,9 +114,18 @@ PARAMS_MST = {
 }
 
 
-SETUP_SIMPLE_MODEL_IDLATE = Setup(
+SETUP_SM_IDLATE = Setup(
     target=Estimand(esttype="late"),
     identified_estimands=[Estimand(esttype="late", u_lo=0.4, u_hi=0.6)],
+    lower_bound=np.nan,
+    upper_bound=np.nan,
+)
+
+SETUP_SM_SHARP = Setup(
+    target=Estimand(esttype="late"),
+    identified_estimands=[
+        Estimand(esttype="cross", dz_cross=(d, z)) for d in [0, 1] for z in [0, 1]
+    ],
     lower_bound=np.nan,
     upper_bound=np.nan,
 )

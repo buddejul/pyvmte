@@ -12,7 +12,8 @@ from pyvmte.config import (
     SETUP_FIG5,
     SETUP_FIG6,
     SETUP_FIG7,
-    SETUP_SIMPLE_MODEL_IDLATE,
+    SETUP_SM_IDLATE,
+    SETUP_SM_SHARP,
     Setup,
 )
 from pyvmte.estimation.estimation import (
@@ -72,19 +73,24 @@ identified_late = [Estimand(esttype="late")]
         ("paper", SETUP_FIG7, 0.2, ("decreasing", "decreasing"), None, None),
         ("paper", SETUP_FIG6, 0.1, ("decreasing", "decreasing"), None, None),
         ("paper", SETUP_FIG7, 0.1, ("decreasing", "decreasing"), None, None),
-        ("simple_model", SETUP_SIMPLE_MODEL_IDLATE, 0.2, None, None, None),
-        ("simple_model", SETUP_SIMPLE_MODEL_IDLATE, 0.2, None, "decreasing", None),
-        ("simple_model", SETUP_SIMPLE_MODEL_IDLATE, 0.2, None, "increasing", None),
-        ("simple_model", SETUP_SIMPLE_MODEL_IDLATE, 0.2, None, None, "positive"),
-        ("simple_model", SETUP_SIMPLE_MODEL_IDLATE, 0.2, None, None, "negative"),
         (
             "simple_model",
-            SETUP_SIMPLE_MODEL_IDLATE,
+            SETUP_SM_IDLATE,
             0.2,
             ("decreasing", "decreasing"),
             None,
             None,
         ),
+        ("simple_model", SETUP_SM_IDLATE, 0.2, None, None, None),
+        ("simple_model", SETUP_SM_IDLATE, 0.2, None, "decreasing", None),
+        ("simple_model", SETUP_SM_IDLATE, 0.2, None, "increasing", None),
+        ("simple_model", SETUP_SM_IDLATE, 0.2, None, None, "positive"),
+        ("simple_model", SETUP_SM_IDLATE, 0.2, None, None, "negative"),
+        ("simple_model", SETUP_SM_SHARP, 0.2, None, None, None),
+        ("simple_model", SETUP_SM_SHARP, 0.2, None, "decreasing", None),
+        ("simple_model", SETUP_SM_SHARP, 0.2, None, "increasing", None),
+        ("simple_model", SETUP_SM_SHARP, 0.2, None, None, "positive"),
+        ("simple_model", SETUP_SM_SHARP, 0.2, None, None, "negative"),
     ],
     ids=[
         "paper_fig2_0.2",
@@ -101,12 +107,18 @@ identified_late = [Estimand(esttype="late")]
         "paper_fig7_0.2_decreasing",
         "paper_fig6_0.1_decreasing",
         "paper_fig7_0.1_decreasing",
-        "simple_model_0.2",
-        "simple_model_0.2_decreasing",
-        "simple_model_0.2_mte_monotone_increasing",
-        "simple_model_0.2_mte_monotone_decreasing",
-        "simple_model_0.2_monotone_response_positive",
-        "simple_model_0.2_monotone_response_negative",
+        "simple_model_idlate_0.2",
+        "simple_model_idlate_0.2_decreasing",
+        "simple_model_idlate_0.2_mte_monotone_increasing",
+        "simple_model_idlate_0.2_mte_monotone_decreasing",
+        "simple_model_idlate_0.2_monotone_response_positive",
+        "simple_model_idlate_0.2_monotone_response_negative",
+        "simple_model_sharp_0.2",
+        "simple_model_sharp_0.2_decreasing",
+        "simple_model_sharp_0.2_mte_monotone_increasing",
+        "simple_model_sharp_0.2_mte_monotone_decreasing",
+        "simple_model_sharp_0.2_monotone_response_positive",
+        "simple_model_sharp_0.2_monotone_response_negative",
     ],
 )
 def test_second_step_lp_a_ub_matrix_paper_figures_v2(  # noqa: PLR0915
@@ -142,7 +154,7 @@ def test_second_step_lp_a_ub_matrix_paper_figures_v2(  # noqa: PLR0915
             pscores=np.array([pscore_lo, pscore_hi]),
         )
 
-        id_set = "idlate" if setup == SETUP_SIMPLE_MODEL_IDLATE else "sharp"
+        id_set = "idlate" if setup == SETUP_SM_IDLATE else "sharp"
 
         _no_sol = no_solution_region(
             id_set=id_set,
