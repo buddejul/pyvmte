@@ -731,7 +731,6 @@ def _second_step_linear_program(
             "lower_bound": result_lower,
             "inputs": lp_second_inputs,
         }
-
     result_upper = _solve_second_step_lp_estimation(lp_second_inputs, "max", method)
     result_lower = _solve_second_step_lp_estimation(lp_second_inputs, "min", method)
 
@@ -757,6 +756,7 @@ def _compute_choice_weights_second_step(
         instrument=instrument,
     )
 
+    # This will allow to use the identified estimand in the constraints.
     lower_part = np.zeros(len(identified_estimands))
     return np.append(upper_part, lower_part)
 

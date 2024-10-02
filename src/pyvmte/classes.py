@@ -138,6 +138,7 @@ class PyvmteResult(NamedTuple):
         procedure: Identification or estimation call.
         lower_bound: Lower bound of the identified set.
         upper_bound: Upper bound of the identified set.
+        basis_funcs: Basis functions used for the identification.
         method: Method to solve the linear program.
         lp_api: API used to solve the linear program.
         lower_optres: Results of the optimization for the lower bound.
