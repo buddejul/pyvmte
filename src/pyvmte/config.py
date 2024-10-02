@@ -112,3 +112,11 @@ PARAMS_MST = {
     "late": 0.046,
     "iv_slope": 0.074,
 }
+
+
+SETUP_SIMPLE_MODEL_IDLATE = Setup(
+    target=Estimand(esttype="late"),
+    identified_estimands=[Estimand(esttype="late", u_lo=0.4, u_hi=0.6)],
+    lower_bound=np.nan,
+    upper_bound=np.nan,
+)

@@ -1,9 +1,8 @@
 """Test consistent estimation of linear map weights (inputs to estimation LP)."""
 
-
 import numpy as np
 import pytest
-from pyvmte.classes import Estimand
+from pyvmte.classes import Estimand, Instrument
 from pyvmte.config import (
     DGP_MST,
     IV_MST,
@@ -13,15 +12,18 @@ from pyvmte.config import (
     SETUP_FIG5,
     SETUP_FIG6,
     SETUP_FIG7,
+    SETUP_SIMPLE_MODEL_IDLATE,
     Setup,
 )
 from pyvmte.estimation.estimation import (
     estimation,
 )
 from pyvmte.identification import identification
+from pyvmte.solutions import no_solution_region, solution_simple_model
 from pyvmte.utilities import (
     generate_constant_splines_basis_funcs,
     simulate_data_from_paper_dgp,
+    simulate_data_from_simple_model_dgp,
 )
 
 SAMPLE_SIZE = 10_000
@@ -31,6 +33,15 @@ MAX_SHARE_FAILED = 0.1
 
 TOLERANCE = 3
 
+identified_sharp = [
+    Estimand(esttype="cross", dz_cross=(d, z)) for d in [0, 1] for z in [0, 1]
+]
+
+# Leave pscores unspecified, they are estimated in the simulation. This corresponds to
+# an application where the true propensity scores are unknown and hence the true
+# target parameter is unknown.
+identified_late = [Estimand(esttype="late")]
+
 
 # --------------------------------------------------------------------------------------
 # Write a test that compares the estimated LP inputs in the second step estimation LP
@@ -38,72 +49,173 @@ TOLERANCE = 3
 # Note: We need to ignore the additional choice variables and constraints in the
 # second step LP that correspond to the absolute value.
 @pytest.mark.parametrize(
-    ("setup", "u_hi_extra", "shape_constraints"),
+    ("model", "setup", "u_hi_extra", "shape_constraints"),
     [
-        (SETUP_FIG2, 0.1, None),
-        (SETUP_FIG3, 0.1, None),
-        (SETUP_FIG5, 0.1, None),
-        (SETUP_FIG2, 0.2, None),
-        (SETUP_FIG3, 0.2, None),
-        (SETUP_FIG5, 0.2, None),
-        (SETUP_FIG6, 0.2, None),
-        (SETUP_FIG7, 0.2, None),
-        (SETUP_FIG6, 0.1, None),
-        (SETUP_FIG7, 0.1, None),
-        (SETUP_FIG6, 0.2, ("decreasing", "decreasing")),
-        (SETUP_FIG7, 0.2, ("decreasing", "decreasing")),
-        (SETUP_FIG6, 0.1, ("decreasing", "decreasing")),
-        (SETUP_FIG7, 0.1, ("decreasing", "decreasing")),
+        ("paper", SETUP_FIG2, 0.1, None),
+        ("paper", SETUP_FIG3, 0.1, None),
+        ("paper", SETUP_FIG5, 0.1, None),
+        ("paper", SETUP_FIG2, 0.2, None),
+        ("paper", SETUP_FIG3, 0.2, None),
+        ("paper", SETUP_FIG5, 0.2, None),
+        ("paper", SETUP_FIG6, 0.2, None),
+        ("paper", SETUP_FIG7, 0.2, None),
+        ("paper", SETUP_FIG6, 0.1, None),
+        ("paper", SETUP_FIG7, 0.1, None),
+        ("paper", SETUP_FIG6, 0.2, ("decreasing", "decreasing")),
+        ("paper", SETUP_FIG7, 0.2, ("decreasing", "decreasing")),
+        ("paper", SETUP_FIG6, 0.1, ("decreasing", "decreasing")),
+        ("paper", SETUP_FIG7, 0.1, ("decreasing", "decreasing")),
+        ("simple_model", SETUP_SIMPLE_MODEL_IDLATE, 0.2, None),
+        ("simple_model", SETUP_SIMPLE_MODEL_IDLATE, 0.2, ("decreasing", "decreasing")),
     ],
     ids=[
-        "fig2_0.2_none",
-        "fig3_0.2_none",
-        "fig5_0.2_none",
-        "fig2_0.1_none",
-        "fig3_0.1_none",
-        "fig5_0.1_none",
-        "fig6_0.2_none",
-        "fig7_0.2_none",
-        "fig6_0.1_none",
-        "fig7_0.1_none",
-        "fig6_0.2_decreasing",
-        "fig7_0.2_decreasing",
-        "fig6_0.1_decreasing",
-        "fig7_0.1_decreasing",
+        "paper_fig2_0.2_none",
+        "paper_fig3_0.2_none",
+        "paper_fig5_0.2_none",
+        "paper_fig2_0.1_none",
+        "paper_fig3_0.1_none",
+        "paper_fig5_0.1_none",
+        "paper_fig6_0.2_none",
+        "paper_fig7_0.2_none",
+        "paper_fig6_0.1_none",
+        "paper_fig7_0.1_none",
+        "paper_fig6_0.2_decreasing",
+        "paper_fig7_0.2_decreasing",
+        "paper_fig6_0.1_decreasing",
+        "paper_fig7_0.1_decreasing",
+        "simple_model_0.2_none",
+        "simple_model_0.2_decreasing",
     ],
 )
-def test_second_step_lp_a_ub_matrix_paper_figures_v2(
+def test_second_step_lp_a_ub_matrix_paper_figures_v2(  # noqa: PLR0915
+    model: str,
     setup: Setup,
     u_hi_extra: float,
     shape_constraints: tuple[str, str] | None,
 ):
-    target_for_id = Estimand(
-        esttype="late",
-        u_lo=setup.target.u_lo,
-        u_hi=0.7 + u_hi_extra,
-    )
+    if model == "paper":
+        target_for_id = Estimand(
+            esttype="late",
+            u_lo=setup.target.u_lo,
+            u_hi=0.7 + u_hi_extra,
+        )
+
+    elif model == "simple_model":
+        pscore_lo = 0.4
+        pscore_hi = 0.6
+
+        instrument = Instrument(
+            support=np.array([0, 1]),
+            pmf=np.array([0.5, 0.5]),
+            pscores=np.array([pscore_lo, pscore_hi]),
+        )
+
+        id_set = "idlate" if setup == SETUP_SIMPLE_MODEL_IDLATE else "sharp"
+
+        _sol_lo, _sol_hi = solution_simple_model(
+            id_set=id_set,
+            target_type=setup.target.esttype,
+            pscore_hi=pscore_hi,
+            u_hi_late_target=u_hi_extra,
+            shape_restrictions=shape_constraints,
+        )
+
+        _no_sol = no_solution_region(
+            id_set=id_set,
+            shape_restrictions=shape_constraints,
+        )
+
+        # Leave pscores unspecified, they are estimated in the simulation.
+        target_for_est = Estimand(
+            "late",
+            u_hi_extra=u_hi_extra,
+        )
+
+        # FIXME(@buddejul): This will not work for the ATE.
+        target_for_id = Estimand(
+            esttype="late",
+            u_lo=pscore_lo,
+            u_hi=pscore_hi + u_hi_extra,
+        )
+
+        (pscore_hi - pscore_lo) / (pscore_hi - pscore_lo + u_hi_extra)
+
+        # FIXME(@buddejul): This will not work for the ATE.
+        u_partition_id = np.array([0, pscore_lo, pscore_hi, pscore_hi + u_hi_extra, 1])
+
+        # Draw a random point in the parameter space until in the solution region.
+        # Otherwise the simulation will probably fail if tuning parameters are not
+        # chosen carefully.
+        (
+            y1_at,
+            y1_c,
+            y1_nt,
+            y0_at,
+            y0_c,
+            y0_nt,
+        ) = RNG.uniform(size=6)
+
+        while _no_sol(y1_at=y1_at, y1_c=y1_c, y0_c=y0_c, y0_nt=y0_nt) is True:
+            (
+                y1_at,
+                y1_c,
+                y1_nt,
+                y0_at,
+                y0_c,
+                y0_nt,
+            ) = RNG.uniform(size=6)
+
+        dgp_params = {
+            "y1_at": y1_at,
+            "y1_c": y1_c,
+            "y1_nt": y1_nt,
+            "y0_at": y0_at,
+            "y0_c": y0_c,
+            "y0_nt": y0_nt,
+        }
 
     identified_estimands = setup.identified_estimands
 
-    # Question: Why is this + 1?
     number_identif_estimands = len(identified_estimands)
-
-    # Note: Why the +1 above?
 
     # ----------------------------------------------------------------------------------
     # Compute expected matrix from identification problem
     # ----------------------------------------------------------------------------------
-    u_partition_id = np.array([0, 0.35, 0.6, 0.7, 0.7 + u_hi_extra, 1])
-    basis_funcs = generate_constant_splines_basis_funcs(u_partition_id)
+
+    if model == "paper":
+        u_partition_id = np.array([0, 0.35, 0.6, 0.7, 0.7 + u_hi_extra, 1])
+        basis_funcs = generate_constant_splines_basis_funcs(u_partition_id)
+        m0_dgp = DGP_MST.m0
+        m1_dgp = DGP_MST.m1
+        instrument = IV_MST
+
+    if model == "simple_model":
+        basis_funcs = generate_constant_splines_basis_funcs(u_partition_id)
+
+        def _at(u: float) -> bool | np.ndarray:
+            return np.where(u <= pscore_lo, 1, 0)
+
+        def _c(u: float) -> bool | np.ndarray:
+            return np.where((pscore_lo <= u) & (u < pscore_hi), 1, 0)
+
+        def _nt(u: float) -> bool | np.ndarray:
+            return np.where(u >= pscore_hi, 1, 0)
+
+        def m0_dgp(u):
+            return y0_at * _at(u) + y0_c * _c(u) + y0_nt * _nt(u)
+
+        def m1_dgp(u):
+            return y1_at * _at(u) + y1_c * _c(u) + y1_nt * _nt(u)
+
     number_bfuncs = len(basis_funcs)
 
     res = identification(
         target=target_for_id,
         identified_estimands=identified_estimands,
         basis_funcs=basis_funcs,
-        m0_dgp=DGP_MST.m0,
-        m1_dgp=DGP_MST.m1,
-        instrument=IV_MST,
+        m0_dgp=m0_dgp,
+        m1_dgp=m1_dgp,
+        instrument=instrument,
         u_partition=u_partition_id,
         shape_constraints=shape_constraints,
     )
@@ -134,7 +246,15 @@ def test_second_step_lp_a_ub_matrix_paper_figures_v2(
     )
 
     for _ in range(REPETITIONS):
-        data = simulate_data_from_paper_dgp(sample_size=SAMPLE_SIZE, rng=RNG)
+        if model == "paper":
+            data = simulate_data_from_paper_dgp(sample_size=SAMPLE_SIZE, rng=RNG)
+        elif model == "simple_model":
+            data = simulate_data_from_simple_model_dgp(
+                sample_size=SAMPLE_SIZE,
+                rng=RNG,
+                dgp_params=dgp_params,
+            )
+
         target_for_est = Estimand(esttype="late", u_hi_extra=u_hi_extra)
 
         _res = estimation(

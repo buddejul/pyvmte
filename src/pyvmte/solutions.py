@@ -25,7 +25,9 @@ def solution_simple_model(
         msg = "At least two of the shape restrictions must be None."
         raise ValueError(msg)
 
-    solution_functions_no_restrictions = {}  # type: ignore[var-annotated]
+    solution_functions_no_restrictions = {
+        "idlate": {"late": (_sol_lo_idlate, _sol_hi_idlate)},
+    }  # type: ignore[var-annotated]
 
     solution_functions_shape_restrictions = {
         "idlate": {
@@ -205,6 +207,34 @@ def _sol_lo_sharp_late_decreasing(
     k = u_hi_late_target / (1 - pscore_hi)
 
     return w * _b_late + (1 - w) * (0 - np.minimum(y0_c, y0_nt / k))
+
+
+def _sol_lo_idlate(
+    w: float,
+    y1_c: float,
+    y0_c: float,
+    y0_nt: float,
+    u_hi_late_target: float,
+    pscore_hi: float,
+) -> float:
+    del y0_nt, u_hi_late_target, pscore_hi
+    _b_late = y1_c - y0_c
+
+    return w * _b_late + (1 - w) * (-1)
+
+
+def _sol_hi_idlate(
+    w: float,
+    y1_c: float,
+    y0_c: float,
+    y0_nt: float,
+    u_hi_late_target: float,
+    pscore_hi: float,
+) -> float:
+    del y0_nt, u_hi_late_target, pscore_hi
+    _b_late = y1_c - y0_c
+
+    return w * _b_late + (1 - w) * (1)
 
 
 def _sol_hi_idlate_increasing(
