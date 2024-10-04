@@ -129,3 +129,10 @@ SETUP_SM_SHARP = Setup(
     lower_bound=np.nan,
     upper_bound=np.nan,
 )
+
+
+IV_SM = Instrument(
+    support=np.array([0, 1]),
+    pmf=np.array([0.5, 0.5]),
+    pscores=np.array([0.4, 0.6]),
+)
