@@ -20,7 +20,10 @@ from pyvmte.utilities import (
 )
 
 sample_size = 10_000
-repetitions = 500
+repetitions = 1_000
+
+# Tolerance in the assertion. Corresponds to asymptotic standard deviation.
+TOL_ASSERT = 5
 
 # --------------------------------------------------------------------------------------
 # Preliminary settings
@@ -243,4 +246,4 @@ def test_simple_model_estimation(
     data = data.rename(columns=columns)
     actual = np.array(data.mean())
 
-    assert expected == pytest.approx(actual, abs=5 / np.sqrt(sample_size))
+    assert expected == pytest.approx(actual, abs=TOL_ASSERT / np.sqrt(sample_size))
