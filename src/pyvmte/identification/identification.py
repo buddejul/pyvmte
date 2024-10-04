@@ -152,12 +152,12 @@ def identification(
         lower_bound=(
             (lower_res.fun if method == "highs" else lower_res)
             if lower_res.success
-            else None
+            else np.nan
         ),
         upper_bound=(
             ((-1) * upper_res.fun if method == "highs" else (-1) * upper_res)
             if upper_res.success
-            else None
+            else np.nan
         ),
         target=target,
         identified_estimands=identified_estimands,

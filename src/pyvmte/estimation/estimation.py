@@ -211,8 +211,8 @@ def estimation(
     return PyvmteResult(
         procedure="estimation",
         success=(_success_lower, _success_upper),
-        lower_bound=results_second_step["lower_bound"] if _success_lower else None,
-        upper_bound=results_second_step["upper_bound"] if _success_upper else None,
+        lower_bound=results_second_step["lower_bound"] if _success_lower else np.nan,
+        upper_bound=results_second_step["upper_bound"] if _success_upper else np.nan,
         target=target,
         identified_estimands=identified_estimands,
         basis_funcs=basis_funcs,

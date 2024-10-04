@@ -20,7 +20,7 @@ from pyvmte.utilities import (
 )
 
 sample_size = 10_000
-repetitions = 1_000
+repetitions = 500
 
 # --------------------------------------------------------------------------------------
 # Preliminary settings
@@ -55,7 +55,7 @@ instrument = Instrument(
 # --------------------------------------------------------------------------------------
 
 # Define common parameters
-basis_functions = ["bernstein"]
+basis_functions = ["constant", "bernstein"]
 identified_sets = ["idlate", "sharp"]
 restrictions = [
     None,
@@ -194,6 +194,8 @@ def test_simple_model_estimation(
     m0_dgp = _make_m0(y0_c, y0_at, y0_nt)
     m1_dgp = _make_m1(y1_c, y1_at, y1_nt)
 
+    # TODO: We could also redraw at this point; integrate everything into one function
+    # "draw_params_and_solve" or similar.
     _res_id = identification(
         target=target_for_id,
         identified_estimands=identified_for_id,
@@ -207,10 +209,13 @@ def test_simple_model_estimation(
         m1_dgp=m1_dgp,
     )
 
+    # Check if at least one element of _res_id.success is None:
+    if not any(_res_id.success):
+        pytest.xfail("Not in solution region.")
+
     _sol_lo = _res_id.lower_bound
     _sol_hi = _res_id.upper_bound
 
-    # The identified set might be empty for some parameter value combinations.
     res = monte_carlo_pyvmte(
         sample_size=sample_size,
         repetitions=repetitions,

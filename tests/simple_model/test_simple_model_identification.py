@@ -372,13 +372,5 @@ def test_simple_model_identification(
     expected_lo[_idx_no_sol] = np.nan
     expected_hi[_idx_no_sol] = np.nan
 
-    # Get _idx of nan mismatch
-    np.where(np.isnan(actual_lo) != np.isnan(expected_lo))
-    np.where(np.isnan(actual_hi) != np.isnan(expected_hi))
-
-    # Get _idx of value mismatch
-    np.where(np.abs(actual_lo - expected_lo) > atol)
-    np.where(np.abs(actual_hi - expected_hi) > atol)
-
     np.testing.assert_allclose(actual_lo, expected_lo, atol=atol)
     np.testing.assert_allclose(actual_hi, expected_hi, atol=atol)
