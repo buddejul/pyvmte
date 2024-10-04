@@ -136,8 +136,8 @@ class Bern:
 
         for i, c in enumerate(self.coefs):
             if c != 0:
-                _to_int = partial(self._indef_integral, i=i)
-                out += float(c) * (_to_int(b) - _to_int(a))
+                _anti_deriv = partial(self._indef_integral, i=i)
+                out += c[0] * (_anti_deriv(b) - _anti_deriv(a))
 
         return out
 

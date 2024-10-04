@@ -146,17 +146,24 @@ def identification(
     lower_res = _solve_lp(lp_inputs, "min", method=method)
     upper_res = _solve_lp(lp_inputs, "max", method=method)
 
+    if method == "copt":
+        _success_lo = lower_res["success"]
+        _success_hi = upper_res["success"]
+    else:
+        _success_lo = lower_res.success
+        _success_hi = upper_res.success
+
     return PyvmteResult(
         procedure="identification",
-        success=(lower_res.success, upper_res.success),
+        success=(_success_lo, _success_hi),
         lower_bound=(
-            (lower_res.fun if method == "highs" else lower_res)
-            if lower_res.success
+            (lower_res.fun if method == "highs" else lower_res["fun"])
+            if _success_lo
             else np.nan
         ),
         upper_bound=(
-            ((-1) * upper_res.fun if method == "highs" else (-1) * upper_res)
-            if upper_res.success
+            ((-1) * upper_res.fun if method == "highs" else (-1) * upper_res["fun"])
+            if _success_hi
             else np.nan
         ),
         target=target,
@@ -470,7 +477,7 @@ def _solve_lp_copt(
     b_eq: np.ndarray,
     a_ub: np.ndarray | None = None,
     b_ub: np.ndarray | None = None,
-) -> float:
+) -> dict:
     """Wrapper for solving LP using copt algorithm."""
     env = cp.Envr()
     model = env.createModel("identification")
@@ -482,10 +489,9 @@ def _solve_lp_copt(
 
     model.solveLP()
 
-    if model.status != COPT.OPTIMAL:
-        msg = "LP not solved to optimality by copt."
-        raise ValueError(msg)
-    return model.objval
+    success = model.status == COPT.OPTIMAL
+
+    return {"fun": model.objval, "success": success}
 
 
 def _gamma_star(

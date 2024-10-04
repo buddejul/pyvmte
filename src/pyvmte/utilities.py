@@ -230,13 +230,28 @@ def _error_report_estimand(estimand: Estimand, mode: str):
                 f"Estimand type cross requires dz_cross to be a tuple. "
                 f"Got {estimand.dz_cross}."
             )
-        if estimand.esttype == "late" and not (
-            isinstance(estimand.u_lo, float | int)
-            and isinstance(estimand.u_hi, float | int)
+        if (
+            estimand.esttype == "late"
+            and not (
+                isinstance(estimand.u_lo, float | int)
+                and isinstance(estimand.u_hi, float | int)
+            )
             and mode == "identification"
         ):
             error_report += (
-                f"Estimand type late requires u_lo and u_hi to be floats. "
+                f"Estimand type late requires u_lo and u_hi to be float or ints. "
+                f"Got {estimand.u_lo} and {estimand.u_hi}."
+            )
+        if (
+            estimand.esttype == "late"
+            and not (
+                isinstance(estimand.u_lo, float | int | None)
+                and isinstance(estimand.u_hi, float | int | None)
+            )
+            and mode == "estimation"
+        ):
+            error_report += (
+                f"Estimand type late requires u_lo and u_hi to be float, ints or None. "
                 f"Got {estimand.u_lo} and {estimand.u_hi}."
             )
         if (

@@ -182,7 +182,7 @@ def estimation(
         method=method,
     )
 
-    minimal_deviations = results_first_step["minimal_deviations"]
+    minimal_deviations = results_first_step["fun"]
 
     # ==================================================================================
     # Second Step Linear Program (Compute Upper and Lower Bounds)
@@ -205,8 +205,12 @@ def estimation(
     # ==================================================================================
     # Return Results
     # ==================================================================================
-    _success_lower = results_second_step["scipy_return_lower"].success
-    _success_upper = results_second_step["scipy_return_upper"].success
+    if method == "copt":
+        _success_lower = results_second_step["lower_success"]
+        _success_upper = results_second_step["upper_success"]
+    else:
+        _success_lower = results_second_step["scipy_return_lower"].success
+        _success_upper = results_second_step["scipy_return_upper"].success
 
     return PyvmteResult(
         procedure="estimation",
@@ -227,7 +231,7 @@ def estimation(
         lp_inputs=results_second_step["inputs"],
         est_u_partition=u_partition,
         est_beta_hat=beta_hat,
-        first_minimal_deviations=results_first_step["minimal_deviations"],
+        first_minimal_deviations=results_first_step["fun"],
         first_lp_inputs=results_first_step["inputs"],
         first_optres=results_first_step["scipy_return"] if method != "copt" else None,
         restrictions={
@@ -296,13 +300,13 @@ def _first_step_linear_program(
     )
     if method == "copt":
         first_step_solution = None
-        minimal_deviations = _solve_lp_estimation_copt(lp_first_inputs, "min")
+        minimal_deviations = _solve_lp_estimation_copt(lp_first_inputs, "min")["fun"]
     else:
         first_step_solution = _solve_first_step_lp_estimation(lp_first_inputs, method)
         minimal_deviations = first_step_solution.fun
 
     return {
-        "minimal_deviations": minimal_deviations,
+        "fun": minimal_deviations,
         "scipy_return": first_step_solution,
         "inputs": lp_first_inputs,
     }
@@ -738,8 +742,10 @@ def _second_step_linear_program(
         result_lower = _solve_lp_estimation_copt(lp_second_inputs, "min")
 
         return {
-            "upper_bound": -1 * result_upper,
-            "lower_bound": result_lower,
+            "upper_bound": -1 * result_upper["fun"],
+            "lower_bound": result_lower["fun"],
+            "upper_success": result_upper["success"],
+            "lower_success": result_lower["success"],
             "inputs": lp_second_inputs,
         }
     result_upper = _solve_second_step_lp_estimation(lp_second_inputs, "max", method)
@@ -1039,7 +1045,7 @@ def _estimate_gamma_constant_spline(  # noqa: PLR0911
     return length * np.mean(coef * indicators)
 
 
-def _solve_lp_estimation_copt(lp_second_inputs: dict, min_or_max: str) -> float:
+def _solve_lp_estimation_copt(lp_second_inputs: dict, min_or_max: str) -> dict:
     """Wrapper for solving LP using copt algorithm."""
     c = lp_second_inputs["c"] if min_or_max == "min" else -lp_second_inputs["c"]
     a_ub = lp_second_inputs["a_ub"]
@@ -1058,10 +1064,9 @@ def _solve_lp_estimation_copt(lp_second_inputs: dict, min_or_max: str) -> float:
     with suppress_print():
         model.solveLP()
 
-    if model.status != COPT.OPTIMAL:
-        msg = "LP not solved to optimality by copt."
-        raise ValueError(msg)
-    return model.objval
+    success = model.status == COPT.OPTIMAL
+
+    return {"fun": model.objval, "success": success}
 
 
 def _check_estimation_arguments(

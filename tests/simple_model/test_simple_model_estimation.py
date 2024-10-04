@@ -71,10 +71,7 @@ parametrizations = []
 
 for basis in basis_functions:
     for ident_set in identified_sets:
-        if ident_set == "idlate":
-            u_hi_values = [u_hi_late]
-        else:
-            u_hi_values = [u_hi_late, 1 - pscore_hi]
+        u_hi_values = [u_hi_late]
 
         for u_hi in u_hi_values:
             # No shape constraints
