@@ -29,6 +29,10 @@ def solution_simple_model(
 
     solution_functions_no_restrictions = {
         "idlate": {"late": (_sol_lo_idlate, _sol_hi_idlate)},
+        "sharp": {
+            "ate": (_sol_lo_sharp, _sol_hi_sharp),
+            "late": (_sol_lo_sharp, _sol_hi_sharp),
+        },
     }  # type: ignore[var-annotated]
 
     solution_functions_shape_restrictions = {
@@ -148,6 +152,34 @@ def solution_simple_model(
 # --------------------------------------------------------------------------------------
 # Solution functions
 # --------------------------------------------------------------------------------------
+
+
+def _sol_hi_sharp(
+    w: float,
+    y1_c: float,
+    y0_c: float,
+    y0_nt: float,
+    u_hi_late_target: float,
+    pscore_hi: float,
+) -> float:
+    k = u_hi_late_target / (1 - pscore_hi)
+
+    a = np.clip((y0_nt - (1 - k)) / k, a_min=0, a_max=1)
+
+    return w * (y1_c - y0_c) + (1 - w) * (1 - a)
+
+
+def _sol_lo_sharp(
+    w: float,
+    y1_c: float,
+    y0_c: float,
+    y0_nt: float,
+    u_hi_late_target: float,
+    pscore_hi: float,
+) -> float:
+    k = u_hi_late_target / (1 - pscore_hi)
+    a = np.clip(y0_nt / k, a_min=0, a_max=1)
+    return w * (y1_c - y0_c) + (1 - w) * (0 - a)
 
 
 def _sol_hi_sharp_ate_decreasing(
