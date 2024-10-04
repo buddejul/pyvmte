@@ -168,8 +168,9 @@ class PyvmteResult(NamedTuple):
     """
 
     procedure: str
-    lower_bound: float
-    upper_bound: float
+    success: tuple[bool, bool]
+    lower_bound: float | None
+    upper_bound: float | None
     target: Estimand
     identified_estimands: list[Estimand]
     basis_funcs: list[dict]

@@ -335,6 +335,7 @@ def test_simple_model_identification(
         except TypeError:
             res = PyvmteResult(
                 procedure="identification",
+                success=(False, False),
                 lower_bound=np.nan,
                 upper_bound=np.nan,
                 target=target,

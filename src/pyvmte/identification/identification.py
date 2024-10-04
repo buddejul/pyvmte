@@ -148,8 +148,17 @@ def identification(
 
     return PyvmteResult(
         procedure="identification",
-        lower_bound=lower_res.fun if method == "highs" else lower_res,
-        upper_bound=(-1) * upper_res.fun if method == "highs" else (-1) * upper_res,
+        success=(lower_res.success, upper_res.success),
+        lower_bound=(
+            (lower_res.fun if method == "highs" else lower_res)
+            if lower_res.success
+            else None
+        ),
+        upper_bound=(
+            ((-1) * upper_res.fun if method == "highs" else (-1) * upper_res)
+            if upper_res.success
+            else None
+        ),
         target=target,
         identified_estimands=identified_estimands,
         basis_funcs=basis_funcs,

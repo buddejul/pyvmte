@@ -269,7 +269,9 @@ def _error_report_invalid_basis_func_type(basis_func_type):
 def _error_report_missing_basis_func_options(basis_func_type, basis_func_options):
     """Return error message if options are missing for a basis_func_type."""
     error_report = ""
-    if basis_func_type == "bernstein" and "k_degree" not in basis_func_options:
+    if basis_func_type == "bernstein" and (
+        basis_func_options is None or "k_degree" not in basis_func_options
+    ):
         error_report += (
             "Option 'k_degree' is missing for basis function type 'bernstein'."
         )

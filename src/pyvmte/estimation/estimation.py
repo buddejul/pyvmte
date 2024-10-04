@@ -205,10 +205,14 @@ def estimation(
     # ==================================================================================
     # Return Results
     # ==================================================================================
+    _success_lower = results_second_step["scipy_return_lower"].success
+    _success_upper = results_second_step["scipy_return_upper"].success
+
     return PyvmteResult(
         procedure="estimation",
-        lower_bound=results_second_step["lower_bound"],
-        upper_bound=results_second_step["upper_bound"],
+        success=(_success_lower, _success_upper),
+        lower_bound=results_second_step["lower_bound"] if _success_lower else None,
+        upper_bound=results_second_step["upper_bound"] if _success_upper else None,
         target=target,
         identified_estimands=identified_estimands,
         basis_funcs=basis_funcs,

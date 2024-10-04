@@ -55,7 +55,7 @@ instrument = Instrument(
 # --------------------------------------------------------------------------------------
 
 # Define common parameters
-basis_functions = ["constant"]
+basis_functions = ["bernstein"]
 identified_sets = ["idlate", "sharp"]
 restrictions = [
     None,
@@ -223,6 +223,7 @@ def test_simple_model_estimation(
         monotone_response=monotone_response,
         dgp="simple_model",
         dgp_params=dgp_params,
+        basis_func_options={"k_degree": k_bernstein},
     )
 
     _kwargs = {
