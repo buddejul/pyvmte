@@ -237,7 +237,7 @@ def test_simple_model_estimation(
         "y0_nt": y0_nt,
     }
 
-    expected = _sol_lo, _sol_hi
+    expected = np.array([_sol_lo, _sol_hi])
 
     data = pd.DataFrame([res["lower_bounds"], res["upper_bounds"]]).T
 
