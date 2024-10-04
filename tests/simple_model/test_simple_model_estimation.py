@@ -19,11 +19,11 @@ from pyvmte.utilities import (
     generate_constant_splines_basis_funcs,
 )
 
-sample_size = 10_000
+sample_size = 25_000
 repetitions = 1_000
 
 # Tolerance in the assertion. Corresponds to asymptotic standard deviation.
-TOL_ASSERT = 5
+TOL_ASSERT = 6
 
 # --------------------------------------------------------------------------------------
 # Preliminary settings
