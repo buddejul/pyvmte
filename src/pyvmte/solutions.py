@@ -317,14 +317,14 @@ def _sol_hi_sharp_mts(
     u_hi_late_target: float,
     pscore_hi: float,
 ):
-    del (
-        u_hi_late_target,
-        pscore_hi,
-    )
     _b_late = y1_c - y0_c
 
+    k = u_hi_late_target / (1 - pscore_hi)
+
+    a = np.clip((y0_nt - (1 - k)) / k, a_min=0, a_max=1)
+
     if mts == "decreasing":
-        return w * _b_late + (1 - w) * _b_late
+        return w * _b_late + (1 - w) * np.minimum(1 - a, _b_late)
     if mts == "increasing":
         return w * _b_late + (1 - w) * (1 - y0_nt)
     return None
@@ -339,13 +339,16 @@ def _sol_lo_sharp_mts(
     u_hi_late_target: float,
     pscore_hi: float,
 ):
-    del u_hi_late_target, pscore_hi
     _b_late = y1_c - y0_c
+
+    k = u_hi_late_target / (1 - pscore_hi)
+
+    a = np.clip(y0_nt / k, a_min=0, a_max=1)
 
     if mts == "decreasing":
         return w * _b_late + (1 - w) * (0 - y0_nt)
     if mts == "increasing":
-        return w * _b_late + (1 - w) * _b_late
+        return w * _b_late + (1 - w) * np.maximum(0 - a, _b_late)
     return None
 
 
