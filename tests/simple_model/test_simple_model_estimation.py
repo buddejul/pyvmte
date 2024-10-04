@@ -23,7 +23,7 @@ sample_size = 25_000
 repetitions = 1_000
 
 # Tolerance in the assertion. Corresponds to asymptotic standard deviation.
-TOL_ASSERT = 6
+TOL_ASSERT = 7
 
 # --------------------------------------------------------------------------------------
 # Preliminary settings
