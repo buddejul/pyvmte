@@ -88,7 +88,52 @@ def solution_simple_model(
             },
         },
         # TODO(@buddejul): Solve this for monotone response.
-        "sharp": {"ate": {}, "late": {}},
+        "sharp": {
+            "ate": {
+                "positive": (
+                    partial(
+                        _sol_lo_sharp_monotone_response,
+                        monotone_response=monotone_response,
+                    ),
+                    partial(
+                        _sol_hi_sharp_monotone_response,
+                        monotone_response=monotone_response,
+                    ),
+                ),
+                "negative": (
+                    partial(
+                        _sol_lo_sharp_monotone_response,
+                        monotone_response=monotone_response,
+                    ),
+                    partial(
+                        _sol_hi_sharp_monotone_response,
+                        monotone_response=monotone_response,
+                    ),
+                ),
+            },
+            "late": {
+                "positive": (
+                    partial(
+                        _sol_lo_sharp_monotone_response,
+                        monotone_response=monotone_response,
+                    ),
+                    partial(
+                        _sol_hi_sharp_monotone_response,
+                        monotone_response=monotone_response,
+                    ),
+                ),
+                "negative": (
+                    partial(
+                        _sol_lo_sharp_monotone_response,
+                        monotone_response=monotone_response,
+                    ),
+                    partial(
+                        _sol_hi_sharp_monotone_response,
+                        monotone_response=monotone_response,
+                    ),
+                ),
+            },
+        },
     }
 
     solution_functions_mts = {
@@ -114,8 +159,28 @@ def solution_simple_model(
                 ),
             },
         },
-        # TODO(@buddejul): Solve this for monotone selection.
-        "sharp": {},
+        "sharp": {
+            "late": {
+                "increasing": (
+                    partial(_sol_lo_sharp_mts, mts=mts),
+                    partial(_sol_hi_sharp_mts, mts=mts),
+                ),
+                "decreasing": (
+                    partial(_sol_lo_sharp_mts, mts=mts),
+                    partial(_sol_hi_sharp_mts, mts=mts),
+                ),
+            },
+            "ate": {
+                "increasing": (
+                    partial(_sol_lo_sharp_mts, mts=mts),
+                    partial(_sol_hi_sharp_mts, mts=mts),
+                ),
+                "decreasing": (
+                    partial(_sol_lo_sharp_mts, mts=mts),
+                    partial(_sol_hi_sharp_mts, mts=mts),
+                ),
+            },
+        },
     }
 
     if shape_restrictions is not None:
@@ -243,6 +308,95 @@ def _sol_lo_sharp_late_decreasing(
     return w * _b_late + (1 - w) * (0 - np.minimum(y0_c, y0_nt / k))
 
 
+def _sol_hi_sharp_mts(
+    mts: str,
+    w: float,
+    y1_c: float,
+    y0_c: float,
+    y0_nt: float,
+    u_hi_late_target: float,
+    pscore_hi: float,
+):
+    del (
+        u_hi_late_target,
+        pscore_hi,
+    )
+    _b_late = y1_c - y0_c
+
+    if mts == "decreasing":
+        return w * _b_late + (1 - w) * _b_late
+    if mts == "increasing":
+        return w * _b_late + (1 - w) * (1 - y0_nt)
+    return None
+
+
+def _sol_lo_sharp_mts(
+    mts: str,
+    w: float,
+    y1_c: float,
+    y0_c: float,
+    y0_nt: float,
+    u_hi_late_target: float,
+    pscore_hi: float,
+):
+    del u_hi_late_target, pscore_hi
+    _b_late = y1_c - y0_c
+
+    if mts == "decreasing":
+        return w * _b_late + (1 - w) * (0 - y0_nt)
+    if mts == "increasing":
+        return w * _b_late + (1 - w) * _b_late
+    return None
+
+
+def _sol_hi_sharp_monotone_response(
+    monotone_response: str,
+    w: float,
+    y1_c: float,
+    y0_c: float,
+    y0_nt: float,
+    u_hi_late_target: float,
+    pscore_hi: float,
+):
+    k = u_hi_late_target / (1 - pscore_hi)
+
+    a = np.clip((y0_nt - (1 - k)) / k, a_min=0, a_max=1)
+
+    if monotone_response == "positive":
+        return w * (y1_c - y0_c) + (1 - w) * np.clip(1 - a, a_min=0, a_max=1)
+    if monotone_response == "negative":
+        return w * (y1_c - y0_c) + (1 - w) * np.clip(1 - a, a_max=0, a_min=-1)
+
+    msg = f"Invalid monotone_response: {monotone_response}."
+    raise ValueError(msg)
+
+
+def _sol_lo_sharp_monotone_response(
+    monotone_response: str,
+    w: float,
+    y1_c: float,
+    y0_c: float,
+    y0_nt: float,
+    u_hi_late_target: float,
+    pscore_hi: float,
+) -> float:
+    k = u_hi_late_target / (1 - pscore_hi)
+
+    a = np.clip(y0_nt / k, a_min=0, a_max=1)
+
+    if monotone_response == "positive":
+        return w * (y1_c - y0_c) + (1 - w) * np.clip(0 - a, a_min=0, a_max=1)
+
+    if monotone_response == "negative":
+        return w * (y1_c - y0_c) + (1 - w) * np.clip(0 - a, a_max=0, a_min=-1)
+
+    msg = f"Invalid monotone_response: {monotone_response}."
+    raise ValueError(msg)
+
+
+# --------------------------------------------------------------------------------------
+# Solution functions for using only the LATE for identification
+# --------------------------------------------------------------------------------------
 def _sol_lo_idlate(
     w: float,
     y1_c: float,
