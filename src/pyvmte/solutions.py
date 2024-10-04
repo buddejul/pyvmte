@@ -410,8 +410,25 @@ def no_solution_region(
     mts: str | None = None,
 ):
     """Return function indicating parameter region with no solution."""
+    _all_restr = [shape_restrictions, monotone_response, mts]
+
     if id_set == "sharp":
-        return _no_solution_sharp
+        if shape_restrictions is not None:
+            return partial(
+                _no_solution_sharp_shape,
+                shape_restrictions=shape_restrictions,
+            )
+        if monotone_response is not None:
+            return partial(
+                _no_solution_sharp_monotone_response,
+                monotone_response=monotone_response,
+            )
+
+        if mts is not None:
+            return partial(
+                _no_solution_sharp_mts,
+                mts=mts,
+            )
 
     if id_set == "idlate":
         if monotone_response is not None:
@@ -423,14 +440,36 @@ def no_solution_region(
     raise ValueError(msg)
 
 
-def _no_solution_sharp(y1_at, y1_c, y0_c, y0_nt):
+def _no_solution_sharp_shape(shape_restrictions, y1_at, y1_c, y0_c, y0_nt):
     # The model is not consistent with decreasing MTRs if
     # - y1_at < y1_c or y1_c < y1_nt or
     # - y0_at < y0_c or y0_c < y0_nt
     # Make sure this also works vectorized.
     # Note that while y1_c < y1_nt is also not consistent with decreasing MTRs, the
     # model puts no restrictions on y1_nt since it is not identified.
-    return np.logical_or(y1_at < y1_c, y0_c < y0_nt)
+    if shape_restrictions == ("decreasing", "decreasing"):
+        return np.logical_or(y1_at < y1_c, y0_c < y0_nt)
+    if shape_restrictions == ("increasing", "increasing"):
+        msg = "No solution region not implemented yet."
+        raise ValueError(msg)
+    return None
+
+
+def _no_solution_sharp_monotone_response(monotone_response, y1_at, y1_c, y0_c, y0_nt):
+    del y1_at, y0_nt
+    if monotone_response == "positive":
+        return y1_c - y0_c <= 0
+    if monotone_response == "negative":
+        return y1_c - y0_c >= 0
+    return None
+
+
+def _no_solution_sharp_mts(mts, y1_at, y0_at, y1_c, y0_c, y0_nt):
+    # Initial thought:
+    # Only the complier treatment effect is identified, so we have solutions everywhere.
+    # This is false, for example: If the complier ATE is 1 but the AT y1 < 1, their
+    # treatment effect needs to be smaller.
+    return False
 
 
 def _no_solution_nonsharp(y1_at, y1_c, y0_c, y0_nt):
