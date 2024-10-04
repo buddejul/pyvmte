@@ -51,7 +51,7 @@ def test_bern_integration():
     expected = integrate.quad(lambda x: bern_bas_02(x=x), a, b)
 
     # Actual
-    bern = Bern(n=2, coefs=[0, 0, 1])
+    bern = Bern(n=2, coefs=np.array([0, 0, 1]))
 
     actual = bern.integrate(a, b)
 

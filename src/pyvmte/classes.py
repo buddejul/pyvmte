@@ -136,8 +136,11 @@ class Bern:
 
         for i, c in enumerate(self.coefs):
             if c != 0:
+                # TODO(@buddejul): Check this has no performance implications.
+                # If c is array, extract 0 element else take c.
+                _c = c[0] if isinstance(c, np.ndarray) else c
                 _anti_deriv = partial(self._indef_integral, i=i)
-                out += c[0] * (_anti_deriv(b) - _anti_deriv(a))
+                out += _c * (_anti_deriv(b) - _anti_deriv(a))
 
         return out
 

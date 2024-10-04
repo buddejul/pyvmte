@@ -134,7 +134,7 @@ def test_first_step_linear_program_runs_and_non_zero(setup_lp_inputs):
         monotone_response=None,
     )
 
-    assert result["minimal_deviations"] != 0
+    assert result["fun"] != 0
 
 
 def test_compute_second_step_bounds(setup_lp_inputs):
