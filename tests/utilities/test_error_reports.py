@@ -24,15 +24,13 @@ from pyvmte.utilities import (
         "not an estimand",
         Estimand(esttype="hello_world"),
         Estimand(esttype="cross", dz_cross="hello_world"),  # type: ignore
-        Estimand(esttype="late", u_lo=0.5),
-        Estimand(esttype="late", u_hi=0.5),
         Estimand(esttype="late", u_lo=0.5, u_hi="daslk"),  # type: ignore
         Estimand(esttype="late", u_lo=0.5, u_hi=0.2),
         Estimand(esttype="late", u_lo=1.2, u_hi=1.4),
     ],
 )
 def test_error_report_estimand(estimand):
-    error_report = _error_report_estimand(estimand)
+    error_report = _error_report_estimand(estimand, mode="estimation")
     print(error_report)  # noqa: T201
     assert error_report != ""
 
