@@ -22,9 +22,6 @@ from pyvmte.utilities import (
 sample_size = 10_000
 repetitions = 500
 
-# TODO(@buddejul): Need to handle late in estimation. We need to specify the identified
-# estimand using estimated propensity scores. Same for the target.
-
 # --------------------------------------------------------------------------------------
 # Preliminary settings
 # --------------------------------------------------------------------------------------
@@ -215,9 +212,12 @@ def test_simple_model_estimation(
     """Solve the simple model for a range of parameter values."""
 
     if id_set == "idlate":
-        identified = identified_late
+        identified_for_id = [Estimand(esttype="late", u_lo=pscore_lo, u_hi=pscore_hi)]
+        identified_for_est = identified_late
+
     elif id_set == "sharp":
-        identified = identified_sharp
+        identified_for_id = identified_sharp
+        identified_for_est = identified_sharp
 
     _no_sol = no_solution_region(
         id_set=id_set,
@@ -227,7 +227,7 @@ def test_simple_model_estimation(
     )
 
     # Leave pscores unspecified, they are estimated in the simulation.
-    target = Estimand(
+    target_for_est = Estimand(
         "late",
         u_hi_extra=u_hi,
     )
@@ -270,15 +270,24 @@ def test_simple_model_estimation(
     def _nt(u: float) -> bool | np.ndarray:
         return np.where(u >= pscore_hi, 1, 0)
 
-    def m0_dgp(u):
-        return y0_at * _at(u) + y0_c * _c(u) + y0_nt * _nt(u)
+    def _make_m0(y0_c, y0_at, y0_nt):
+        def _m0(u):
+            return y0_at * _at(u) + y0_c * _c(u) + y0_nt * _nt(u)
 
-    def m1_dgp(u):
-        return y1_at * _at(u) + y1_c * _c(u) + y1_nt * _nt(u)
+        return _m0
+
+    def _make_m1(y1_c, y1_at, y1_nt):
+        def _m1(u):
+            return y1_at * _at(u) + y1_c * _c(u) + y1_nt * _nt(u)
+
+        return _m1
+
+    m0_dgp = _make_m0(y0_c, y0_at, y0_nt)
+    m1_dgp = _make_m1(y1_c, y1_at, y1_nt)
 
     _res_id = identification(
         target=target_for_id,
-        identified_estimands=identified,
+        identified_estimands=identified_for_id,
         basis_funcs=basis_funcs,
         instrument=instrument,
         shape_constraints=shape_restriction,
@@ -296,8 +305,8 @@ def test_simple_model_estimation(
     res = monte_carlo_pyvmte(
         sample_size=sample_size,
         repetitions=repetitions,
-        target=target,
-        identified_estimands=identified,
+        target=target_for_est,
+        identified_estimands=identified_for_est,
         basis_func_type=bfunc_type,
         rng=RNG,
         shape_constraints=shape_restriction,

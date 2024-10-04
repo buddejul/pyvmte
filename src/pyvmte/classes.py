@@ -12,8 +12,19 @@ from scipy.optimize import OptimizeResult  # type: ignore[import-untyped]
 
 @dataclass
 class Estimand:
-    """Target estimand."""
+    """Target estimand.
 
+    For identification need to specify `u_lo` and `u_hi` if type is late.
+    If in addition `u_lo_extra` and `u_hi_extra` are specified, they are added (hi) or
+    subtracted (lo) to `u_hi` and `u_lo' internally.
+
+    For estimation, if late is specified, only `u_lo_extra' and/or `u_hi_extra` may be
+    provided. In this case, `u_lo' and `u_hi` are estimated from the data.
+
+    """
+
+    # TODO(@buddejul): Unexpected results when both u_hi and u_hi_extra are specified
+    # for identification.
     esttype: str
     u_lo: float | None = None
     u_hi: float | None = None
@@ -159,12 +170,15 @@ class PyvmteResult(NamedTuple):
     procedure: str
     lower_bound: float
     upper_bound: float
+    target: Estimand
+    identified_estimands: list[Estimand]
     basis_funcs: list[dict]
     method: str
     lp_api: str
     lower_optres: OptimizeResult
     upper_optres: OptimizeResult
     lp_inputs: dict
+    restrictions: dict
     est_u_partition: np.ndarray | None = None
     est_beta_hat: np.ndarray | None = None
     first_minimal_deviations: float | None = None

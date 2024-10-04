@@ -337,12 +337,19 @@ def test_simple_model_identification(
                 procedure="identification",
                 lower_bound=np.nan,
                 upper_bound=np.nan,
+                target=target,
+                identified_estimands=identified,
                 basis_funcs=bfuncs,
                 method="highs",
                 lp_api="scipy",
                 lower_optres=None,
                 upper_optres=None,
                 lp_inputs=None,  # type: ignore[arg-type]
+                restrictions={
+                    "shape_constraints": shape_restriction,
+                    "mte_monotone": mte_monotone,
+                    "monotone_response": monotone_response,
+                },
             )
 
         results.append(res)

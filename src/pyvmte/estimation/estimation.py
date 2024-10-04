@@ -209,6 +209,8 @@ def estimation(
         procedure="estimation",
         lower_bound=results_second_step["lower_bound"],
         upper_bound=results_second_step["upper_bound"],
+        target=target,
+        identified_estimands=identified_estimands,
         basis_funcs=basis_funcs,
         method=method,
         lp_api="coptpy" if method == "copt" else "scipy",
@@ -224,6 +226,11 @@ def estimation(
         first_minimal_deviations=results_first_step["minimal_deviations"],
         first_lp_inputs=results_first_step["inputs"],
         first_optres=results_first_step["scipy_return"] if method != "copt" else None,
+        restrictions={
+            "shape_constraints": shape_constraints,
+            "mte_monotone": mte_monotone,
+            "monotone_response": monotone_response,
+        },
     )
 
 

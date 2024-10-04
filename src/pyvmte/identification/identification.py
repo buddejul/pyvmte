@@ -1,6 +1,7 @@
 """Function for identification."""
 
 from collections.abc import Callable
+from dataclasses import replace
 from functools import partial
 
 import coptpy as cp  # type: ignore
@@ -95,6 +96,15 @@ def identification(
         method=method,
     )
 
+    # Check if estimand has a u_hi_extra attribute; if so add to u_hi and delete
+    if target.u_hi_extra is not None and target.u_hi is not None:
+        target = replace(target, u_hi=target.u_hi + target.u_hi_extra)
+        target = replace(target, u_hi_extra=None)
+
+    if target.u_lo_extra is not None and target.u_lo is not None:
+        target = replace(target, u_lo=target.u_lo - target.u_lo_extra)
+        target = replace(target, u_lo_extra=None)
+
     # ==================================================================================
     # Generate linear program inputs
     # ==================================================================================
@@ -140,12 +150,19 @@ def identification(
         procedure="identification",
         lower_bound=lower_res.fun if method == "highs" else lower_res,
         upper_bound=(-1) * upper_res.fun if method == "highs" else (-1) * upper_res,
+        target=target,
+        identified_estimands=identified_estimands,
         basis_funcs=basis_funcs,
         method=method,
         lp_api="coptpy" if method == "copt" else "scipy",
         lower_optres=lower_res,
         upper_optres=upper_res,
         lp_inputs=lp_inputs,
+        restrictions={
+            "shape_constraints": shape_constraints,
+            "mte_monotone": mte_monotone,
+            "monotone_response": monotone_response,
+        },
     )
 
 
