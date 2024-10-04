@@ -20,7 +20,7 @@ from pyvmte.estimation.estimation import (
     estimation,
 )
 from pyvmte.identification import identification
-from pyvmte.solutions import no_solution_region
+from pyvmte.solutions import draw_valid_simple_model_params, no_solution_region
 from pyvmte.utilities import (
     generate_constant_splines_basis_funcs,
     simulate_data_from_paper_dgp,
@@ -189,27 +189,9 @@ def test_second_step_lp_a_ub_matrix_paper_figures_v2(  # noqa: PLR0915
         # FIXME(@buddejul): This will not work for the ATE.
         u_partition_id = np.array([0, pscore_lo, pscore_hi, pscore_hi + u_hi_extra, 1])
 
-        # Draw a random point in the parameter space until in the solution region.
-        # Otherwise the simulation will probably fail if tuning parameters are not
-        # chosen carefully.
-        (
-            y1_at,
-            y1_c,
-            y1_nt,
-            y0_at,
-            y0_c,
-            y0_nt,
-        ) = RNG.uniform(size=6)
-
-        while _no_sol(y1_at=y1_at, y1_c=y1_c, y0_c=y0_c, y0_nt=y0_nt) is True:
-            (
-                y1_at,
-                y1_c,
-                y1_nt,
-                y0_at,
-                y0_c,
-                y0_nt,
-            ) = RNG.uniform(size=6)
+        y1_at, y1_c, y1_nt, y0_at, y0_c, y0_nt = draw_valid_simple_model_params(
+            no_solution_region=_no_sol,
+        )
 
         dgp_params = {
             "y1_at": y1_at,

@@ -5,6 +5,8 @@ from functools import partial
 
 import numpy as np
 
+from pyvmte.config import RNG
+
 
 def solution_simple_model(
     id_set: str,
@@ -403,7 +405,7 @@ def _sol_lo_idlate_monotone_response_negative(
 # Functions to indicate region of no solution
 # --------------------------------------------------------------------------------------
 # TODO(@buddejul): Check we cover all cases here.
-def no_solution_region(
+def no_solution_region(  # noqa: PLR0911
     id_set: str,
     shape_restrictions: tuple[str, str] | None = None,
     monotone_response: str | None = None,
@@ -423,21 +425,37 @@ def no_solution_region(
                 _no_solution_sharp_monotone_response,
                 monotone_response=monotone_response,
             )
-
         if mts is not None:
             return partial(
                 _no_solution_sharp_mts,
                 mts=mts,
             )
 
-    if id_set == "idlate":
-        if monotone_response is not None:
-            return partial(_no_solution_nonsharp_monotone_response, monotone_response)
+        return _no_solution_sharp
 
-        return _no_solution_nonsharp
+    if id_set == "idlate":
+        if shape_restrictions is not None:
+            return partial(
+                _no_solution_idlate_shape,
+                shape_restrictions=shape_restrictions,
+            )
+        if monotone_response is not None:
+            return partial(
+                _no_solution_idlate_monotone_response,
+                monotone_response=monotone_response,
+            )
+        if mts is not None:
+            return partial(_no_solution_idlate_mts, mts=mts)
+
+        return _no_solution_idlate
 
     msg = "Invalid id_set or no function found."
     raise ValueError(msg)
+
+
+def _no_solution_sharp(y1_at, y1_c, y0_c, y0_nt):
+    """Without any restrictions on MTR function the model always has a solution."""
+    return False
 
 
 def _no_solution_sharp_shape(shape_restrictions, y1_at, y1_c, y0_c, y0_nt):
@@ -464,19 +482,36 @@ def _no_solution_sharp_monotone_response(monotone_response, y1_at, y1_c, y0_c, y
     return None
 
 
-def _no_solution_sharp_mts(mts, y1_at, y0_at, y1_c, y0_c, y0_nt):
-    # Initial thought:
-    # Only the complier treatment effect is identified, so we have solutions everywhere.
-    # This is false, for example: If the complier ATE is 1 but the AT y1 < 1, their
-    # treatment effect needs to be smaller.
+def _no_solution_sharp_mts(mts, y1_at, y1_c, y0_c, y0_nt):
+    """No solution region for sharp ID set in the simple model with MTS.
+
+    Decreasing MTE function (positive MTS):
+    - beta_late needs to be smaller than the largest possible always-taker treatment
+        effect which is y1_at - 0.
+    - beta_late needs to be larger than the smallest possible never-taker treatment
+        effect which is 0 - y0_nt.
+
+    Increasing MTE function (negative MTS):
+    - beta_late >= y1_at - 1 (smallest possible always-taker treatment effect).
+    - beta_late <= 1 - y0_nt (largest possible never-taker treatment effect).
+
+    """
+    _b_late = y1_c - y0_c
+    if mts == "decreasing":
+        return np.logical_or(_b_late > y1_at - 0, _b_late < 0 - y0_nt)
+    if mts == "increasing":
+        return np.logical_or(_b_late < y1_at - 1, _b_late > 1 - y0_nt)
+
+    msg = "MTS needs to be either 'increasing' or 'decreasing'."
+    raise ValueError(msg)
+
+
+def _no_solution_idlate(y1_at, y1_c, y0_c, y0_nt):
+    """No solution to non-sharp ID set in simple model without any restrictions."""
     return False
 
 
-def _no_solution_nonsharp(y1_at, y1_c, y0_c, y0_nt):
-    return False
-
-
-def _no_solution_nonsharp_monotone_response(
+def _no_solution_idlate_monotone_response(
     monotone_response,
     y1_at,
     y1_c,
@@ -488,3 +523,59 @@ def _no_solution_nonsharp_monotone_response(
     if monotone_response == "negative":
         return y1_c - y0_c >= 0
     return None
+
+
+def _no_solution_idlate_shape(shape_restrictions, y1_at, y1_c, y0_c, y0_nt):
+    """No-solution region non-sharp ID set in simple model with in/decreasing MTRs.
+
+    Note if only the complier LATE is used for identification, y1_at and y0_nt are not
+    used to put restrictions on the model, hence the no-solution region is empty. For
+    example, a trivial feasible solution is that all MTR functions are equivalent. This
+    cannot be rejected by the data since no information on y1_at and y0_nt is used.
+
+    """
+    if shape_restrictions == ("decreasing", "decreasing"):
+        return False
+    if shape_restrictions == ("increasing", "increasing"):
+        return False
+
+    msg = f"Invalid shape_restrictions: {shape_restrictions}."
+    raise ValueError(msg)
+
+
+def _no_solution_idlate_mts(mts, y1_at, y1_c, y0_c, y0_nt):
+    """No solution region for non-sharp ID set in the simple model with MTS.
+
+    Only information on the complier LATE is used. Hence there are no restrictions.
+
+    """
+    if mts == "decreasing":
+        return False
+    if mts == "increasing":
+        return False
+
+    msg = f"Invalid mts: {mts}."
+    raise ValueError(msg)
+
+
+# --------------------------------------------------------------------------------------
+# Other helper function
+# --------------------------------------------------------------------------------------
+
+
+def draw_valid_simple_model_params(no_solution_region: Callable) -> tuple:
+    """Draw parameters for the simple model inside the solution region."""
+    while True:
+        (
+            y1_at,
+            y1_c,
+            y1_nt,
+            y0_at,
+            y0_c,
+            y0_nt,
+        ) = RNG.uniform(size=6)
+
+        if not no_solution_region(y1_at=y1_at, y1_c=y1_c, y0_c=y0_c, y0_nt=y0_nt):
+            break
+
+    return y1_at, y1_c, y1_nt, y0_at, y0_c, y0_nt

@@ -10,6 +10,7 @@ from pyvmte.classes import (  # type: ignore[import-untyped]
 from pyvmte.config import RNG
 from pyvmte.simulation.simulation_funcs import monte_carlo_pyvmte
 from pyvmte.solutions import (
+    draw_valid_simple_model_params,
     no_solution_region,
     solution_simple_model,
 )
@@ -180,27 +181,9 @@ def test_simple_model_estimation(
 
     w = (pscore_hi - pscore_lo) / (pscore_hi - pscore_lo + u_hi)
 
-    # Draw a random point in the parameter space until in the solution region.
-    # Otherwise the simulation will probably fail if tuning parameters are not chosen
-    # carefully.
-    (
-        y1_at,
-        y1_c,
-        y1_nt,
-        y0_at,
-        y0_c,
-        y0_nt,
-    ) = RNG.uniform(size=6)
-
-    while _no_sol(y1_at=y1_at, y1_c=y1_c, y0_c=y0_c, y0_nt=y0_nt) is True:
-        (
-            y1_at,
-            y1_c,
-            y1_nt,
-            y0_at,
-            y0_c,
-            y0_nt,
-        ) = RNG.uniform(size=6)
+    y1_at, y1_c, y1_nt, y0_at, y0_c, y0_nt = draw_valid_simple_model_params(
+        no_solution_region=_no_sol,
+    )
 
     dgp_params = {
         "y1_at": y1_at,
