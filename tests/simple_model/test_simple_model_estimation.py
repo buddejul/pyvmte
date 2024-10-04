@@ -20,11 +20,13 @@ from pyvmte.utilities import (
 )
 
 sample_size = 10_000
-repetitions = 500
+repetitions = 1_000
 
 # --------------------------------------------------------------------------------------
 # Preliminary settings
 # --------------------------------------------------------------------------------------
+k_bernstein = 9
+
 num_gridpoints = 1
 
 u_hi_late = 0.2
@@ -48,6 +50,51 @@ instrument = Instrument(
     pscores=np.array([pscore_lo, pscore_hi]),
 )
 
+# --------------------------------------------------------------------------------------
+# Generate list of parametrizations
+# --------------------------------------------------------------------------------------
+
+# Define common parameters
+basis_functions = ["constant"]
+identified_sets = ["idlate", "sharp"]
+restrictions = [
+    None,
+    ("decreasing", "decreasing"),
+    "decreasing",
+    "increasing",
+    "positive",
+    "negative",
+]
+
+# Generate parameter sets
+parametrizations = []
+
+for basis in basis_functions:
+    for ident_set in identified_sets:
+        if ident_set == "idlate":
+            u_hi_values = [u_hi_late]
+        else:
+            u_hi_values = [u_hi_late, 1 - pscore_hi]
+
+        for u_hi in u_hi_values:
+            # No shape constraints
+            parametrizations.append((ident_set, u_hi, basis, None, None, None))
+
+            # Monotone constraints
+            for constraint in restrictions:
+                if isinstance(constraint, tuple):
+                    parametrizations.append(
+                        (ident_set, u_hi, basis, constraint, None, None),  # type: ignore[arg-type]
+                    )
+                elif constraint in ["decreasing", "increasing"]:
+                    parametrizations.append(
+                        (ident_set, u_hi, basis, None, constraint, None),  # type: ignore[arg-type]
+                    )
+                elif constraint in ["positive", "negative"]:
+                    parametrizations.append(
+                        (ident_set, u_hi, basis, None, None, constraint),  # type: ignore[arg-type]
+                    )
+
 
 # --------------------------------------------------------------------------------------
 # Tests
@@ -55,154 +102,16 @@ instrument = Instrument(
 @pytest.mark.parametrize(
     (
         "id_set",
-        "target_type",
         "u_hi",
         "bfunc_type",
         "shape_restriction",
         "mte_monotone",
         "monotone_response",
     ),
-    [
-        # LATE-based identified set, extrapolate to LATE
-        (
-            "idlate",
-            "late",
-            u_hi_late,
-            "constant",
-            None,
-            None,
-            None,
-        ),
-        (
-            "idlate",
-            "late",
-            u_hi_late,
-            "constant",
-            ("decreasing", "decreasing"),
-            None,
-            None,
-        ),
-        # LATE-based identified set, monotone treatment selection
-        (
-            "idlate",
-            "late",
-            u_hi_late,
-            "constant",
-            None,
-            "decreasing",
-            None,
-        ),
-        (
-            "idlate",
-            "late",
-            u_hi_late,
-            "constant",
-            None,
-            "increasing",
-            None,
-        ),
-        # LATE-based identified set, monotone treatment selection
-        (
-            "idlate",
-            "late",
-            u_hi_late,
-            "constant",
-            None,
-            None,
-            "positive",
-        ),
-        (
-            "idlate",
-            "late",
-            u_hi_late,
-            "constant",
-            None,
-            None,
-            "negative",
-        ),
-        # Sharp identified set, extrapolate to LATE, no shape constraints
-        (
-            "sharp",
-            "late",
-            u_hi_late,
-            "constant",
-            None,
-            None,
-            None,
-        ),
-        (
-            "sharp",
-            "ate",
-            1 - pscore_hi,
-            "constant",
-            None,
-            None,
-            None,
-        ),
-        # Sharp identified set, extrapolate to ATE
-        # TODO(@buddejul): This is not really ATE, rather LATE up to 1.
-        (
-            "sharp",
-            "ate",
-            1 - pscore_hi,
-            "constant",
-            ("decreasing", "decreasing"),
-            None,
-            None,
-        ),
-        # Sharp identified set, extrapolate to LATE
-        (
-            "sharp",
-            "late",
-            u_hi_late,
-            "constant",
-            ("decreasing", "decreasing"),
-            None,
-            None,
-        ),
-        # Sharp with monotone treatment selection
-        (
-            "sharp",
-            "late",
-            u_hi_late,
-            "constant",
-            None,
-            "decreasing",
-            None,
-        ),
-        (
-            "sharp",
-            "late",
-            u_hi_late,
-            "constant",
-            None,
-            "increasing",
-            None,
-        ),
-        # Sharp with monotone response
-        (
-            "sharp",
-            "late",
-            u_hi_late,
-            "constant",
-            None,
-            None,
-            "positive",
-        ),
-        (
-            "sharp",
-            "late",
-            u_hi_late,
-            "constant",
-            None,
-            None,
-            "negative",
-        ),
-    ],
+    parametrizations,
 )
 def test_simple_model_estimation(
     id_set: str,
-    target_type: str,
     u_hi: float,
     bfunc_type: str,
     shape_restriction: tuple[str, str],
@@ -259,7 +168,7 @@ def test_simple_model_estimation(
     if bfunc_type == "constant":
         basis_funcs = generate_constant_splines_basis_funcs(u_partition=u_partition)
     elif bfunc_type == "bernstein":
-        basis_funcs = generate_bernstein_basis_funcs(k=9)
+        basis_funcs = generate_bernstein_basis_funcs(k=k_bernstein)
 
     def _at(u: float) -> bool | np.ndarray:
         return np.where(u <= pscore_lo, 1, 0)
