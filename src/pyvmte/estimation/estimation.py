@@ -1,5 +1,6 @@
 """Function for estimation."""
 
+from dataclasses import replace
 from functools import partial
 from itertools import pairwise
 
@@ -116,6 +117,11 @@ def estimation(
     # TODO(@buddejul): Should be more flexible here with specifying the propensity
     # scores values/corresponding instrument values. Standard is to assume binary.
     # But could have instruments with larger support and this would fail.
+
+    # If confidence interval is specified, create a copy of target for bootstrapping.
+    if confidence_interval is not None:
+        target_as_inputted = replace(target)
+
     if target.esttype == "late":
         if target.u_lo is None:
             target.u_lo = (
@@ -152,6 +158,11 @@ def estimation(
     )
 
     # Now do the same for identified estimands.
+    if confidence_interval is not None:
+        identified_estimands_as_inputted = [
+            replace(est) for est in identified_estimands
+        ]
+
     for id_estimand in identified_estimands:
         if id_estimand.esttype == "late":
             if id_estimand.u_lo is None:
@@ -221,14 +232,13 @@ def estimation(
 
     if confidence_interval is not None:
         ci_lower, ci_upper = _compute_confidence_interval(
-            target=target,
-            identified_estimands=identified_estimands,
+            target=target_as_inputted,
+            identified_estimands=identified_estimands_as_inputted,
             basis_func_type=basis_func_type,
             y_data=y_data,
             z_data=z_data,
             d_data=d_data,
             tolerance=tolerance,
-            u_partition=u_partition,
             shape_constraints=shape_constraints,
             mte_monotone=mte_monotone,
             monotone_response=monotone_response,
@@ -1141,21 +1151,20 @@ def _check_estimation_arguments(
 
 def _compute_confidence_interval(
     target: Estimand,
+    confidence_interval: str | None,
     identified_estimands: list[Estimand],
     basis_func_type: str,
     y_data: np.ndarray,
     z_data: np.ndarray,
     d_data: np.ndarray,
     tolerance: float | None = None,
-    u_partition: np.ndarray | None = None,
     shape_constraints: tuple[str, str] | None = None,
     mte_monotone: str | None = None,
     monotone_response: str | None = None,
     method: str = "highs",
     basis_func_options: dict | None = None,
-    confidence_interval: str | None = None,
     alpha: float = 0.05,
-    n_boot: int = 10,
+    n_boot: int = 2_000,
 ) -> tuple[float, float]:
     """Compute confidence interval for the target parameter."""
     if confidence_interval != "bootstrap":
@@ -1179,18 +1188,19 @@ def _compute_confidence_interval(
             z_data=_boot_z,
             d_data=_boot_d,
             tolerance=tolerance,
-            u_partition=u_partition,
+            u_partition=None,  # needs to be re-estimated
             shape_constraints=shape_constraints,
             mte_monotone=mte_monotone,
             monotone_response=monotone_response,
             method=method,
             basis_func_options=basis_func_options,
-            confidence_interval=None,
+            confidence_interval=None,  # to avoid infinite recursion
         )
 
         boot_lower_bounds[i] = _res.lower_bound
         boot_upper_bounds[i] = _res.upper_bound
 
-    return float(np.quantile(boot_lower_bounds, alpha / 2)), float(
-        np.quantile(boot_upper_bounds, 1 - alpha / 2),
+    # TODO(@buddejul): Do we need to recenter?
+    return float(np.quantile(boot_lower_bounds, alpha)), float(
+        np.quantile(boot_upper_bounds, 1 - alpha),
     )
