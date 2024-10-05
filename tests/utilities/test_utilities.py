@@ -110,7 +110,6 @@ def test_plot_solution() -> None:
         instrument=IV_MST,
         u_partition=U_PART_MST,
         shape_constraints=shape_constraints,
-        debug=True,
     )
 
     modes_to_test = ["both", "lower", "upper"]

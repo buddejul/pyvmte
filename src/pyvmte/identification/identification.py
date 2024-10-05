@@ -1,6 +1,7 @@
 """Function for identification."""
 
 from collections.abc import Callable
+from dataclasses import replace
 from functools import partial
 
 import coptpy as cp  # type: ignore
@@ -18,6 +19,8 @@ from pyvmte.utilities import (
     _error_report_estimand,
     _error_report_instrument,
     _error_report_method,
+    _error_report_monotone_response,
+    _error_report_mte_monotone,
     _error_report_mtr_function,
     _error_report_shape_constraints,
     _error_report_u_partition,
@@ -38,8 +41,9 @@ def identification(
     instrument: Instrument,
     u_partition: np.ndarray,
     shape_constraints: tuple[str, str] | None = None,
+    mte_monotone: str | None = None,
+    monotone_response: str | None = None,
     method: str = "highs",
-    debug: bool = False,  # noqa: FBT001, FBT002
 ):
     """Compute bounds on target estimand given identified estimands and DGP.
 
@@ -56,6 +60,10 @@ def identification(
         u_partition (list or np.array): Partition of u for basis_funcs.
             Defaults to None.
         shape_constraints: Shape constraints for the MTR functions.
+        mte_monotone: Shape constraint for the MTE, either "increasing" or "decreasing".
+            Defaults to None. Corresponds to monotone treatment selection.
+        monotone_response: Whether the treatment response is monotone.
+            Defaults to None, allowed are "positive" and "negative".
         method (str, optional): Method for solving the linear program.
             Implemented are: all methods supported by scipy.linprog as well as copt.
             Defaults to "highs" using scipy.linprog.
@@ -75,16 +83,27 @@ def identification(
         basis_funcs = [basis_funcs]
 
     _check_identification_arguments(
-        target,
-        identified_estimands,
-        basis_funcs,
-        m0_dgp,
-        m1_dgp,
-        instrument,
-        u_partition,
-        shape_constraints,
-        method,
+        target=target,
+        identified_estimands=identified_estimands,
+        basis_funcs=basis_funcs,
+        m0_dgp=m0_dgp,
+        m1_dgp=m1_dgp,
+        instrument=instrument,
+        u_partition=u_partition,
+        shape_constraints=shape_constraints,
+        mte_monotone=mte_monotone,
+        monotone_response=monotone_response,
+        method=method,
     )
+
+    # Check if estimand has a u_hi_extra attribute; if so add to u_hi and delete
+    if target.u_hi_extra is not None and target.u_hi is not None:
+        target = replace(target, u_hi=target.u_hi + target.u_hi_extra)
+        target = replace(target, u_hi_extra=None)
+
+    if target.u_lo_extra is not None and target.u_lo is not None:
+        target = replace(target, u_lo=target.u_lo - target.u_lo_extra)
+        target = replace(target, u_lo_extra=None)
 
     # ==================================================================================
     # Generate linear program inputs
@@ -106,14 +125,18 @@ def identification(
         instrument=instrument,
     )
 
-    if shape_constraints is not None:
+    if any([shape_constraints, mte_monotone, monotone_response]):
         lp_inputs["a_ub"] = _compute_inequality_constraint_matrix(
             shape_constraints=shape_constraints,
             n_basis_funcs=len(basis_funcs),
+            mte_monotone=mte_monotone,
+            monotone_response=monotone_response,
         )
         lp_inputs["b_ub"] = _compute_inequality_upper_bounds(
             shape_constraints=shape_constraints,
             n_basis_funcs=len(basis_funcs),
+            mte_monotone=mte_monotone,
+            monotone_response=monotone_response,
         )
 
     # ==================================================================================
@@ -123,16 +146,39 @@ def identification(
     lower_res = _solve_lp(lp_inputs, "min", method=method)
     upper_res = _solve_lp(lp_inputs, "max", method=method)
 
+    if method == "copt":
+        _success_lo = lower_res["success"]
+        _success_hi = upper_res["success"]
+    else:
+        _success_lo = lower_res.success
+        _success_hi = upper_res.success
+
     return PyvmteResult(
         procedure="identification",
-        lower_bound=lower_res.fun if method == "highs" else lower_res,
-        upper_bound=(-1) * upper_res.fun if method == "highs" else (-1) * upper_res,
+        success=(_success_lo, _success_hi),
+        lower_bound=(
+            (lower_res.fun if method == "highs" else lower_res["fun"])
+            if _success_lo
+            else np.nan
+        ),
+        upper_bound=(
+            ((-1) * upper_res.fun if method == "highs" else (-1) * upper_res["fun"])
+            if _success_hi
+            else np.nan
+        ),
+        target=target,
+        identified_estimands=identified_estimands,
         basis_funcs=basis_funcs,
         method=method,
         lp_api="coptpy" if method == "copt" else "scipy",
         lower_optres=lower_res,
         upper_optres=upper_res,
         lp_inputs=lp_inputs,
+        restrictions={
+            "shape_constraints": shape_constraints,
+            "mte_monotone": mte_monotone,
+            "monotone_response": monotone_response,
+        },
     )
 
 
@@ -202,7 +248,6 @@ def _compute_choice_weights(
                     moments=moments,
                 )
                 c.append(weight)
-
     if bfunc_type == "bernstein":
         c = []
         for d in [0, 1]:
@@ -239,6 +284,48 @@ def _compute_equality_constraint_matrix(
 
 
 def _compute_inequality_constraint_matrix(
+    n_basis_funcs: int,
+    shape_constraints: tuple[str, str] | None = None,
+    mte_monotone: str | None = None,
+    monotone_response: str | None = None,
+) -> np.ndarray:
+    """Returns the inequality constraint matrix incorporating shape constraints."""
+    if shape_constraints is not None:
+        _shape_matrix = _ineq_constr_shape_constraints(
+            shape_constraints=shape_constraints,
+            n_basis_funcs=n_basis_funcs,
+        )
+
+    if mte_monotone is not None:
+        _mte_matrix = _ineq_constr_mte_monotone(
+            mte_monotone=mte_monotone,
+            n_basis_funcs=n_basis_funcs,
+        )
+
+    if monotone_response is not None:
+        _monot_resp_matrix = _ineq_constr_monot_response(
+            monotone_response=monotone_response,
+            n_basis_funcs=n_basis_funcs,
+        )
+
+    # Combine all constraints
+    if shape_constraints is None:
+        if mte_monotone is not None and monotone_response is None:
+            return _mte_matrix
+        if mte_monotone is None and monotone_response is not None:
+            return _monot_resp_matrix
+        return np.vstack((_mte_matrix, _monot_resp_matrix))
+
+    matrices = [_shape_matrix]
+    if mte_monotone is not None:
+        matrices.append(_mte_matrix)
+    if monotone_response is not None:
+        matrices.append(_monot_resp_matrix)
+
+    return np.vstack(matrices)
+
+
+def _ineq_constr_shape_constraints(
     shape_constraints: tuple[str, str],
     n_basis_funcs: int,
 ) -> np.ndarray:
@@ -262,11 +349,53 @@ def _compute_inequality_constraint_matrix(
     raise ValueError(msg)
 
 
-def _compute_inequality_upper_bounds(
-    shape_constraints: tuple[str, str],
+def _ineq_constr_mte_monotone(mte_monotone: str, n_basis_funcs: int) -> np.ndarray:
+    a = np.eye(n_basis_funcs) - np.eye(n_basis_funcs, k=1)
+    a = a[:-1, :]
+    a = np.hstack((a, -a))
+
+    if mte_monotone == "decreasing":
+        return a
+    if mte_monotone == "increasing":
+        return -a
+
+    msg = f"Invalid MTE monotonicity constraint: {mte_monotone}."
+    raise ValueError(msg)
+
+
+def _ineq_constr_monot_response(
+    monotone_response: str,
     n_basis_funcs: int,
 ) -> np.ndarray:
-    return np.zeros(2 * n_basis_funcs - 2)
+    a = np.hstack((np.eye(n_basis_funcs), -np.eye(n_basis_funcs)))
+
+    if monotone_response == "positive":
+        return a
+    if monotone_response == "negative":
+        return -a
+
+    msg = f"Invalid monotone response constraint: {monotone_response}."
+    raise ValueError(msg)
+
+
+def _compute_inequality_upper_bounds(
+    n_basis_funcs: int,
+    shape_constraints: tuple[str, str] | None = None,
+    mte_monotone: str | None = None,
+    monotone_response: str | None = None,
+) -> np.ndarray:
+    n_constr = 0
+
+    if shape_constraints is not None:
+        n_constr += 2 * (n_basis_funcs - 1)
+
+    if mte_monotone is not None:
+        n_constr += n_basis_funcs - 1
+
+    if monotone_response is not None:
+        n_constr += n_basis_funcs
+
+    return np.zeros(n_constr)
 
 
 def _solve_lp(
@@ -348,7 +477,7 @@ def _solve_lp_copt(
     b_eq: np.ndarray,
     a_ub: np.ndarray | None = None,
     b_ub: np.ndarray | None = None,
-) -> float:
+) -> dict:
     """Wrapper for solving LP using copt algorithm."""
     env = cp.Envr()
     model = env.createModel("identification")
@@ -360,10 +489,9 @@ def _solve_lp_copt(
 
     model.solveLP()
 
-    if model.status != COPT.OPTIMAL:
-        msg = "LP not solved to optimality by copt."
-        raise ValueError(msg)
-    return model.objval
+    success = model.status == COPT.OPTIMAL
+
+    return {"fun": model.objval, "success": success}
 
 
 def _gamma_star(
@@ -652,17 +780,19 @@ def _check_identification_arguments(
     instrument,
     u_partition,
     shape_constraints,
+    mte_monotone,
+    monotone_response,
     method,
 ):
     """Check identification arguments.
 
-    Fail and comprehensive report if invalid.
+    Fail and return comprehensive report if invalid.
 
     """
     error_report = ""
-    error_report += _error_report_estimand(target)
+    error_report += _error_report_estimand(target, mode="identification")
     for ident in identified_estimands:
-        error_report += _error_report_estimand(ident)
+        error_report += _error_report_estimand(ident, mode="identification")
     error_report += _error_report_basis_funcs(basis_funcs)
     error_report += _error_report_mtr_function(m0_dgp)
     error_report += _error_report_mtr_function(m1_dgp)
@@ -670,6 +800,8 @@ def _check_identification_arguments(
     error_report += _error_report_u_partition(u_partition)
     error_report += _error_report_method(method)
     error_report += _error_report_shape_constraints(shape_constraints)
+    error_report += _error_report_mte_monotone(mte_monotone)
+    error_report += _error_report_monotone_response(monotone_response)
 
     if error_report:
         raise ValueError(error_report)

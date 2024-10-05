@@ -28,5 +28,5 @@ bld/
 
 *.ipynb
 
-# data
+# datasets
 *.csv

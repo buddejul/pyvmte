@@ -17,10 +17,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # os: [ubuntu-latest, macos-latest, windows-latest]
-        # Run tests only on windows for now, since
-        # kaleido==0.1.0.post1 is not available for ubuntu or macos.
-        os: [windows-latest]
+        # Exclude windows for now since CI is not working.
+        os: [ubuntu-latest, macos-latest]
         python-version: ['3.12']
     steps:
       - uses: actions/checkout@v4

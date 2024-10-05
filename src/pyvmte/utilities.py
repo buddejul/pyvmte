@@ -74,12 +74,23 @@ def s_cross(d, z, dz_cross):
     return 1 if d == dz_cross[0] and z == dz_cross[1] else 0
 
 
+def estimate_late(y: np.ndarray, d: np.ndarray, z: np.ndarray):
+    """Estimate a LATE using the Wald estimator."""
+    yz1 = y[z == 1].mean()
+    yz0 = y[z == 0].mean()
+
+    dz1 = d[z == 1].mean()
+    dz0 = d[z == 0].mean()
+
+    return (yz1 - yz0) / (dz1 - dz0)
+
+
 def bern_bas(n, v, x):
     """Bernstein polynomial basis of degree n and index v at point x."""
     return math.comb(n, v) * x**v * (1 - x) ** (n - v)
 
 
-def simulate_data_from_paper_dgp(sample_size, rng):
+def simulate_data_from_paper_dgp(sample_size, rng: np.random.Generator):
     """Simulate data using the dgp from MST 2018 ECMA.
 
     Args:
@@ -125,6 +136,77 @@ def simulate_data_from_paper_dgp(sample_size, rng):
     return {"z": z, "d": d, "y": y, "u": u}
 
 
+def simulate_data_from_simple_model_dgp(
+    sample_size,
+    rng: np.random.Generator,
+    dgp_params: dict,
+):
+    """Simulate data for the simple model.
+
+    Args:
+        sample_size (int): The number of observations in the sample.
+        rng (np.random.Generator): The random number generator.
+        dgp_params (dict): The parameters of the data generating process.
+
+    Returns:
+        dict: A dictionary containing the simulated data.
+
+    """
+    data = pd.DataFrame()
+
+    pscore_lo = 0.4
+    pscore_hi = 0.6
+
+    support = np.array([0, 1])
+    pmf = np.array([0.5, 0.5])
+    pscores = np.array([pscore_lo, pscore_hi])
+
+    choices = np.hstack([support.reshape(-1, 1), pscores.reshape(-1, 1)])
+
+    # Draw random indices
+    idx = rng.choice(support, size=sample_size, p=pmf)
+
+    data = choices[idx]
+
+    z = np.array(data[:, 0], dtype=int)
+    pscores = data[:, 1]
+
+    u = rng.uniform(size=sample_size)
+    d = u < pscores
+
+    def _at(u: float) -> bool | np.ndarray:
+        return np.where(u <= pscore_lo, 1, 0)
+
+    def _c(u: float) -> bool | np.ndarray:
+        return np.where((pscore_lo <= u) & (u < pscore_hi), 1, 0)
+
+    def _nt(u: float) -> bool | np.ndarray:
+        return np.where(u >= pscore_hi, 1, 0)
+
+    y = np.empty(sample_size)
+    idx = d == 0
+
+    def _m0(u, y0_at, y0_c, y0_nt):
+        return y0_at * _at(u) + y0_c * _c(u) + y0_nt * _nt(u)
+
+    def _m1(u, y1_at, y1_c, y1_nt):
+        return y1_at * _at(u) + y1_c * _c(u) + y1_nt * _nt(u)
+
+    y0_at = dgp_params["y0_at"]
+    y0_c = dgp_params["y0_c"]
+    y0_nt = dgp_params["y0_nt"]
+
+    y1_at = dgp_params["y1_at"]
+    y1_c = dgp_params["y1_c"]
+    y1_nt = dgp_params["y1_nt"]
+
+    y[idx] = _m0(u[idx], y0_at, y0_c, y0_nt) + rng.normal(size=np.sum(idx))
+
+    y[~idx] = _m1(u[~idx], y1_at, y1_c, y1_nt) + rng.normal(size=np.sum(~idx))
+
+    return {"z": z, "d": d, "y": y, "u": u}
+
+
 @contextlib.contextmanager
 def suppress_print():
     """Suppress print statements in context."""
@@ -132,7 +214,7 @@ def suppress_print():
         yield
 
 
-def _error_report_estimand(estimand: Estimand):
+def _error_report_estimand(estimand: Estimand, mode: str):
     """Return error message if estimand is not valid."""
     error_report = ""
     if not isinstance(estimand, Estimand):
@@ -148,12 +230,28 @@ def _error_report_estimand(estimand: Estimand):
                 f"Estimand type cross requires dz_cross to be a tuple. "
                 f"Got {estimand.dz_cross}."
             )
-        if estimand.esttype == "late" and not (
-            isinstance(estimand.u_lo, float | int)
-            and isinstance(estimand.u_hi, float | int)
+        if (
+            estimand.esttype == "late"
+            and not (
+                isinstance(estimand.u_lo, float | int)
+                and isinstance(estimand.u_hi, float | int)
+            )
+            and mode == "identification"
         ):
             error_report += (
-                f"Estimand type late requires u_lo and u_hi to be floats. "
+                f"Estimand type late requires u_lo and u_hi to be float or ints. "
+                f"Got {estimand.u_lo} and {estimand.u_hi}."
+            )
+        if (
+            estimand.esttype == "late"
+            and not (
+                isinstance(estimand.u_lo, float | int | None)
+                and isinstance(estimand.u_hi, float | int | None)
+            )
+            and mode == "estimation"
+        ):
+            error_report += (
+                f"Estimand type late requires u_lo and u_hi to be float, ints or None. "
                 f"Got {estimand.u_lo} and {estimand.u_hi}."
             )
         if (
@@ -186,7 +284,9 @@ def _error_report_invalid_basis_func_type(basis_func_type):
 def _error_report_missing_basis_func_options(basis_func_type, basis_func_options):
     """Return error message if options are missing for a basis_func_type."""
     error_report = ""
-    if basis_func_type == "bernstein" and "k_degree" not in basis_func_options:
+    if basis_func_type == "bernstein" and (
+        basis_func_options is None or "k_degree" not in basis_func_options
+    ):
         error_report += (
             "Option 'k_degree' is missing for basis function type 'bernstein'."
         )
@@ -382,6 +482,38 @@ def generate_bernstein_basis_funcs(k: int) -> list[dict]:
         basis_funcs.append(basis_func)
 
     return basis_funcs
+
+
+def _error_report_mte_monotone(mte_monotone: str | None) -> str:
+    """Return error message if mte_monotone argument is not valid."""
+    error_report = ""
+    if mte_monotone is None:
+        return error_report
+
+    _valid_args = ["increasing", "decreasing"]
+
+    if mte_monotone not in _valid_args:
+        error_report += (
+            f"MTE monotonicity {mte_monotone} is not valid. "
+            f"Only {_valid_args} are valid options."
+        )
+    return error_report
+
+
+def _error_report_monotone_response(monotone_response) -> str:
+    """Return error message if monotone_response argument is not valid."""
+    error_report = ""
+    if monotone_response is None:
+        return error_report
+
+    _valid_arguments = ["positive", "negative"]
+
+    if monotone_response not in _valid_arguments:
+        error_report += (
+            f"Monotone response {monotone_response} is not valid. "
+            f"Only {_valid_arguments} are valid arguments."
+        )
+    return error_report
 
 
 def generate_constant_splines_basis_funcs(u_partition: np.ndarray) -> list[dict]:

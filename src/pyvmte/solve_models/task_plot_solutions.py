@@ -73,7 +73,6 @@ def solve_and_plot(k: int, setup, lower_or_upper: str) -> go.Figure:
         instrument=IV_MST,
         u_partition=U_PART_MST,
         shape_constraints=setup.shape_constraints,
-        debug=True,
     )[lower_or_upper]
 
     bounds = res.fun

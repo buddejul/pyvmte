@@ -112,3 +112,27 @@ PARAMS_MST = {
     "late": 0.046,
     "iv_slope": 0.074,
 }
+
+
+SETUP_SM_IDLATE = Setup(
+    target=Estimand(esttype="late"),
+    identified_estimands=[Estimand(esttype="late", u_lo=0.4, u_hi=0.6)],
+    lower_bound=np.nan,
+    upper_bound=np.nan,
+)
+
+SETUP_SM_SHARP = Setup(
+    target=Estimand(esttype="late"),
+    identified_estimands=[
+        Estimand(esttype="cross", dz_cross=(d, z)) for d in [0, 1] for z in [0, 1]
+    ],
+    lower_bound=np.nan,
+    upper_bound=np.nan,
+)
+
+
+IV_SM = Instrument(
+    support=np.array([0, 1]),
+    pmf=np.array([0.5, 0.5]),
+    pscores=np.array([0.4, 0.6]),
+)

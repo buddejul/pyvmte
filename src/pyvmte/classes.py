@@ -12,12 +12,25 @@ from scipy.optimize import OptimizeResult  # type: ignore[import-untyped]
 
 @dataclass
 class Estimand:
-    """Target estimand."""
+    """Target estimand.
 
+    For identification need to specify `u_lo` and `u_hi` if type is late.
+    If in addition `u_lo_extra` and `u_hi_extra` are specified, they are added (hi) or
+    subtracted (lo) to `u_hi` and `u_lo' internally.
+
+    For estimation, if late is specified, only `u_lo_extra' and/or `u_hi_extra` may be
+    provided. In this case, `u_lo' and `u_hi` are estimated from the data.
+
+    """
+
+    # TODO(@buddejul): Unexpected results when both u_hi and u_hi_extra are specified
+    # for identification.
     esttype: str
     u_lo: float | None = None
     u_hi: float | None = None
     dz_cross: tuple[int, int] | None = None
+    u_lo_extra: float | None = None
+    u_hi_extra: float | None = None
 
 
 @dataclass
@@ -123,8 +136,11 @@ class Bern:
 
         for i, c in enumerate(self.coefs):
             if c != 0:
-                _to_int = partial(self._indef_integral, i=i)
-                out += float(c) * (_to_int(b) - _to_int(a))
+                # TODO(@buddejul): Check this has no performance implications.
+                # If c is array, extract 0 element else take c.
+                _c = c[0] if isinstance(c, np.ndarray) else c
+                _anti_deriv = partial(self._indef_integral, i=i)
+                out += _c * (_anti_deriv(b) - _anti_deriv(a))
 
         return out
 
@@ -136,6 +152,7 @@ class PyvmteResult(NamedTuple):
         procedure: Identification or estimation call.
         lower_bound: Lower bound of the identified set.
         upper_bound: Upper bound of the identified set.
+        basis_funcs: Basis functions used for the identification.
         method: Method to solve the linear program.
         lp_api: API used to solve the linear program.
         lower_optres: Results of the optimization for the lower bound.
@@ -154,14 +171,18 @@ class PyvmteResult(NamedTuple):
     """
 
     procedure: str
-    lower_bound: float
-    upper_bound: float
+    success: tuple[bool, bool]
+    lower_bound: float | None
+    upper_bound: float | None
+    target: Estimand
+    identified_estimands: list[Estimand]
     basis_funcs: list[dict]
     method: str
     lp_api: str
     lower_optres: OptimizeResult
     upper_optres: OptimizeResult
     lp_inputs: dict
+    restrictions: dict
     est_u_partition: np.ndarray | None = None
     est_beta_hat: np.ndarray | None = None
     first_minimal_deviations: float | None = None
