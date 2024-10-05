@@ -459,6 +459,29 @@ def _error_report_shape_constraints(shape_constraints: tuple[str, str] | None) -
     return error_report
 
 
+def _error_report_confidence_interval(confidence_interval: str | None) -> str:
+    error_report = ""
+
+    if confidence_interval is None:
+        return error_report
+
+    if not isinstance(confidence_interval, str):
+        return (
+            f"Confidence interval procedure {confidence_interval} is not None"
+            "but not of type str."
+        )
+
+    _supported_procedures = "bootstrap"
+
+    if confidence_interval not in _supported_procedures:
+        error_report += (
+            f"Confidence interval procedure {confidence_interval} is not valid. "
+            f"Only {_supported_procedures} are valid."
+        )
+
+    return error_report
+
+
 def generate_bernstein_basis_funcs(k: int) -> list[dict]:
     """Generate list containing basis functions of kth-oder Bernstein polynomial.
 

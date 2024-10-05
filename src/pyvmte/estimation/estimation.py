@@ -14,6 +14,7 @@ from scipy.optimize import (  # type: ignore
 from pyvmte.classes import Estimand, Instrument, PyvmteResult
 from pyvmte.identification.identification import _compute_choice_weights
 from pyvmte.utilities import (
+    _error_report_confidence_interval,
     _error_report_estimand,
     _error_report_estimation_data,
     _error_report_invalid_basis_func_type,
@@ -48,6 +49,7 @@ def estimation(
     monotone_response: str | None = None,
     method: str = "highs",
     basis_func_options: dict | None = None,
+    confidence_interval: str | None = None,
 ) -> PyvmteResult:
     """Estimate bounds given target, identified estimands, and data (estimation).
 
@@ -71,6 +73,9 @@ def estimation(
             Defaults to None, allowed are "positive" and "negative".
         method (str, optional): Method for scipy linprog solver. Default highs.
         basis_func_options: Options for basis functions. Default None.
+        confidence_interval: Confidence interval for true parameter. Currently only
+            the non-parametric bootstrap is supported. Default is to not perform any
+            inference.
 
     Returns:
         PyvmteResult: Object containing the results of the estimation procedure.
@@ -93,6 +98,7 @@ def estimation(
         basis_func_options=basis_func_options,
         mte_monotone=mte_monotone,
         monotone_response=monotone_response,
+        confidence_interval=confidence_interval,
     )
 
     # ==================================================================================
@@ -1083,6 +1089,7 @@ def _check_estimation_arguments(
     monotone_response: str | None,
     method: str,
     basis_func_options: dict | None,
+    confidence_interval: str | None,
 ):
     """Check args to estimation func, returns report if there are errors."""
     error_report = ""
@@ -1104,6 +1111,7 @@ def _check_estimation_arguments(
     error_report += _error_report_shape_constraints(shape_constraints)
     error_report += _error_report_mte_monotone(mte_monotone)
     error_report += _error_report_monotone_response(monotone_response)
+    error_report += _error_report_confidence_interval(confidence_interval)
 
     if error_report != "":
         raise ValueError(error_report)
