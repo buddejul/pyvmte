@@ -482,6 +482,37 @@ def _error_report_confidence_interval(confidence_interval: str | None) -> str:
     return error_report
 
 
+def _error_report_confidence_interval_options(
+    confidence_interval: str | None,
+    confidence_interval_options: dict | None,
+) -> str:
+    error_report = ""
+
+    if confidence_interval is None:
+        return error_report
+
+    required_keys = ["n_boot", "alpha"]
+
+    # Check if confidence_interval_options is a dict with required keys
+    # if not, return error message
+    if confidence_interval is not None and confidence_interval_options is None:
+        error_report += (
+            f"Confidence interval options - dict with keys {required_keys} are missing "
+            " for confidence interval procedure "
+            f"{confidence_interval}."
+        )
+
+    if not isinstance(confidence_interval_options, dict) or (
+        not all(key in confidence_interval_options for key in required_keys)
+    ):
+        error_report += (
+            f"Confidence interval options {confidence_interval_options} is not a dict "
+            f"with required keys {required_keys}."
+        )
+
+    return error_report
+
+
 def generate_bernstein_basis_funcs(k: int) -> list[dict]:
     """Generate list containing basis functions of kth-oder Bernstein polynomial.
 

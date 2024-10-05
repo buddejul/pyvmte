@@ -7,6 +7,14 @@ from pyvmte.config import RNG
 from pyvmte.estimation import estimation
 from pyvmte.utilities import simulate_data_from_simple_model_dgp
 
+# --------------------------------------------------------------------------------------
+# Parameters for tests
+# --------------------------------------------------------------------------------------
+alpha = 0.05
+n_boot = 100
+sample_size = 1_000
+num_sims = 100
+
 
 @pytest.fixture()
 def dgp_params():
@@ -23,7 +31,7 @@ def dgp_params():
 @pytest.fixture()
 def estimation_setup(dgp_params):
     data = simulate_data_from_simple_model_dgp(
-        sample_size=10_000,
+        sample_size=sample_size,
         rng=RNG,
         dgp_params=dgp_params,
     )
@@ -39,7 +47,13 @@ def estimation_setup(dgp_params):
         "z_data": data["z"],
         "d_data": data["d"],
         "confidence_interval": "bootstrap",
+        "confidence_interval_options": {"n_boot": n_boot, "alpha": alpha},
     }
+
+
+# --------------------------------------------------------------------------------------
+# Tests
+# --------------------------------------------------------------------------------------
 
 
 def test_estimation_with_confidence_interval_runs(estimation_setup):
@@ -54,11 +68,6 @@ def test_estimation_with_confidence_interval_correct_ordering(estimation_setup):
 
 
 def test_ci_right_coverage(estimation_setup, dgp_params):
-    num_sims = 100
-
-    alpha = 0.05
-
-    # Delete the "data" key in estimation_setup
     for data in ["y_data", "z_data", "d_data"]:
         estimation_setup.pop(data)
 
@@ -72,7 +81,7 @@ def test_ci_right_coverage(estimation_setup, dgp_params):
 
     for i in range(num_sims):
         _sim_data = simulate_data_from_simple_model_dgp(
-            sample_size=10_000,
+            sample_size=sample_size,
             rng=RNG,
             dgp_params=dgp_params,
         )

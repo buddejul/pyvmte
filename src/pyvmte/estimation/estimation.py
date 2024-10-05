@@ -17,6 +17,7 @@ from pyvmte.config import RNG
 from pyvmte.identification.identification import _compute_choice_weights
 from pyvmte.utilities import (
     _error_report_confidence_interval,
+    _error_report_confidence_interval_options,
     _error_report_estimand,
     _error_report_estimation_data,
     _error_report_invalid_basis_func_type,
@@ -52,6 +53,7 @@ def estimation(
     method: str = "highs",
     basis_func_options: dict | None = None,
     confidence_interval: str | None = None,
+    confidence_interval_options: dict | None = None,
 ) -> PyvmteResult:
     """Estimate bounds given target, identified estimands, and data (estimation).
 
@@ -78,6 +80,7 @@ def estimation(
         confidence_interval: Confidence interval for true parameter. Currently only
             the non-parametric bootstrap is supported. Default is to not perform any
             inference.
+        confidence_interval_options: Options for confidence interval. Default None.
 
     Returns:
         PyvmteResult: Object containing the results of the estimation procedure.
@@ -101,6 +104,7 @@ def estimation(
         mte_monotone=mte_monotone,
         monotone_response=monotone_response,
         confidence_interval=confidence_interval,
+        confidence_interval_options=confidence_interval_options,
     )
 
     # ==================================================================================
@@ -231,6 +235,9 @@ def estimation(
         _success_upper = results_second_step["scipy_return_upper"].success
 
     if confidence_interval is not None:
+        if confidence_interval_options is None:
+            msg = "confidence_interval_options was None when required."
+            raise ValueError(msg)
         ci_lower, ci_upper = _compute_confidence_interval(
             target=target_as_inputted,
             identified_estimands=identified_estimands_as_inputted,
@@ -245,6 +252,7 @@ def estimation(
             method=method,
             basis_func_options=basis_func_options,
             confidence_interval=confidence_interval,
+            confidence_interval_options=confidence_interval_options,
         )
 
     return PyvmteResult(
@@ -1122,6 +1130,7 @@ def _check_estimation_arguments(
     method: str,
     basis_func_options: dict | None,
     confidence_interval: str | None,
+    confidence_interval_options: dict | None,
 ):
     """Check args to estimation func, returns report if there are errors."""
     error_report = ""
@@ -1144,6 +1153,10 @@ def _check_estimation_arguments(
     error_report += _error_report_mte_monotone(mte_monotone)
     error_report += _error_report_monotone_response(monotone_response)
     error_report += _error_report_confidence_interval(confidence_interval)
+    error_report += _error_report_confidence_interval_options(
+        confidence_interval_options=confidence_interval_options,
+        confidence_interval=confidence_interval,
+    )
 
     if error_report != "":
         raise ValueError(error_report)
@@ -1152,6 +1165,7 @@ def _check_estimation_arguments(
 def _compute_confidence_interval(
     target: Estimand,
     confidence_interval: str | None,
+    confidence_interval_options: dict,
     identified_estimands: list[Estimand],
     basis_func_type: str,
     y_data: np.ndarray,
@@ -1163,13 +1177,15 @@ def _compute_confidence_interval(
     monotone_response: str | None = None,
     method: str = "highs",
     basis_func_options: dict | None = None,
-    alpha: float = 0.05,
     n_boot: int = 2_000,
 ) -> tuple[float, float]:
     """Compute confidence interval for the target parameter."""
     if confidence_interval != "bootstrap":
         msg = "Only bootstrap confidence intervals are currently supported."
         raise ValueError(msg)
+
+    alpha = confidence_interval_options["alpha"]
+    n_boot = confidence_interval_options["n_boot"]
 
     boot_lower_bounds = np.zeros(n_boot)
     boot_upper_bounds = np.zeros(n_boot)
