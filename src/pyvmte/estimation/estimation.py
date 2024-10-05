@@ -218,6 +218,24 @@ def estimation(
         _success_lower = results_second_step["scipy_return_lower"].success
         _success_upper = results_second_step["scipy_return_upper"].success
 
+    if confidence_interval is not None:
+        ci_lower, ci_upper = _compute_confidence_interval(
+            target=target,
+            identified_estimands=identified_estimands,
+            basis_func_type=basis_func_type,
+            y_data=y_data,
+            z_data=z_data,
+            d_data=d_data,
+            tolerance=tolerance,
+            u_partition=u_partition,
+            shape_constraints=shape_constraints,
+            mte_monotone=mte_monotone,
+            monotone_response=monotone_response,
+            method=method,
+            basis_func_options=basis_func_options,
+            confidence_interval=confidence_interval,
+        )
+
     return PyvmteResult(
         procedure="estimation",
         success=(_success_lower, _success_upper),
@@ -245,6 +263,9 @@ def estimation(
             "mte_monotone": mte_monotone,
             "monotone_response": monotone_response,
         },
+        ci_lower=ci_lower if confidence_interval is not None else None,
+        ci_upper=ci_upper if confidence_interval is not None else None,
+        confidence_interval=confidence_interval,
     )
 
 
@@ -1115,3 +1136,24 @@ def _check_estimation_arguments(
 
     if error_report != "":
         raise ValueError(error_report)
+
+
+def _compute_confidence_interval(
+    target: Estimand,
+    identified_estimands: list[Estimand],
+    basis_func_type: str,
+    y_data: np.ndarray,
+    z_data: np.ndarray,
+    d_data: np.ndarray,
+    tolerance: float | None = None,
+    u_partition: np.ndarray | None = None,
+    shape_constraints: tuple[str, str] | None = None,
+    mte_monotone: str | None = None,
+    monotone_response: str | None = None,
+    method: str = "highs",
+    basis_func_options: dict | None = None,
+    confidence_interval: str | None = None,
+    alpha: float = 0.05,
+):
+    """Compute confidence interval for the target parameter."""
+    return -1, 1
