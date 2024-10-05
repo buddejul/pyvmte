@@ -36,3 +36,10 @@ def estimation_setup():
 
 def test_estimation_with_confidence_interval_runs(estimation_setup):
     estimation(**estimation_setup)
+
+
+def test_estimation_with_confidence_interval_correct_ordering(estimation_setup):
+    res = estimation(**estimation_setup)
+
+    assert res.ci_lower <= res.lower_bound
+    assert res.ci_upper >= res.upper_bound

@@ -12,6 +12,7 @@ from scipy.optimize import (  # type: ignore
 )
 
 from pyvmte.classes import Estimand, Instrument, PyvmteResult
+from pyvmte.config import RNG
 from pyvmte.identification.identification import _compute_choice_weights
 from pyvmte.utilities import (
     _error_report_confidence_interval,
@@ -1154,6 +1155,42 @@ def _compute_confidence_interval(
     basis_func_options: dict | None = None,
     confidence_interval: str | None = None,
     alpha: float = 0.05,
-):
+    n_boot: int = 10,
+) -> tuple[float, float]:
     """Compute confidence interval for the target parameter."""
-    return -1, 1
+    if confidence_interval != "bootstrap":
+        msg = "Only bootstrap confidence intervals are currently supported."
+        raise ValueError(msg)
+
+    boot_lower_bounds = np.zeros(n_boot)
+    boot_upper_bounds = np.zeros(n_boot)
+
+    for i in range(n_boot):
+        # Draw a random set of indices with replacement
+        idx = RNG.choice(range(len(y_data)), len(y_data), replace=True)
+
+        _boot_y, _boot_z, _boot_d = y_data[idx], z_data[idx], d_data[idx]
+
+        _res = estimation(
+            target=target,
+            identified_estimands=identified_estimands,
+            basis_func_type=basis_func_type,
+            y_data=_boot_y,
+            z_data=_boot_z,
+            d_data=_boot_d,
+            tolerance=tolerance,
+            u_partition=u_partition,
+            shape_constraints=shape_constraints,
+            mte_monotone=mte_monotone,
+            monotone_response=monotone_response,
+            method=method,
+            basis_func_options=basis_func_options,
+            confidence_interval=None,
+        )
+
+        boot_lower_bounds[i] = _res.lower_bound
+        boot_upper_bounds[i] = _res.upper_bound
+
+    return float(np.quantile(boot_lower_bounds, alpha / 2)), float(
+        np.quantile(boot_upper_bounds, 1 - alpha / 2),
+    )
