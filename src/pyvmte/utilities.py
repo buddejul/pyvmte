@@ -624,7 +624,7 @@ def plot_solution(
 
         n_bfuncs = len(res.basis_funcs)
 
-        # The first n_bfuncs entries of the coefficients correspond to the d == 1
+        # The first n_bfuncs entries of the coefficients correspond to the d == 0
         coefs_d0 = optres.x[:n_bfuncs]
         coefs_d1 = optres.x[n_bfuncs:]
 
@@ -739,3 +739,34 @@ def plot_solution(
     # Weights for target parameter (choice variables in linear program)
     _weights = res.lp_inputs["c"]
     return None
+
+
+def mtr_funcs_from_solution(res: PyvmteResult, bound: str) -> tuple[Callable, Callable]:
+    """Construct MTR functions from the solution of the problem."""
+    n_bfuncs = len(res.basis_funcs)
+
+    # The first n_bfuncs entries of the coefficients correspond to the d == 0
+    if bound == "lower":
+        coefs_d0 = res.lower_optres.x[:n_bfuncs]
+        coefs_d1 = res.lower_optres.x[n_bfuncs:]
+    elif bound == "upper":
+        coefs_d0 = res.upper_optres.x[:n_bfuncs]
+        coefs_d1 = res.upper_optres.x[n_bfuncs:]
+    else:
+        msg = f"Bound {bound} is not valid. Only 'lower' and 'upper' are valid."
+        raise ValueError(msg)
+
+    # Create the mtr functions for d == 0 and d == 1 by multiplying the coefs with
+    # the basis functions
+    _bfuncs = [bf["func"] for bf in res.basis_funcs]
+
+    return partial(_mtr_from_bfunc, coefs=coefs_d0, bfuncs=_bfuncs), partial(
+        _mtr_from_bfunc,
+        coefs=coefs_d1,
+        bfuncs=_bfuncs,
+    )
+
+
+def _mtr_from_bfunc(u: float, coefs: np.ndarray, bfuncs: list[Callable]):
+    """Construct single MTR function from basis functions and coefficients."""
+    return np.sum([c * bf(u) for c, bf in zip(coefs, bfuncs, strict=True)], axis=0)
