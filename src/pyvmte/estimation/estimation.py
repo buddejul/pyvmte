@@ -1181,7 +1181,6 @@ def _compute_confidence_interval(
     monotone_response: str | None = None,
     method: str = "highs",
     basis_func_options: dict | None = None,
-    n_boot: int = 2_000,
 ) -> tuple[float, float]:
     """Compute confidence interval for the target parameter."""
     estimation_kwargs = {
@@ -1264,6 +1263,28 @@ def _compute_resampling_interval(
 
         _resample_y, _resample_z, _resample_d = y_data[idx], z_data[idx], d_data[idx]
 
+        # Check if the propensity scores are the same for the resampled data.
+        # With resampling sample sizes might be very small. If the estimated propensity
+        # scores are equal, we will encounter a division by zero in the estimation.
+        # TODO(@buddejul): A more general solution might be to catch the division by
+        # zero in the estimation procedure, then deal with it appropriately.
+        _pscores = _estimate_prop_z(_resample_z, _resample_d, np.unique(_resample_z))
+
+        # If at least two propensity scores are the same, redraw the sample until all
+        # propensity scores are unique.
+        while len(_pscores) != len(np.unique(_pscores)):
+            idx = RNG.choice(range(len(y_data)), size=resample_size, replace=replace)
+            _resample_y, _resample_z, _resample_d = (
+                y_data[idx],
+                z_data[idx],
+                d_data[idx],
+            )
+            _pscores = _estimate_prop_z(
+                _resample_z,
+                _resample_d,
+                np.unique(_resample_z),
+            )
+
         _est_kwargs_no_data = {
             k: v
             for k, v in estimation_kwargs.items()
@@ -1298,10 +1319,17 @@ def _compute_resampling_interval(
 
     # Construct one-sided intervals for upper and lower bound
 
-    t_1_alpha_lower = np.quantile(dist_lower, 1 - alpha)
+    t_1_minus_alpha_lower = np.quantile(dist_lower, 1 - alpha)
     t_alpha_upper = np.quantile(dist_upper, alpha)
 
+    if t_alpha_upper > 0:
+        msg = f"t_alpha is {t_alpha_upper} which is > 0. Expected < 0."
+        raise ValueError(msg)
+    if t_1_minus_alpha_lower < 0:
+        msg = f"t_1_minus_alpha is {t_1_minus_alpha_lower} which is < 0. Expected > 0."
+        raise ValueError(msg)
+
     return (
-        data_lower_bound - t_1_alpha_lower / np.sqrt(n_obs),
+        data_lower_bound - t_1_minus_alpha_lower / np.sqrt(n_obs),
         data_upper_bound - t_alpha_upper / np.sqrt(n_obs),
     )

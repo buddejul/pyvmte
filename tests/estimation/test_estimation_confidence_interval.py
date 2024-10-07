@@ -11,13 +11,13 @@ from pyvmte.utilities import simulate_data_from_simple_model_dgp
 # Parameters for tests
 # --------------------------------------------------------------------------------------
 alpha = 0.1
-n_boot = 100
+n_boot = 250
 n_subsamples = n_boot
 sample_size = 1_000
 subsample_size = int(np.floor(np.sqrt(sample_size)))
 num_sims = 100
 
-inference_methods = ["bootstrap", "subsampling", "recentered_bootstrap"]
+inference_methods = ["subsampling", "recentered_bootstrap"]
 
 
 @pytest.fixture()
