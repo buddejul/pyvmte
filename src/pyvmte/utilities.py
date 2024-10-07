@@ -14,6 +14,8 @@ from scipy.interpolate import BPoly  # type: ignore[import-untyped]
 
 from pyvmte.classes import Bern, Estimand, Instrument, PyvmteResult
 
+supported_confidence_intervals = ["bootstrap", "subsampling", "rescaled_bootstrap"]
+
 
 def compute_moments(supp_z, f_z, prop_z):
     """Calculate E[z], E[d], E[dz], Cov[d,z] for a discrete instrument z and binary d.
@@ -459,6 +461,70 @@ def _error_report_shape_constraints(shape_constraints: tuple[str, str] | None) -
     return error_report
 
 
+def _error_report_confidence_interval(confidence_interval: str | None) -> str:
+    error_report = ""
+
+    if confidence_interval is None:
+        return error_report
+
+    if not isinstance(confidence_interval, str):
+        return (
+            f"Confidence interval procedure {confidence_interval} is not None"
+            "but not of type str."
+        )
+
+    if confidence_interval not in supported_confidence_intervals:
+        error_report += (
+            f"Confidence interval procedure {confidence_interval} is not valid. "
+            f"Only {supported_confidence_intervals} are valid."
+        )
+
+    return error_report
+
+
+def _error_report_confidence_interval_options(
+    confidence_interval: str | None,
+    confidence_interval_options: dict | None,
+) -> str:
+    error_report = ""
+
+    if confidence_interval not in supported_confidence_intervals:
+        return error_report
+
+    required_keys = {
+        "bootstrap": ["n_boot", "alpha"],
+        "subsampling": ["n_subsamples", "subsample_size", "alpha"],
+        "rescaled_bootstrap": ["n_boot", "subsample_size", "alpha"],
+    }
+
+    # Check if confidence_interval_options is a dict with required keys
+    # if not, return error message
+    if confidence_interval_options is None:
+        error_report += (
+            f"Confidence interval options - dict with keys"
+            " {required_keys[confidence_interval]} are missing "
+            " for confidence interval procedure "
+            f"{confidence_interval}."
+        )
+
+    if not isinstance(confidence_interval_options, dict) or (
+        not all(
+            key in confidence_interval_options
+            for key in required_keys[confidence_interval]
+        )
+    ):
+        error_report += (
+            f"Confidence interval options {confidence_interval_options} is not a dict "
+            f"with required keys {required_keys[confidence_interval]}."
+        )
+
+    # TODO(@buddejul): Checks on the arguments.
+    # Note: Subsapmling should be allowed to be either an integer or a function of n
+    # returning a number.
+
+    return error_report
+
+
 def generate_bernstein_basis_funcs(k: int) -> list[dict]:
     """Generate list containing basis functions of kth-oder Bernstein polynomial.
 
@@ -570,7 +636,7 @@ def plot_solution(
 
         n_bfuncs = len(res.basis_funcs)
 
-        # The first n_bfuncs entries of the coefficients correspond to the d == 1
+        # The first n_bfuncs entries of the coefficients correspond to the d == 0
         coefs_d0 = optres.x[:n_bfuncs]
         coefs_d1 = optres.x[n_bfuncs:]
 
@@ -685,3 +751,34 @@ def plot_solution(
     # Weights for target parameter (choice variables in linear program)
     _weights = res.lp_inputs["c"]
     return None
+
+
+def mtr_funcs_from_solution(res: PyvmteResult, bound: str) -> tuple[Callable, Callable]:
+    """Construct MTR functions from the solution of the problem."""
+    n_bfuncs = len(res.basis_funcs)
+
+    # The first n_bfuncs entries of the coefficients correspond to the d == 0
+    if bound == "lower":
+        coefs_d0 = res.lower_optres.x[:n_bfuncs]
+        coefs_d1 = res.lower_optres.x[n_bfuncs:]
+    elif bound == "upper":
+        coefs_d0 = res.upper_optres.x[:n_bfuncs]
+        coefs_d1 = res.upper_optres.x[n_bfuncs:]
+    else:
+        msg = f"Bound {bound} is not valid. Only 'lower' and 'upper' are valid."
+        raise ValueError(msg)
+
+    # Create the mtr functions for d == 0 and d == 1 by multiplying the coefs with
+    # the basis functions
+    _bfuncs = [bf["func"] for bf in res.basis_funcs]
+
+    return partial(_mtr_from_bfunc, coefs=coefs_d0, bfuncs=_bfuncs), partial(
+        _mtr_from_bfunc,
+        coefs=coefs_d1,
+        bfuncs=_bfuncs,
+    )
+
+
+def _mtr_from_bfunc(u: float, coefs: np.ndarray, bfuncs: list[Callable]):
+    """Construct single MTR function from basis functions and coefficients."""
+    return np.sum([c * bf(u) for c, bf in zip(coefs, bfuncs, strict=True)], axis=0)

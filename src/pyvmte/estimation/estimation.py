@@ -1,5 +1,6 @@
 """Function for estimation."""
 
+import dataclasses
 from functools import partial
 from itertools import pairwise
 
@@ -12,8 +13,11 @@ from scipy.optimize import (  # type: ignore
 )
 
 from pyvmte.classes import Estimand, Instrument, PyvmteResult
+from pyvmte.config import RNG
 from pyvmte.identification.identification import _compute_choice_weights
 from pyvmte.utilities import (
+    _error_report_confidence_interval,
+    _error_report_confidence_interval_options,
     _error_report_estimand,
     _error_report_estimation_data,
     _error_report_invalid_basis_func_type,
@@ -48,11 +52,13 @@ def estimation(
     monotone_response: str | None = None,
     method: str = "highs",
     basis_func_options: dict | None = None,
+    confidence_interval: str | None = None,
+    confidence_interval_options: dict | None = None,
 ) -> PyvmteResult:
     """Estimate bounds given target, identified estimands, and data (estimation).
 
     Args:
-        target (dict): Dictionary containing all information about the target estimand.
+        target: Contains all information about the target estimand.
         identified_estimands (dict or list of dicts): Dictionary containing all
         information about the identified estimand(s). List of dicts if multiple
         identified estimands.
@@ -71,6 +77,10 @@ def estimation(
             Defaults to None, allowed are "positive" and "negative".
         method (str, optional): Method for scipy linprog solver. Default highs.
         basis_func_options: Options for basis functions. Default None.
+        confidence_interval: Confidence interval for true parameter. Currently only
+            the non-parametric bootstrap is supported. Default is to not perform any
+            inference.
+        confidence_interval_options: Options for confidence interval. Default None.
 
     Returns:
         PyvmteResult: Object containing the results of the estimation procedure.
@@ -93,6 +103,8 @@ def estimation(
         basis_func_options=basis_func_options,
         mte_monotone=mte_monotone,
         monotone_response=monotone_response,
+        confidence_interval=confidence_interval,
+        confidence_interval_options=confidence_interval_options,
     )
 
     # ==================================================================================
@@ -109,22 +121,26 @@ def estimation(
     # TODO(@buddejul): Should be more flexible here with specifying the propensity
     # scores values/corresponding instrument values. Standard is to assume binary.
     # But could have instruments with larger support and this would fail.
-    if target.esttype == "late":
-        if target.u_lo is None:
-            target.u_lo = (
-                np.min(instrument.pscores) + target.u_lo_extra
-                if target.u_lo_extra is not None
+
+    # Create a copy of the target used for estimation to avoid side-effects.
+    target_for_est = dataclasses.replace(target)
+
+    if target_for_est.esttype == "late":
+        if target_for_est.u_lo is None:
+            target_for_est.u_lo = (
+                np.min(instrument.pscores) + target_for_est.u_lo_extra
+                if target_for_est.u_lo_extra is not None
                 else np.min(instrument.pscores)
             )
-        if target.u_hi is None:
-            target.u_hi = (
-                np.max(instrument.pscores) + target.u_hi_extra
-                if target.u_hi_extra is not None
+        if target_for_est.u_hi is None:
+            target_for_est.u_hi = (
+                np.max(instrument.pscores) + target_for_est.u_hi_extra
+                if target_for_est.u_hi_extra is not None
                 else np.max(instrument.pscores)
             )
 
     u_partition = _compute_u_partition(
-        target=target,
+        target=target_for_est,
         pscore_z=instrument.pscores,
     )
 
@@ -145,7 +161,11 @@ def estimation(
     )
 
     # Now do the same for identified estimands.
-    for id_estimand in identified_estimands:
+    identified_estimands_for_est = [
+        dataclasses.replace(est) for est in identified_estimands
+    ]
+
+    for id_estimand in identified_estimands_for_est:
         if id_estimand.esttype == "late":
             if id_estimand.u_lo is None:
                 id_estimand.u_lo = (
@@ -171,7 +191,7 @@ def estimation(
     # First Step Linear Program (Compute Minimal Deviations)
     # ==================================================================================
     results_first_step = _first_step_linear_program(
-        identified_estimands=identified_estimands,
+        identified_estimands=identified_estimands_for_est,
         basis_funcs=basis_funcs,
         data=data,
         beta_hat=beta_hat,
@@ -188,8 +208,8 @@ def estimation(
     # Second Step Linear Program (Compute Upper and Lower Bounds)
     # ==================================================================================
     results_second_step = _second_step_linear_program(
-        target=target,
-        identified_estimands=identified_estimands,
+        target=target_for_est,
+        identified_estimands=identified_estimands_for_est,
         basis_funcs=basis_funcs,
         data=data,
         minimal_deviations=minimal_deviations,
@@ -212,13 +232,38 @@ def estimation(
         _success_lower = results_second_step["scipy_return_lower"].success
         _success_upper = results_second_step["scipy_return_upper"].success
 
+    if confidence_interval is not None:
+        # TODO(@buddejul): Think about what to do if only one of them is missing.
+        if _success_lower is False or _success_upper is False:
+            ci_lower, ci_upper = np.nan, np.nan
+        elif confidence_interval_options is None:
+            msg = "confidence_interval_options was None when required."
+            raise ValueError(msg)
+        else:
+            ci_lower, ci_upper = _compute_confidence_interval(
+                target=target,
+                identified_estimands=identified_estimands,
+                basis_func_type=basis_func_type,
+                y_data=y_data,
+                z_data=z_data,
+                d_data=d_data,
+                tolerance=tolerance,
+                shape_constraints=shape_constraints,
+                mte_monotone=mte_monotone,
+                monotone_response=monotone_response,
+                method=method,
+                basis_func_options=basis_func_options,
+                confidence_interval=confidence_interval,
+                confidence_interval_options=confidence_interval_options,
+            )
+
     return PyvmteResult(
         procedure="estimation",
         success=(_success_lower, _success_upper),
         lower_bound=results_second_step["lower_bound"] if _success_lower else np.nan,
         upper_bound=results_second_step["upper_bound"] if _success_upper else np.nan,
-        target=target,
-        identified_estimands=identified_estimands,
+        target=target_for_est,
+        identified_estimands=identified_estimands_for_est,
         basis_funcs=basis_funcs,
         method=method,
         lp_api="coptpy" if method == "copt" else "scipy",
@@ -239,6 +284,9 @@ def estimation(
             "mte_monotone": mte_monotone,
             "monotone_response": monotone_response,
         },
+        ci_lower=ci_lower if confidence_interval is not None else None,
+        ci_upper=ci_upper if confidence_interval is not None else None,
+        confidence_interval=confidence_interval,
     )
 
 
@@ -1083,6 +1131,8 @@ def _check_estimation_arguments(
     monotone_response: str | None,
     method: str,
     basis_func_options: dict | None,
+    confidence_interval: str | None,
+    confidence_interval_options: dict | None,
 ):
     """Check args to estimation func, returns report if there are errors."""
     error_report = ""
@@ -1104,6 +1154,180 @@ def _check_estimation_arguments(
     error_report += _error_report_shape_constraints(shape_constraints)
     error_report += _error_report_mte_monotone(mte_monotone)
     error_report += _error_report_monotone_response(monotone_response)
+    error_report += _error_report_confidence_interval(confidence_interval)
+    error_report += _error_report_confidence_interval_options(
+        confidence_interval_options=confidence_interval_options,
+        confidence_interval=confidence_interval,
+    )
 
     if error_report != "":
         raise ValueError(error_report)
+
+
+def _compute_confidence_interval(
+    target: Estimand,
+    confidence_interval: str | None,
+    confidence_interval_options: dict,
+    identified_estimands: list[Estimand],
+    basis_func_type: str,
+    y_data: np.ndarray,
+    z_data: np.ndarray,
+    d_data: np.ndarray,
+    tolerance: float | None = None,
+    shape_constraints: tuple[str, str] | None = None,
+    mte_monotone: str | None = None,
+    monotone_response: str | None = None,
+    method: str = "highs",
+    basis_func_options: dict | None = None,
+) -> tuple[float, float]:
+    """Compute confidence interval for the target parameter."""
+    estimation_kwargs = {
+        "target": target,
+        "identified_estimands": identified_estimands,
+        "basis_func_type": basis_func_type,
+        "y_data": y_data,
+        "z_data": z_data,
+        "d_data": d_data,
+        "tolerance": tolerance,
+        "shape_constraints": shape_constraints,
+        "mte_monotone": mte_monotone,
+        "monotone_response": monotone_response,
+        "method": method,
+        "basis_func_options": basis_func_options,
+    }
+
+    _resampling_methods = ["bootstrap", "subsampling", "rescaled_bootstrap"]
+
+    if confidence_interval in _resampling_methods:
+        return _compute_resampling_interval(
+            confidence_interval=confidence_interval,
+            confidence_interval_options=confidence_interval_options,
+            estimation_kwargs=estimation_kwargs,
+        )
+
+    msg = f"Confidence interval type {confidence_interval} not supported."
+    raise ValueError(msg)
+
+
+def _compute_resampling_interval(
+    confidence_interval: str,
+    confidence_interval_options: dict,
+    estimation_kwargs: dict,
+) -> tuple[float, float]:
+    """Implements different resampling intervals.
+
+    Procedures differ by the number of resamples, the size of the samples, and whether
+    sampling is performed with or without replacement.
+
+    """
+    y_data = estimation_kwargs["y_data"]
+    z_data = estimation_kwargs["z_data"]
+    d_data = estimation_kwargs["d_data"]
+
+    n_obs = len(y_data)
+
+    # TODO(@buddejul): Make sure this also works when the provided "subsample_size"
+    # is a function.
+    if confidence_interval == "bootstrap":
+        n_resamples = confidence_interval_options["n_boot"]
+        resample_size = n_obs
+
+    if confidence_interval in ["rescaled_bootstrap", "subsampling"]:
+        if callable(confidence_interval_options["subsample_size"]):
+            resample_size = int(
+                np.floor(confidence_interval_options["subsample_size"](n_obs)),
+            )
+
+        else:
+            resample_size = confidence_interval_options["subsample_size"]
+
+    if confidence_interval == "rescaled_bootstrap":
+        n_resamples = confidence_interval_options["n_boot"]
+
+    if confidence_interval == "subsampling":
+        n_resamples = confidence_interval_options["n_subsamples"]
+
+    alpha = confidence_interval_options["alpha"]
+
+    resample_lower_bounds = np.zeros(n_resamples)
+    resample_upper_bounds = np.zeros(n_resamples)
+
+    for i in range(n_resamples):
+        # Bootstrap and recentered bootstrap: Resample with replacement
+        # Subsampling: Resample without replacement
+        replace = confidence_interval != "subsampling"
+
+        idx = RNG.choice(range(len(y_data)), size=resample_size, replace=replace)
+
+        _resample_y, _resample_z, _resample_d = y_data[idx], z_data[idx], d_data[idx]
+
+        # Check if the propensity scores are the same for the resampled data.
+        # With resampling sample sizes might be very small. If the estimated propensity
+        # scores are equal, we will encounter a division by zero in the estimation.
+        # TODO(@buddejul): A more general solution might be to catch the division by
+        # zero in the estimation procedure, then deal with it appropriately.
+        _pscores = _estimate_prop_z(_resample_z, _resample_d, np.unique(_resample_z))
+
+        # If at least two propensity scores are the same, redraw the sample until all
+        # propensity scores are unique.
+        while len(_pscores) != len(np.unique(_pscores)):
+            idx = RNG.choice(range(len(y_data)), size=resample_size, replace=replace)
+            _resample_y, _resample_z, _resample_d = (
+                y_data[idx],
+                z_data[idx],
+                d_data[idx],
+            )
+            _pscores = _estimate_prop_z(
+                _resample_z,
+                _resample_d,
+                np.unique(_resample_z),
+            )
+
+        _est_kwargs_no_data = {
+            k: v
+            for k, v in estimation_kwargs.items()
+            if k not in ["y_data", "z_data", "d_data"]
+        }
+
+        _res = estimation(
+            y_data=_resample_y,
+            z_data=_resample_z,
+            d_data=_resample_d,
+            u_partition=None,  # needs to be re-estimated
+            confidence_interval=None,  # to avoid infinite recursion
+            **_est_kwargs_no_data,
+        )
+
+        resample_lower_bounds[i] = _res.lower_bound
+        resample_upper_bounds[i] = _res.upper_bound
+
+    # Rescale the distribution to get quantiles
+    data_res = estimation(**estimation_kwargs, confidence_interval=None)
+
+    data_lower_bound = data_res.lower_bound
+    data_upper_bound = data_res.upper_bound
+
+    rn = np.sqrt(resample_size)
+
+    assert data_lower_bound is not None
+    assert data_upper_bound is not None
+
+    dist_lower = rn * (resample_lower_bounds - data_lower_bound)
+    dist_upper = rn * (resample_upper_bounds - data_upper_bound)
+
+    # Construct one-sided intervals for upper and lower bound
+
+    t_1_minus_alpha_lower = np.quantile(dist_lower, 1 - alpha)
+    t_alpha_upper = np.quantile(dist_upper, alpha)
+
+    if t_alpha_upper > 0:
+        msg = f"t_alpha is {t_alpha_upper} which is > 0. Expected < 0."
+        raise ValueError(msg)
+    if t_1_minus_alpha_lower < 0:
+        msg = f"t_1_minus_alpha is {t_1_minus_alpha_lower} which is < 0. Expected > 0."
+        raise ValueError(msg)
+
+    return (
+        data_lower_bound - t_1_minus_alpha_lower / np.sqrt(n_obs),
+        data_upper_bound - t_alpha_upper / np.sqrt(n_obs),
+    )

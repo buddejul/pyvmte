@@ -5,6 +5,7 @@ from pyvmte.estimation import estimation
 from pyvmte.identification import identification
 from pyvmte.utilities import (
     _error_report_basis_funcs,
+    _error_report_confidence_interval,
     _error_report_estimand,
     _error_report_estimation_data,
     _error_report_instrument,
@@ -126,6 +127,7 @@ def valid_input():
         "tolerance": 0.1,
         "u_partition": np.array([0, 0.35, 0.65, 0.7, 1]),
         "method": "highs",
+        "confidence_interval": None,
     }
 
 
@@ -165,6 +167,9 @@ def valid_input():
         {"identified_estimands": Estimand(esttype="late", u_lo=0.5, u_hi="daslk")},  # type: ignore
         {"identified_estimands": Estimand(esttype="late", u_lo=0.5, u_hi=0.2)},
         {"identified_estimands": Estimand(esttype="late", u_lo=1.2, u_hi=1.4)},
+        ({"confidence_interval": "not valid"}),
+        ({"confidence_interval": True}),
+        ({"confidence_interval": 1}),
     ],
 )
 def test_estimation_invalid_input(valid_input, invalid_input):
@@ -410,3 +415,15 @@ def test_error_report_mte_monotone():
 
     for value in [None, "increasing", "decreasing"]:
         assert _error_report_mte_monotone(value) == ""
+
+
+def test_error_report_confidence_interval():
+    invalid_args = ["numerical_delta", "analytical_delta", 1, True]
+
+    for arg in invalid_args:
+        assert _error_report_confidence_interval(arg) != ""
+
+    valid_args = [None, "bootstrap", "subsampling", "rescaled_bootstrap"]
+
+    for arg in valid_args:
+        assert _error_report_confidence_interval(arg) == ""

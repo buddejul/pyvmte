@@ -167,6 +167,9 @@ class PyvmteResult(NamedTuple):
             Estimation only.
         first_lp_inputs: Inputs to the first step LP. Estimation only.
         first_optres: Results of the first step LP. Estimation only.
+        ci_lower: Lower bound of the confidence interval. Estimation only.
+        ci_upper: Upper bound of the confidence interval. Estimation only.
+        confidence_interval: Type of confidence interval. Estimation only.
 
     """
 
@@ -188,3 +191,6 @@ class PyvmteResult(NamedTuple):
     first_minimal_deviations: float | None = None
     first_lp_inputs: dict | None = None
     first_optres: OptimizeResult | None = None
+    ci_lower: float | None = None
+    ci_upper: float | None = None
+    confidence_interval: str | None = None
