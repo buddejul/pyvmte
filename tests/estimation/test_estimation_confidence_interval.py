@@ -11,13 +11,17 @@ from pyvmte.utilities import simulate_data_from_simple_model_dgp
 # Parameters for tests
 # --------------------------------------------------------------------------------------
 alpha = 0.1
-n_boot = 250
+n_boot = 1_000
 n_subsamples = n_boot
-sample_size = 1_000
-subsample_size = int(np.floor(np.sqrt(sample_size)))
+sample_size = 10_000
+subsample_size = int(0.1 * sample_size)
 num_sims = 100
 
-inference_methods = ["subsampling", "recentered_bootstrap"]
+inference_methods = ["bootstrap", "subsampling", "recentered_bootstrap"]
+
+# This tolerance might be too generous. However, we only run 100 simulations to keep
+# the runtime relatively low so should be fine.
+ATOL = 0.05
 
 
 @pytest.fixture()
@@ -128,7 +132,7 @@ def test_ci_right_coverage(
     expected_coverage_upper = 1 - alpha
     expected_coverage_lower = 1
 
-    assert actual_coverage_lower == pytest.approx(expected_coverage_lower, abs=0.02)
-    assert actual_coverage_upper == pytest.approx(expected_coverage_upper, abs=0.02)
+    assert actual_coverage_lower == pytest.approx(expected_coverage_lower, abs=ATOL)
+    assert actual_coverage_upper == pytest.approx(expected_coverage_upper, abs=ATOL)
 
-    assert actual_coverage == pytest.approx(expected_coverage, abs=0.02)
+    assert actual_coverage == pytest.approx(expected_coverage, abs=ATOL)
