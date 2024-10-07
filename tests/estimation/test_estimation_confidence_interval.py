@@ -10,10 +10,14 @@ from pyvmte.utilities import simulate_data_from_simple_model_dgp
 # --------------------------------------------------------------------------------------
 # Parameters for tests
 # --------------------------------------------------------------------------------------
-alpha = 0.05
+alpha = 0.1
 n_boot = 100
+n_subsamples = n_boot
 sample_size = 1_000
+subsample_size = int(np.floor(np.sqrt(sample_size)))
 num_sims = 100
+
+inference_methods = ["bootstrap", "subsampling", "recentered_bootstrap"]
 
 
 @pytest.fixture()
@@ -46,8 +50,12 @@ def estimation_setup(dgp_params):
         "y_data": data["y"],
         "z_data": data["z"],
         "d_data": data["d"],
-        "confidence_interval": "bootstrap",
-        "confidence_interval_options": {"n_boot": n_boot, "alpha": alpha},
+        "confidence_interval_options": {
+            "n_boot": n_boot,
+            "alpha": alpha,
+            "n_subsamples": n_subsamples,
+            "subsample_size": subsample_size,
+        },
     }
 
 
@@ -56,18 +64,33 @@ def estimation_setup(dgp_params):
 # --------------------------------------------------------------------------------------
 
 
-def test_estimation_with_confidence_interval_runs(estimation_setup):
+@pytest.mark.parametrize("confidence_interval", inference_methods)
+def test_estimation_with_confidence_interval_runs(
+    estimation_setup,
+    confidence_interval,
+):
+    estimation_setup["confidence_interval"] = confidence_interval
     estimation(**estimation_setup)
 
 
-def test_estimation_with_confidence_interval_correct_ordering(estimation_setup):
+@pytest.mark.parametrize("confidence_interval", inference_methods)
+def test_estimation_with_confidence_interval_correct_ordering(
+    confidence_interval,
+    estimation_setup,
+):
+    estimation_setup["confidence_interval"] = confidence_interval
     res = estimation(**estimation_setup)
 
     assert res.ci_lower <= res.lower_bound
     assert res.ci_upper >= res.upper_bound
 
 
-def test_ci_right_coverage(estimation_setup, dgp_params):
+@pytest.mark.parametrize("confidence_interval", inference_methods)
+def test_ci_right_coverage(
+    confidence_interval: str,
+    estimation_setup: dict,
+    dgp_params: dict,
+):
     for data in ["y_data", "z_data", "d_data"]:
         estimation_setup.pop(data)
 
@@ -86,6 +109,7 @@ def test_ci_right_coverage(estimation_setup, dgp_params):
             dgp_params=dgp_params,
         )
         _res = estimation(
+            confidence_interval=confidence_interval,
             **estimation_setup,
             y_data=_sim_data["y"],
             z_data=_sim_data["z"],

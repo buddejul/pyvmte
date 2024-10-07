@@ -471,7 +471,7 @@ def _error_report_confidence_interval(confidence_interval: str | None) -> str:
             "but not of type str."
         )
 
-    _supported_procedures = "bootstrap"
+    _supported_procedures = ["bootstrap", "subsampling", "recentered_bootstrap"]
 
     if confidence_interval not in _supported_procedures:
         error_report += (
@@ -491,24 +491,36 @@ def _error_report_confidence_interval_options(
     if confidence_interval is None:
         return error_report
 
-    required_keys = ["n_boot", "alpha"]
+    required_keys = {
+        "bootstrap": ["n_boot", "alpha"],
+        "subsampling": ["n_subsamples", "subsample_size", "alpha"],
+        "recentered_bootstrap": ["n_boot", "subsample_size", "alpha"],
+    }
 
     # Check if confidence_interval_options is a dict with required keys
     # if not, return error message
     if confidence_interval is not None and confidence_interval_options is None:
         error_report += (
-            f"Confidence interval options - dict with keys {required_keys} are missing "
+            f"Confidence interval options - dict with keys"
+            " {required_keys[confidence_interval]} are missing "
             " for confidence interval procedure "
             f"{confidence_interval}."
         )
 
     if not isinstance(confidence_interval_options, dict) or (
-        not all(key in confidence_interval_options for key in required_keys)
+        not all(
+            key in confidence_interval_options
+            for key in required_keys[confidence_interval]
+        )
     ):
         error_report += (
             f"Confidence interval options {confidence_interval_options} is not a dict "
-            f"with required keys {required_keys}."
+            f"with required keys {required_keys[confidence_interval]}."
         )
+
+    # TODO(@buddejul): Checks on the arguments.
+    # Note: Subsapmling should be allowed to be either an integer or a function of n
+    # returning a number.
 
     return error_report
 

@@ -1180,43 +1180,105 @@ def _compute_confidence_interval(
     n_boot: int = 2_000,
 ) -> tuple[float, float]:
     """Compute confidence interval for the target parameter."""
-    if confidence_interval != "bootstrap":
-        msg = "Only bootstrap confidence intervals are currently supported."
-        raise ValueError(msg)
+    estimation_kwargs = {
+        "target": target,
+        "identified_estimands": identified_estimands,
+        "basis_func_type": basis_func_type,
+        "y_data": y_data,
+        "z_data": z_data,
+        "d_data": d_data,
+        "tolerance": tolerance,
+        "shape_constraints": shape_constraints,
+        "mte_monotone": mte_monotone,
+        "monotone_response": monotone_response,
+        "method": method,
+        "basis_func_options": basis_func_options,
+    }
 
-    alpha = confidence_interval_options["alpha"]
-    n_boot = confidence_interval_options["n_boot"]
+    _resampling_methods = ["bootstrap", "subsampling", "recentered_bootstrap"]
 
-    boot_lower_bounds = np.zeros(n_boot)
-    boot_upper_bounds = np.zeros(n_boot)
-
-    for i in range(n_boot):
-        # Draw a random set of indices with replacement
-        idx = RNG.choice(range(len(y_data)), len(y_data), replace=True)
-
-        _boot_y, _boot_z, _boot_d = y_data[idx], z_data[idx], d_data[idx]
-
-        _res = estimation(
-            target=target,
-            identified_estimands=identified_estimands,
-            basis_func_type=basis_func_type,
-            y_data=_boot_y,
-            z_data=_boot_z,
-            d_data=_boot_d,
-            tolerance=tolerance,
-            u_partition=None,  # needs to be re-estimated
-            shape_constraints=shape_constraints,
-            mte_monotone=mte_monotone,
-            monotone_response=monotone_response,
-            method=method,
-            basis_func_options=basis_func_options,
-            confidence_interval=None,  # to avoid infinite recursion
+    if confidence_interval in _resampling_methods:
+        return _compute_resampling_interval(
+            confidence_interval=confidence_interval,
+            confidence_interval_options=confidence_interval_options,
+            estimation_kwargs=estimation_kwargs,
         )
 
-        boot_lower_bounds[i] = _res.lower_bound
-        boot_upper_bounds[i] = _res.upper_bound
+    msg = f"Confidence interval type {confidence_interval} not supported."
+    raise ValueError(msg)
+
+
+def _compute_resampling_interval(
+    confidence_interval: str,
+    confidence_interval_options: dict,
+    estimation_kwargs: dict,
+) -> tuple[float, float]:
+    """Implements different resampling intervals.
+
+    Procedures differ by the number of resamples, the size of the samples, and whether
+    sampling is performed with or without replacement.
+
+    """
+    y_data = estimation_kwargs["y_data"]
+    z_data = estimation_kwargs["z_data"]
+    d_data = estimation_kwargs["d_data"]
+
+    n_obs = len(y_data)
+
+    # TODO(@buddejul): Make sure this also works when the provided "subsample_size"
+    # is a function.
+    if confidence_interval == "bootstrap":
+        n_resamples = confidence_interval_options["n_boot"]
+        resample_size = n_obs
+
+    if confidence_interval in ["recentered_bootstrap", "subsampling"]:
+        if callable(confidence_interval_options["subsample_size"]):
+            resample_size = int(
+                np.floor(confidence_interval_options["subsample_size"](n_obs)),
+            )
+
+        else:
+            resample_size = confidence_interval_options["subsample_size"]
+
+    if confidence_interval == "recentered_bootstrap":
+        n_resamples = confidence_interval_options["n_boot"]
+
+    if confidence_interval == "subsampling":
+        n_resamples = confidence_interval_options["n_subsamples"]
+
+    alpha = confidence_interval_options["alpha"]
+
+    resample_lower_bounds = np.zeros(n_resamples)
+    resample_upper_bounds = np.zeros(n_resamples)
+
+    for i in range(n_resamples):
+        # Bootstrap and recentered bootstrap: Resample with replacement
+        # Subsampling: Resample without replacement
+        replace = confidence_interval != "subsampling"
+
+        idx = RNG.choice(range(len(y_data)), size=resample_size, replace=replace)
+
+        _resample_y, _resample_z, _resample_d = y_data[idx], z_data[idx], d_data[idx]
+
+        _est_kwargs_no_data = {
+            k: v
+            for k, v in estimation_kwargs.items()
+            if k not in ["y_data", "z_data", "d_data"]
+        }
+
+        _res = estimation(
+            y_data=_resample_y,
+            z_data=_resample_z,
+            d_data=_resample_d,
+            u_partition=None,  # needs to be re-estimated
+            confidence_interval=None,  # to avoid infinite recursion
+            **_est_kwargs_no_data,
+        )
+
+        resample_lower_bounds[i] = _res.lower_bound
+        resample_upper_bounds[i] = _res.upper_bound
 
     # TODO(@buddejul): Do we need to recenter?
-    return float(np.quantile(boot_lower_bounds, alpha)), float(
-        np.quantile(boot_upper_bounds, 1 - alpha),
+    return float(np.quantile(resample_lower_bounds, alpha)), float(
+        np.quantile(resample_upper_bounds, 1 - alpha),
     )
