@@ -1,6 +1,6 @@
 """Function for estimation."""
 
-from dataclasses import replace
+import dataclasses
 from functools import partial
 from itertools import pairwise
 
@@ -58,7 +58,7 @@ def estimation(
     """Estimate bounds given target, identified estimands, and data (estimation).
 
     Args:
-        target (dict): Dictionary containing all information about the target estimand.
+        target: Contains all information about the target estimand.
         identified_estimands (dict or list of dicts): Dictionary containing all
         information about the identified estimand(s). List of dicts if multiple
         identified estimands.
@@ -122,26 +122,25 @@ def estimation(
     # scores values/corresponding instrument values. Standard is to assume binary.
     # But could have instruments with larger support and this would fail.
 
-    # If confidence interval is specified, create a copy of target for bootstrapping.
-    if confidence_interval is not None:
-        target_as_inputted = replace(target)
+    # Create a copy of the target used for estimation to avoid side-effects.
+    target_for_est = dataclasses.replace(target)
 
-    if target.esttype == "late":
-        if target.u_lo is None:
-            target.u_lo = (
-                np.min(instrument.pscores) + target.u_lo_extra
-                if target.u_lo_extra is not None
+    if target_for_est.esttype == "late":
+        if target_for_est.u_lo is None:
+            target_for_est.u_lo = (
+                np.min(instrument.pscores) + target_for_est.u_lo_extra
+                if target_for_est.u_lo_extra is not None
                 else np.min(instrument.pscores)
             )
-        if target.u_hi is None:
-            target.u_hi = (
-                np.max(instrument.pscores) + target.u_hi_extra
-                if target.u_hi_extra is not None
+        if target_for_est.u_hi is None:
+            target_for_est.u_hi = (
+                np.max(instrument.pscores) + target_for_est.u_hi_extra
+                if target_for_est.u_hi_extra is not None
                 else np.max(instrument.pscores)
             )
 
     u_partition = _compute_u_partition(
-        target=target,
+        target=target_for_est,
         pscore_z=instrument.pscores,
     )
 
@@ -162,12 +161,11 @@ def estimation(
     )
 
     # Now do the same for identified estimands.
-    if confidence_interval is not None:
-        identified_estimands_as_inputted = [
-            replace(est) for est in identified_estimands
-        ]
+    identified_estimands_for_est = [
+        dataclasses.replace(est) for est in identified_estimands
+    ]
 
-    for id_estimand in identified_estimands:
+    for id_estimand in identified_estimands_for_est:
         if id_estimand.esttype == "late":
             if id_estimand.u_lo is None:
                 id_estimand.u_lo = (
@@ -193,7 +191,7 @@ def estimation(
     # First Step Linear Program (Compute Minimal Deviations)
     # ==================================================================================
     results_first_step = _first_step_linear_program(
-        identified_estimands=identified_estimands,
+        identified_estimands=identified_estimands_for_est,
         basis_funcs=basis_funcs,
         data=data,
         beta_hat=beta_hat,
@@ -210,8 +208,8 @@ def estimation(
     # Second Step Linear Program (Compute Upper and Lower Bounds)
     # ==================================================================================
     results_second_step = _second_step_linear_program(
-        target=target,
-        identified_estimands=identified_estimands,
+        target=target_for_est,
+        identified_estimands=identified_estimands_for_est,
         basis_funcs=basis_funcs,
         data=data,
         minimal_deviations=minimal_deviations,
@@ -243,8 +241,8 @@ def estimation(
             raise ValueError(msg)
         else:
             ci_lower, ci_upper = _compute_confidence_interval(
-                target=target_as_inputted,
-                identified_estimands=identified_estimands_as_inputted,
+                target=target,
+                identified_estimands=identified_estimands,
                 basis_func_type=basis_func_type,
                 y_data=y_data,
                 z_data=z_data,
@@ -264,8 +262,8 @@ def estimation(
         success=(_success_lower, _success_upper),
         lower_bound=results_second_step["lower_bound"] if _success_lower else np.nan,
         upper_bound=results_second_step["upper_bound"] if _success_upper else np.nan,
-        target=target,
-        identified_estimands=identified_estimands,
+        target=target_for_est,
+        identified_estimands=identified_estimands_for_est,
         basis_funcs=basis_funcs,
         method=method,
         lp_api="coptpy" if method == "copt" else "scipy",
