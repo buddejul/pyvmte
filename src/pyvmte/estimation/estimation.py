@@ -235,25 +235,29 @@ def estimation(
         _success_upper = results_second_step["scipy_return_upper"].success
 
     if confidence_interval is not None:
-        if confidence_interval_options is None:
+        # TODO(@buddejul): Think about what to do if only one of them is missing.
+        if _success_lower is False or _success_upper is False:
+            ci_lower, ci_upper = np.nan, np.nan
+        elif confidence_interval_options is None:
             msg = "confidence_interval_options was None when required."
             raise ValueError(msg)
-        ci_lower, ci_upper = _compute_confidence_interval(
-            target=target_as_inputted,
-            identified_estimands=identified_estimands_as_inputted,
-            basis_func_type=basis_func_type,
-            y_data=y_data,
-            z_data=z_data,
-            d_data=d_data,
-            tolerance=tolerance,
-            shape_constraints=shape_constraints,
-            mte_monotone=mte_monotone,
-            monotone_response=monotone_response,
-            method=method,
-            basis_func_options=basis_func_options,
-            confidence_interval=confidence_interval,
-            confidence_interval_options=confidence_interval_options,
-        )
+        else:
+            ci_lower, ci_upper = _compute_confidence_interval(
+                target=target_as_inputted,
+                identified_estimands=identified_estimands_as_inputted,
+                basis_func_type=basis_func_type,
+                y_data=y_data,
+                z_data=z_data,
+                d_data=d_data,
+                tolerance=tolerance,
+                shape_constraints=shape_constraints,
+                mte_monotone=mte_monotone,
+                monotone_response=monotone_response,
+                method=method,
+                basis_func_options=basis_func_options,
+                confidence_interval=confidence_interval,
+                confidence_interval_options=confidence_interval_options,
+            )
 
     return PyvmteResult(
         procedure="estimation",
@@ -1278,7 +1282,26 @@ def _compute_resampling_interval(
         resample_lower_bounds[i] = _res.lower_bound
         resample_upper_bounds[i] = _res.upper_bound
 
-    # TODO(@buddejul): Do we need to recenter?
-    return float(np.quantile(resample_lower_bounds, alpha)), float(
-        np.quantile(resample_upper_bounds, 1 - alpha),
+    # Rescale the distribution to get quantiles
+    data_res = estimation(**estimation_kwargs, confidence_interval=None)
+
+    data_lower_bound = data_res.lower_bound
+    data_upper_bound = data_res.upper_bound
+
+    rn = np.sqrt(resample_size)
+
+    assert data_lower_bound is not None
+    assert data_upper_bound is not None
+
+    dist_lower = rn * (resample_lower_bounds - data_lower_bound)
+    dist_upper = rn * (resample_upper_bounds - data_upper_bound)
+
+    # Construct one-sided intervals for upper and lower bound
+
+    t_1_alpha_lower = np.quantile(dist_lower, 1 - alpha)
+    t_alpha_upper = np.quantile(dist_upper, alpha)
+
+    return (
+        data_lower_bound - t_1_alpha_lower / np.sqrt(n_obs),
+        data_upper_bound - t_alpha_upper / np.sqrt(n_obs),
     )
