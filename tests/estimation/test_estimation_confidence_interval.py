@@ -17,7 +17,7 @@ sample_size = 10_000
 subsample_size = int(0.1 * sample_size)
 num_sims = 100
 
-inference_methods = ["bootstrap", "subsampling", "recentered_bootstrap"]
+inference_methods = ["bootstrap", "subsampling", "rescaled_bootstrap"]
 
 # This tolerance might be too generous. However, we only run 100 simulations to keep
 # the runtime relatively low so should be fine.

@@ -14,6 +14,8 @@ from scipy.interpolate import BPoly  # type: ignore[import-untyped]
 
 from pyvmte.classes import Bern, Estimand, Instrument, PyvmteResult
 
+supported_confidence_intervals = ["bootstrap", "subsampling", "rescaled_bootstrap"]
+
 
 def compute_moments(supp_z, f_z, prop_z):
     """Calculate E[z], E[d], E[dz], Cov[d,z] for a discrete instrument z and binary d.
@@ -471,12 +473,10 @@ def _error_report_confidence_interval(confidence_interval: str | None) -> str:
             "but not of type str."
         )
 
-    _supported_procedures = ["bootstrap", "subsampling", "recentered_bootstrap"]
-
-    if confidence_interval not in _supported_procedures:
+    if confidence_interval not in supported_confidence_intervals:
         error_report += (
             f"Confidence interval procedure {confidence_interval} is not valid. "
-            f"Only {_supported_procedures} are valid."
+            f"Only {supported_confidence_intervals} are valid."
         )
 
     return error_report
@@ -488,18 +488,18 @@ def _error_report_confidence_interval_options(
 ) -> str:
     error_report = ""
 
-    if confidence_interval is None:
+    if confidence_interval not in supported_confidence_intervals:
         return error_report
 
     required_keys = {
         "bootstrap": ["n_boot", "alpha"],
         "subsampling": ["n_subsamples", "subsample_size", "alpha"],
-        "recentered_bootstrap": ["n_boot", "subsample_size", "alpha"],
+        "rescaled_bootstrap": ["n_boot", "subsample_size", "alpha"],
     }
 
     # Check if confidence_interval_options is a dict with required keys
     # if not, return error message
-    if confidence_interval is not None and confidence_interval_options is None:
+    if confidence_interval_options is None:
         error_report += (
             f"Confidence interval options - dict with keys"
             " {required_keys[confidence_interval]} are missing "

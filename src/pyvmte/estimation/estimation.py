@@ -1196,7 +1196,7 @@ def _compute_confidence_interval(
         "basis_func_options": basis_func_options,
     }
 
-    _resampling_methods = ["bootstrap", "subsampling", "recentered_bootstrap"]
+    _resampling_methods = ["bootstrap", "subsampling", "rescaled_bootstrap"]
 
     if confidence_interval in _resampling_methods:
         return _compute_resampling_interval(
@@ -1232,7 +1232,7 @@ def _compute_resampling_interval(
         n_resamples = confidence_interval_options["n_boot"]
         resample_size = n_obs
 
-    if confidence_interval in ["recentered_bootstrap", "subsampling"]:
+    if confidence_interval in ["rescaled_bootstrap", "subsampling"]:
         if callable(confidence_interval_options["subsample_size"]):
             resample_size = int(
                 np.floor(confidence_interval_options["subsample_size"](n_obs)),
@@ -1241,7 +1241,7 @@ def _compute_resampling_interval(
         else:
             resample_size = confidence_interval_options["subsample_size"]
 
-    if confidence_interval == "recentered_bootstrap":
+    if confidence_interval == "rescaled_bootstrap":
         n_resamples = confidence_interval_options["n_boot"]
 
     if confidence_interval == "subsampling":

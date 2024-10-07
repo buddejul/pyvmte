@@ -418,12 +418,12 @@ def test_error_report_mte_monotone():
 
 
 def test_error_report_confidence_interval():
-    invalid_args = ["subsampling", "numerical_delta", "analytical_delta", 1, True]
+    invalid_args = ["numerical_delta", "analytical_delta", 1, True]
 
     for arg in invalid_args:
         assert _error_report_confidence_interval(arg) != ""
 
-    valid_args = [None, "bootstrap"]
+    valid_args = [None, "bootstrap", "subsampling", "rescaled_bootstrap"]
 
     for arg in valid_args:
         assert _error_report_confidence_interval(arg) == ""
