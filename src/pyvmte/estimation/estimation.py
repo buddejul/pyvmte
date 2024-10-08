@@ -1,6 +1,7 @@
 """Function for estimation."""
 
 import dataclasses
+import warnings
 from functools import partial
 from itertools import pairwise
 
@@ -1322,10 +1323,10 @@ def _compute_resampling_interval(
 
     if t_alpha_upper > 0:
         msg = f"t_alpha is {t_alpha_upper} which is > 0. Expected < 0."
-        raise ValueError(msg)
+        warnings.warn(msg, stacklevel=2)
     if t_1_minus_alpha_lower < 0:
         msg = f"t_1_minus_alpha is {t_1_minus_alpha_lower} which is < 0. Expected > 0."
-        raise ValueError(msg)
+        warnings.warn(msg, stacklevel=2)
 
     return (
         data_lower_bound - t_1_minus_alpha_lower / np.sqrt(n_obs),
