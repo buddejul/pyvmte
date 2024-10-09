@@ -354,6 +354,14 @@ def _first_step_linear_program(
         first_step_solution = _solve_first_step_lp_estimation(lp_first_inputs, method)
         minimal_deviations = first_step_solution.fun
 
+    if not first_step_solution.success:  # type: ignore
+        warnings.warn(
+            "First step linear program did not have a solution which is unexpected. "
+            "Results may be unreliable.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+
     return {
         "fun": minimal_deviations,
         "scipy_return": first_step_solution,
@@ -803,9 +811,10 @@ def _second_step_linear_program(
     # TODO(@buddejul): This might throw an error if for some reason the program has no
     # solution. Not sure how this could happen though, check what happens if first pro-
     # gram has no solution.
+
     return {
-        "upper_bound": -1 * result_upper.fun,  # type: ignore
-        "lower_bound": result_lower.fun,  # type: ignore
+        "upper_bound": -1 * result_upper.fun if result_upper.success else np.nan,  # type: ignore
+        "lower_bound": result_lower.fun if result_lower.success else np.nan,  # type: ignore
         "inputs": lp_second_inputs,
         "scipy_return_upper": result_upper,
         "scipy_return_lower": result_lower,
