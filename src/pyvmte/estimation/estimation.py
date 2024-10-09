@@ -800,6 +800,9 @@ def _second_step_linear_program(
     result_upper = _solve_second_step_lp_estimation(lp_second_inputs, "max", method)
     result_lower = _solve_second_step_lp_estimation(lp_second_inputs, "min", method)
 
+    # TODO(@buddejul): This might throw an error if for some reason the program has no
+    # solution. Not sure how this could happen though, check what happens if first pro-
+    # gram has no solution.
     return {
         "upper_bound": -1 * result_upper.fun,  # type: ignore
         "lower_bound": result_lower.fun,  # type: ignore
