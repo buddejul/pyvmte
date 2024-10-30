@@ -243,7 +243,7 @@ def estimation(
             msg = "confidence_interval_options was None when required."
             raise ValueError(msg)
         else:
-            ci_lower, ci_upper = _compute_confidence_interval(
+            ci_lower, ci_upper, alpha_for_ci = _compute_confidence_interval(
                 target=target,
                 identified_estimands=identified_estimands,
                 basis_func_type=basis_func_type,
@@ -290,6 +290,7 @@ def estimation(
         ci_lower=ci_lower if confidence_interval is not None else None,
         ci_upper=ci_upper if confidence_interval is not None else None,
         confidence_interval=confidence_interval,
+        alpha_for_ci=alpha_for_ci if confidence_interval is not None else None,
     )
 
 
@@ -1194,7 +1195,7 @@ def _compute_confidence_interval(
     monotone_response: str | None = None,
     method: str = "highs",
     basis_func_options: dict | None = None,
-) -> tuple[float, float]:
+) -> tuple[float, float, float]:
     """Compute confidence interval for the target parameter."""
     estimation_kwargs = {
         "target": target,
@@ -1228,7 +1229,7 @@ def _compute_resampling_interval(  # noqa: PLR0915
     confidence_interval: str,
     confidence_interval_options: dict,
     estimation_kwargs: dict,
-) -> tuple[float, float]:
+) -> tuple[float, float, float]:
     """Implements different resampling intervals.
 
     Procedures differ by the number of resamples, the size of the samples, and whether
@@ -1335,6 +1336,7 @@ def _compute_resampling_interval(  # noqa: PLR0915
     # *true parameter* has 1 - alpha probability. This is in contrast to the case of
     # point identification, where c_alpha/2 critival values are required.
     # "alpha_im_crit" uses an intermediate alpha using Imbens and Manski (2004, ECMA).
+
     if confidence_interval_options["alpha_im_crit"]:
         sigma_lower = np.std(dist_lower)
         sigma_upper = np.std(dist_upper)
@@ -1375,6 +1377,7 @@ def _compute_resampling_interval(  # noqa: PLR0915
     return (
         data_lower_bound - t_1_minus_alpha_lower / np.sqrt(n_obs),
         data_upper_bound - t_alpha_upper / np.sqrt(n_obs),
+        alpha_for_ci,
     )
 
 

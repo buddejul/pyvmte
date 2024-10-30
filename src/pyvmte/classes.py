@@ -170,6 +170,7 @@ class PyvmteResult(NamedTuple):
         ci_lower: Lower bound of the confidence interval. Estimation only.
         ci_upper: Upper bound of the confidence interval. Estimation only.
         confidence_interval: Type of confidence interval. Estimation only.
+        alpha_for_ci: Effective alpha used for the confidence interval. Estimation only.
 
     """
 
@@ -194,3 +195,4 @@ class PyvmteResult(NamedTuple):
     ci_lower: float | None = None
     ci_upper: float | None = None
     confidence_interval: str | None = None
+    alpha_for_ci: float | None = None

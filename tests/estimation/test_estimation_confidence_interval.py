@@ -1,5 +1,7 @@
 """Test functions for (bootstrap) confidence intervals."""
 
+from copy import deepcopy
+
 import numpy as np
 import pytest
 from pyvmte.classes import Estimand
@@ -18,6 +20,12 @@ subsample_size = int(0.1 * sample_size)
 num_sims = 100
 
 inference_methods = ["bootstrap", "subsampling", "rescaled_bootstrap"]
+
+alpha_im_crit = [True]
+
+inference_methods_alpha_im_crit = [
+    (method, alpha) for method in inference_methods for alpha in alpha_im_crit
+]
 
 # This tolerance might be too generous. However, we only run 100 simulations to keep
 # the runtime relatively low so should be fine.
@@ -59,6 +67,7 @@ def estimation_setup(dgp_params):
             "alpha": alpha,
             "n_subsamples": n_subsamples,
             "subsample_size": subsample_size,
+            "alpha_im_crit": False,
         },
     }
 
@@ -68,33 +77,49 @@ def estimation_setup(dgp_params):
 # --------------------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("confidence_interval", inference_methods)
+@pytest.mark.parametrize(
+    ("confidence_interval", "alpha_im_crit"),
+    inference_methods_alpha_im_crit,
+)
 def test_estimation_with_confidence_interval_runs(
     estimation_setup,
     confidence_interval,
+    alpha_im_crit,
 ):
-    estimation_setup["confidence_interval"] = confidence_interval
-    estimation(**estimation_setup)
+    if alpha_im_crit is not None:
+        estimation_setup["confidence_interval_options"]["alpha_im_crit"] = alpha_im_crit
+    estimation(**estimation_setup, confidence_interval=confidence_interval)
 
 
-@pytest.mark.parametrize("confidence_interval", inference_methods)
+@pytest.mark.parametrize(
+    ("confidence_interval", "alpha_im_crit"),
+    inference_methods_alpha_im_crit,
+)
 def test_estimation_with_confidence_interval_correct_ordering(
     confidence_interval,
     estimation_setup,
+    alpha_im_crit,
 ):
-    estimation_setup["confidence_interval"] = confidence_interval
-    res = estimation(**estimation_setup)
+    if alpha_im_crit is not None:
+        estimation_setup["confidence_interval_options"]["alpha_im_crit"] = alpha_im_crit
+    res = estimation(**estimation_setup, confidence_interval=confidence_interval)
 
     assert res.ci_lower <= res.lower_bound
     assert res.ci_upper >= res.upper_bound
 
 
-@pytest.mark.parametrize("confidence_interval", inference_methods)
+@pytest.mark.parametrize(
+    ("confidence_interval", "alpha_im_crit"),
+    inference_methods_alpha_im_crit,
+)
 def test_ci_right_coverage(
     confidence_interval: str,
     estimation_setup: dict,
     dgp_params: dict,
+    alpha_im_crit,
 ):
+    if alpha_im_crit is not None:
+        estimation_setup["confidence_interval_options"]["alpha_im_crit"] = alpha_im_crit
     for data in ["y_data", "z_data", "d_data"]:
         estimation_setup.pop(data)
 
@@ -136,3 +161,43 @@ def test_ci_right_coverage(
     assert actual_coverage_upper == pytest.approx(expected_coverage_upper, abs=ATOL)
 
     assert actual_coverage == pytest.approx(expected_coverage, abs=ATOL)
+
+
+# --------------------------------------------------------------------------------------
+# Additional tests for alpha_im_crit
+# --------------------------------------------------------------------------------------
+def test_alpha_im_crit_smaller_than_alpha(estimation_setup):
+    alpha = estimation_setup["confidence_interval_options"]["alpha"]
+
+    res = estimation(**estimation_setup, confidence_interval="bootstrap")
+
+    est_im_crit = deepcopy(estimation_setup)
+    est_im_crit["confidence_interval_options"]["alpha_im_crit"] = True
+
+    res_im = estimation(**est_im_crit, confidence_interval="bootstrap")
+
+    assert res.alpha_for_ci == alpha
+    assert res_im.alpha_for_ci < alpha
+    assert res_im.alpha_for_ci > alpha / 2
+
+
+def test_alpha_im_crit_smaller_than_alpha_close_to_point(estimation_setup):
+    estimation_setup = deepcopy(estimation_setup)
+
+    estimation_setup["target"] = Estimand("late", u_hi_extra=0.0)
+
+    alpha = estimation_setup["confidence_interval_options"]["alpha"]
+
+    res = estimation(**estimation_setup, confidence_interval="bootstrap")
+
+    est_im_crit = deepcopy(estimation_setup)
+    est_im_crit["confidence_interval_options"]["alpha_im_crit"] = True
+
+    res_im = estimation(**est_im_crit, confidence_interval="bootstrap")
+
+    assert res.alpha_for_ci == alpha
+    assert res_im.alpha_for_ci < alpha
+    assert res_im.alpha_for_ci > alpha / 2
+
+    tol = 0.01
+    assert np.abs(res_im.alpha_for_ci - alpha / 2) < tol
