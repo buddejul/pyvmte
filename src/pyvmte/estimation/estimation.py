@@ -10,8 +10,10 @@ import numpy as np
 from coptpy import COPT
 from scipy.optimize import (  # type: ignore
     OptimizeResult,
+    fsolve,
     linprog,  # type: ignore
 )
+from scipy.stats import norm  # type: ignore
 
 from pyvmte.classes import Estimand, Instrument, PyvmteResult
 from pyvmte.config import RNG
@@ -1222,7 +1224,7 @@ def _compute_confidence_interval(
     raise ValueError(msg)
 
 
-def _compute_resampling_interval(
+def _compute_resampling_interval(  # noqa: PLR0915
     confidence_interval: str,
     confidence_interval_options: dict,
     estimation_kwargs: dict,
@@ -1259,8 +1261,6 @@ def _compute_resampling_interval(
 
     if confidence_interval == "subsampling":
         n_resamples = confidence_interval_options["n_subsamples"]
-
-    alpha = confidence_interval_options["alpha"]
 
     resample_lower_bounds = np.zeros(n_resamples)
     resample_upper_bounds = np.zeros(n_resamples)
@@ -1328,10 +1328,42 @@ def _compute_resampling_interval(
     dist_lower = rn * (resample_lower_bounds - data_lower_bound)
     dist_upper = rn * (resample_upper_bounds - data_upper_bound)
 
+    # ----------------------------------------------------------------------------------
+    # Choose critical values
+    # ----------------------------------------------------------------------------------
+    # The default is to use critival values c_alpha sucht that the coverage for the
+    # *true parameter* has 1 - alpha probability. This is in contrast to the case of
+    # point identification, where c_alpha/2 critival values are required.
+    # "alpha_im_crit" uses an intermediate alpha using Imbens and Manski (2004, ECMA).
+    if confidence_interval_options["alpha_im_crit"]:
+        sigma_lower = np.std(dist_lower)
+        sigma_upper = np.std(dist_upper)
+
+        length = data_upper_bound - data_lower_bound
+
+        # Get critival value that solves (1 - alpha) CI
+        imbens_manski_crit = _solve_imbens_manski_critival_value(
+            alpha=confidence_interval_options["alpha"],
+            n_obs=n_obs,
+            length=length,
+            sigma_lower=sigma_lower,
+            sigma_upper=sigma_upper,
+        )
+
+        # Translate back into implied alpha of Normal CDF
+        alpha_for_ci = 1 - norm.cdf(imbens_manski_crit)
+
+    else:
+        alpha_for_ci = confidence_interval_options["alpha"]
+
+    # ----------------------------------------------------------------------------------
+    # Construct CIs
+    # ----------------------------------------------------------------------------------
+
     # Construct one-sided intervals for upper and lower bound
 
-    t_1_minus_alpha_lower = np.quantile(dist_lower, 1 - alpha)
-    t_alpha_upper = np.quantile(dist_upper, alpha)
+    t_1_minus_alpha_lower = np.quantile(dist_lower, 1 - alpha_for_ci)
+    t_alpha_upper = np.quantile(dist_upper, alpha_for_ci)
 
     if t_alpha_upper > 0:
         msg = f"t_alpha is {t_alpha_upper} which is > 0. Expected < 0."
@@ -1344,3 +1376,26 @@ def _compute_resampling_interval(
         data_lower_bound - t_1_minus_alpha_lower / np.sqrt(n_obs),
         data_upper_bound - t_alpha_upper / np.sqrt(n_obs),
     )
+
+
+def _solve_imbens_manski_critival_value(
+    alpha: float,
+    n_obs: int,
+    length: float,
+    sigma_lower: float,
+    sigma_upper: float,
+) -> float:
+    """Imbens-Manski critical value."""
+
+    # Function defining the critival value (Equation 7 in IM 2004 ECMA).
+    # Note we define CIs by 1 - alpha coverage, IM use alpha coverage, hence
+    # we subtract (1 - alpha).
+    def fun(x):
+        return (
+            norm.cdf(x + np.sqrt(n_obs) * length / max(sigma_lower, sigma_upper))
+            - norm.cdf(-x)
+            - (1 - alpha)
+        )
+
+    # Find root
+    return fsolve(fun, 1.96)[0]
